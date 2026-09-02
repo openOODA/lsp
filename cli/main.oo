@@ -1,0 +1,17 @@
+// # LSP Main — Package Entry Point
+//
+// Logline: Parse argv under the lsp binary and invoke the stdio JSON-RPC server. This is the standalone entry.
+//
+// Setup: argv[0..] is the lsp subcommand args. By default, the lsp binary runs in --stdio mode (the editor case). One-shot file mode is `lsp <request-file>`.
+//
+// Beats:
+//   1. Default to stdio mode (the editor case).
+//   2. If a request file path is given, run one-shot: read the file, dispatch, print the response.
+//   3. Else run the stdio loop: read frames from stdin, dispatch, write framed replies to stdout, until shutdown/exit/EOF.
+
+import "cmd_lsp.oo";
+
+pub fn main(fr: &FsReadCap, env: &EnvCap, sys: &SysCap, args: List[String]) -> Result<Int, String> {
+    run_ooda_lsp(fr, env, sys, args);
+    return Ok(0);
+}
