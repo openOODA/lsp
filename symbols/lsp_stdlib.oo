@@ -1,0 +1,149 @@
+// # Native LSP Standard Library — Single Canonical Root Scanner
+//
+// Logline: Scans the stdlib .oo source tree at the explicit root and pushes pub fn / pub type declarations into the symbol index. No env-var discovery, no binary locator, no CWD fallback.
+//
+// Setup: Uses &FsReadCap to read source files. The root is the single argument; the LSP server requires it to be passed in. There is no fallback path: if the root is empty or missing, the index is just the canonical seed.
+//
+// Beats:
+//   1. If the root is missing or empty, return the canonical seed only.
+//   2. Walk the top-level entries; for each .oo file, parse and add symbols.
+//   3. For each sub-directory, list .oo files and parse each.
+//   4. Capture the Logline from the file's Academy header as the docstring.
+
+import "lsp_symbol_record.oo";
+import "lsp_symbol_canonical.oo";
+
+pub fn lsp_stdlib_try_dir(fs: &FsReadCap, path: String) -> Bool {
+    if chars_len(path) == 0 { return false; }
+    if !path_exists(fs, path) { return false; }
+    let entries: List[String] = oo_fs_read_dir(fs, path);
+    return list_len(entries) > 0;
+}
+
+pub fn lsp_stdlib_find_root(fs: &FsReadCap, explicit_root: String) -> String {
+    if lsp_stdlib_try_dir(fs, explicit_root) { return explicit_root; }
+    return "";
+}
+
+pub fn lsp_stdlib_line_end(src: String, start: Int) -> Int {
+    let n: Int = chars_len(src);
+    let mut i: Int = start;
+    while i < n {
+        if char_at(src, i) == "\n" { return i; }
+        i = i + 1;
+    }
+    return n;
+}
+
+pub fn lsp_stdlib_extract_logline(src: String) -> String {
+    let n: Int = chars_len(src);
+    let mut start: Int = 0;
+    let mut seen: Int = 0;
+    let max_scan: Int = 16;
+    while start < n && seen < max_scan {
+        let mut end: Int = start;
+        while end < n {
+            if char_at(src, end) == "\n" { break; }
+            end = end + 1;
+        }
+        let line: String = str_slice(src, start, end);
+        if str_starts_with(line, "// Logline:") {
+            return str_slice(line, 11, chars_len(line));
+        }
+        if end >= n { break; }
+        start = end + 1;
+        seen = seen + 1;
+    }
+    return "";
+}
+
+pub fn lsp_stdlib_ident_at(s: String, i0: Int) -> Int {
+    let n: Int = chars_len(s);
+    let mut i: Int = i0;
+    while i < n {
+        let c: String = char_at(s, i);
+        let code: Int = byte_at(c, 0);
+        let is_letter: Bool = (code >= 65 && code <= 90) || (code >= 97 && code <= 122);
+        let is_digit: Bool = code >= 48 && code <= 57;
+        if !is_letter && !is_digit && c != "_" { return i; }
+        i = i + 1;
+    }
+    return i;
+}
+
+pub fn lsp_stdlib_match_at(src: String, pos: Int, marker: String) -> Bool {
+    let n: Int = chars_len(src);
+    let ml: Int = chars_len(marker);
+    if pos + ml > n { return false; }
+    return str_slice(src, pos, pos + ml) == marker;
+}
+
+pub fn lsp_stdlib_collect_file(fs: &FsReadCap, file_path: String, idx: List[String]) -> List[String] {
+    let rr: Result[String, String] = read_file(fs, file_path);
+    if !rr.is_ok() { return idx; }
+    let src: String = match rr { Ok(s) => s, Err(m) => m };
+    let logline: String = lsp_stdlib_extract_logline(src);
+    let doc: String = if chars_len(logline) > 0 { logline } else { "Standard library module." };
+    let n: Int = chars_len(src);
+    let mut pos: Int = 0;
+    let mut out: List[String] = idx;
+    while pos < n {
+        let mut kind: Int = 0;
+        let mut off: Int = 0;
+        if lsp_stdlib_match_at(src, pos, "pub fn ") { kind = 1; off = 7; }
+        else if lsp_stdlib_match_at(src, pos, "pub type ") { kind = 2; off = 9; }
+        else if lsp_stdlib_match_at(src, pos, "type ") { kind = 3; off = 5; }
+        if kind == 0 { pos = pos + 1; continue; }
+        let name_start: Int = pos + off;
+        let name_end: Int = lsp_stdlib_ident_at(src, name_start);
+        if name_end <= name_start { pos = pos + 1; continue; }
+        let name: String = str_slice(src, name_start, name_end);
+        let line_end: Int = lsp_stdlib_line_end(src, pos);
+        let sig: String = str_slice(src, pos, line_end);
+        if kind == 1 {
+            out = lsp_index_add(out, name, "Function", sig, doc);
+        } else {
+            out = lsp_index_add(out, name, "Type", sig, doc);
+        }
+        pos = line_end + 1;
+    }
+    return out;
+}
+
+pub fn lsp_stdlib_collect_package(fs: &FsReadCap, pkg_path: String, idx: List[String]) -> List[String] {
+    let entries: List[String] = oo_fs_read_dir(fs, pkg_path);
+    let total: Int = list_len(entries);
+    let cap: Int = 50;
+    let n: Int = if total > cap { cap } else { total };
+    let mut i: Int = 0;
+    let mut out: List[String] = idx;
+    while i < n {
+        let name: String = list_get(entries, i);
+        if str_ends_with(name, ".oo") {
+            let full: String = pkg_path + "/" + name;
+            out = lsp_stdlib_collect_file(fs, full, out);
+        }
+        i = i + 1;
+    }
+    return out;
+}
+
+pub fn lsp_stdlib_scan(fs: &FsReadCap, root: String) -> List[String] {
+    let mut idx: List[String] = lsp_index_build_canonical();
+    if chars_len(root) == 0 { return idx; }
+    if !path_exists(fs, root) { return idx; }
+    let entries: List[String] = oo_fs_read_dir(fs, root);
+    let n: Int = list_len(entries);
+    let mut i: Int = 0;
+    while i < n {
+        let name: String = list_get(entries, i);
+        let full: String = root + "/" + name;
+        if str_ends_with(name, ".oo") {
+            idx = lsp_stdlib_collect_file(fs, full, idx);
+        } else {
+            idx = lsp_stdlib_collect_package(fs, full, idx);
+        }
+        i = i + 1;
+    }
+    return idx;
+}

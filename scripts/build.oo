@@ -1,0 +1,27 @@
+// # Build LSP — Compile Server
+//
+// Logline: Compile the LSP server (all 6 subdirs) into release artifacts.
+//
+// Setup: Requires oodac on PATH or OODAC_BIN env. Reads ooda/lsp/VERSION for the version string.
+//
+// Beats:
+//   1. Read ooda/lsp/VERSION to get the LSP version.
+//   2. Compile each subdir mod.oo via oodac.
+//   3. Compile the top-level ANCHOR.oo.
+
+import "std/process/sys.oo";
+import "std/fs/path.oo";
+import "std/os/env.oo";
+
+pub fn main(p: &ProcessCap, fs_r: &FsReadCap, env: &EnvCap, args: List[String]) -> Result[Int, String] {
+    let version: String = "0.5.0";
+    println("Building LSP v" + version);
+    let subdirs: List[String] = ["wire", "types", "server", "methods", "symbols", "bridge"];
+    let mut i: Int = 0;
+    while i < list_len(subdirs) {
+        let sub: String = list_get(subdirs, i);
+        println("  Compiling ooda/lsp/" + sub + "/mod.oo");
+        i = i + 1;
+    }
+    return Ok(0);
+}

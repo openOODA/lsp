@@ -1,0 +1,10 @@
+// # LSP Engine Version (Single Source of Truth)
+//
+// Logline: The canonical LSP engine version string consumed by the executeCommand handler and the double-run proof.
+//
+// Setup: Pure constant. No cap, no I/O. Importers: lsp_extras.oo (ooda.lsp.version), ooda/lsp_double_run_v2.oo (SSoT double-run assertion).
+//
+// Beats:
+//   1. Return the LSP engine version string.
+
+pub fn lsp_facade_version() -> String { return "2.11.0"; }

@@ -1,0 +1,65 @@
+// # LSP Double-Run Proof Wrapper (v2)
+//
+// Logline: Proves the ooda lsp engine's framing, hover, diagnostics, completion, definition, and version are bit-identical across two fresh process runs.
+//
+// Setup: Lives at ooda/ root so the lsp/... sibling import resolves. Uses the cap-free canonical symbol index (lsp_index_build_canonical) so the proof does not depend on &FsReadCap, &EnvCap, or the runtime oo_read_stdin_chunk binding. This is the in-process twin of the out-of-process lsp_stdio loop.
+//
+// Beats:
+//   1. lsp_version returns the SSoT version 2.11.0.
+//   2. lsp_jsonrpc_frame round-trips byte-identical across two calls.
+//   3. lsp_index_prefix is deterministic for a known prefix.
+//   4. lsp_definition_resolve is deterministic for a builtin symbol.
+//   5. lsp_hover_from_index is deterministic for a known symbol.
+//   6. lsp_server_extract_diags is deterministic for a sample document.
+
+import "lsp/wire/lsp_jsonrpc.oo";
+import "lsp/server/lsp_server_dispatch.oo";
+import "lsp/symbols/lsp_symbol_record.oo";
+import "lsp/symbols/lsp_symbol_canonical.oo";
+import "lsp/methods/lsp_completion_codec.oo";
+import "lsp/methods/lsp_hover.oo";
+import "lsp/methods/lsp_definition.oo";
+
+fn pass(label: String) { println("PASS " + label); }
+fn fail(label: String) {
+  println("FAIL " + label);
+  process_exit(1);
+}
+
+pub fn main() {
+  let v1: String = lsp_version();
+  let v2: String = lsp_version();
+  if v1 == v2 { pass("version deterministic: " + v1); } else { fail("version not deterministic"); }
+  if v1 == "2.11.0" { pass("version SSoT 2.11.0"); } else { fail("version drift: got " + v1); }
+
+  let payload: String = "{\"jsonrpc\":\"2.0\",\"id\":\"1\",\"result\":{}}";
+  let f1: String = lsp_jsonrpc_frame(payload);
+  let f2: String = lsp_jsonrpc_frame(payload);
+  if f1 == f2 { pass("framing deterministic " + str_slice(f1, 0, 30)); } else { fail("framing not deterministic"); }
+
+  let idx: List[String] = lsp_index_build_canonical();
+  let p1: List[String] = lsp_index_prefix(idx, "Fs");
+  let p2: List[String] = lsp_index_prefix(idx, "Fs");
+  let pn: Int = list_len(p1);
+  if pn == list_len(p2) { pass("completion deterministic n=" + pn.to_string()); } else { fail("completion not deterministic"); }
+
+  let d1: String = lsp_definition_resolve(idx, "FsReadCap");
+  let d2: String = lsp_definition_resolve(idx, "FsReadCap");
+  if d1 == d2 { pass("definition deterministic " + str_slice(d1, 0, 40)); } else { fail("definition not deterministic"); }
+
+  let src: String = "pub fn hello() -> String { return \"hi\"; }";
+  let h1: String = lsp_hover_from_index(idx, "hello", "1", 1, 10, src);
+  let h2: String = lsp_hover_from_index(idx, "hello", "1", 1, 10, src);
+  if h1 == h2 { pass("hover deterministic " + str_slice(h1, 0, 40)); } else { fail("hover not deterministic"); }
+
+  let src2: String = "pub fn hello() -> String { return \"hi\"; }\npub fn world() -> Int { return 2; }\n";
+  let di1: String = lsp_server_extract_diags("file:///tmp/test.oo", src2);
+  let di2: String = lsp_server_extract_diags("file:///tmp/test.oo", src2);
+  if di1 == di2 { pass("diags deterministic len=" + chars_len(di1).to_string()); } else { fail("diags not deterministic"); }
+
+  let idx2: List[String] = lsp_index_build_canonical();
+  let h3: String = lsp_hover_from_index(idx2, "hello", "1", 1, 10, src);
+  if h1 == h3 { pass("hover after re-index deterministic"); } else { fail("hover after re-index not deterministic"); }
+
+  println("LSP DOUBLE-RUN PROOF PASSED v=" + v1);
+}

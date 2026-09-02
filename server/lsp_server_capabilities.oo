@@ -1,0 +1,12 @@
+// # LSP Server Capabilities Declaration
+//
+// Logline: Declares the LSP server capabilities (the JSON the server advertises in response to `initialize`).
+//
+// Setup: Pure constant. No cap, no I/O, no framing. The `initialize` and `shutdown` lifecycle handlers live in lsp_server_handlers.oo, where they belong.
+//
+// Beats:
+//   1. Return the static capabilities JSON (12 method families + workspaceFolders).
+
+pub fn lsp_server_capabilities_json() -> String {
+    return "{\"capabilities\":{\"textDocumentSync\":{\"openClose\":true,\"change\":1},\"completionProvider\":{\"resolveProvider\":true,\"triggerCharacters\":[\".\",\"&\",\":\"]},\"hoverProvider\":true,\"definitionProvider\":true,\"documentSymbolProvider\":true,\"documentFormattingProvider\":true,\"codeActionProvider\":true,\"documentLinkProvider\":{\"resolveProvider\":false},\"inlayHintProvider\":true,\"diagnosticProvider\":{\"interFileDependencies\":false,\"workspaceDiagnostics\":false},\"executeCommandProvider\":{\"commands\":[\"ooda.lsp.version\",\"ooda.lsp.indexSize\",\"ooda.lsp.echo\"]},\"workspace\":{\"workspaceFolders\":{\"supported\":true}}}}";
+}

@@ -1,0 +1,16 @@
+// # LSP Scripts Index — Anchor for Agents
+//
+// Logline: Index of the 4 build entry points for the LSP server.
+//
+// Setup: Each script has a single purpose. They compose: build -> test -> verify -> release.
+//
+// Beats:
+//   1. build.oo — compile the LSP server (wire + types + server + methods + symbols + bridge).
+//   2. test.oo — run all 8 probe drivers in qa/.
+//   3. verify.oo — parse VERSION, assert the api_surface field matches the 6-subdir count.
+//   4. release.oo — build + test + verify + tarball output.
+
+import "build.oo";
+import "test.oo";
+import "verify.oo";
+import "release.oo";

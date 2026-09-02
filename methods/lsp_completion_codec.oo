@@ -1,0 +1,36 @@
+// # LSP Completion JSON Codec
+//
+// Logline: Converts symbol-index records to LSP `textDocument/completion` JSON response shapes. Maps the `kind` field (Keyword, Type, Capability) to LSP completion-item-kind numbers.
+//
+// Setup: Imports lsp_symbol_record.oo for the field accessors and lsp_jsonrpc.oo for string escape. Self-contained outbound codec.
+//
+// Beats:
+//   1. Convert a single record to a completion-item JSON object.
+//   2. Convert a list of records to a JSON array body, joined with commas.
+
+import "lsp/symbols/lsp_symbol_record.oo";
+import "lsp/wire/lsp_jsonrpc.oo";
+
+pub fn lsp_index_record_to_completion_json(rec: String) -> String {
+    let name: String = lsp_index_name(rec);
+    let kind: String = lsp_index_kind(rec);
+    let sig: String = lsp_index_signature(rec);
+    let doc: String = lsp_index_doc(rec);
+    let mut kind_num: Int = 3;
+    if kind == "Keyword" { kind_num = 14; }
+    if kind == "Type" { kind_num = 7; }
+    if kind == "Capability" { kind_num = 25; }
+    let ks: String = kind_num.to_string();
+    let ne: String = lsp_jsonrpc_escape(name);
+    let de: String = lsp_jsonrpc_escape(sig);
+    let doe: String = lsp_jsonrpc_escape(doc);
+    return "{\"label\":\"" + ne + "\",\"kind\":" + ks + ",\"detail\":\"" + de + "\",\"documentation\":\"" + doe + "\",\"insertText\":\"" + ne + "\"}";
+}
+
+pub fn lsp_index_records_to_completion_json(records: List[String]) -> String {
+    let n: Int = list_len(records);
+    let mut out: String = "";
+    let mut i: Int = 0;
+    while i < n { if i > 0 { out = out + ","; } out = out + lsp_index_record_to_completion_json(list_get(records, i)); i = i + 1; }
+    return out;
+}

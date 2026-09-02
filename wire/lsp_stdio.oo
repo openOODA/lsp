@@ -1,0 +1,144 @@
+// # Native LSP stdio JSON-RPC loop
+//
+// Logline: Streams Content-Length or JSON-object frames from a non-blocking stdin chunk read and dispatches each through the stateful LSP server until shutdown, exit, or EOF.
+//
+// Setup: Uses lsp_jsonrpc framing, lsp_server dispatch, and the non-blocking oo_read_stdin_chunk runtime helper. The cap values are safety ceilings, not session limits. The in-process twin was removed: tests now call lsp_server_process_message directly.
+//
+// Beats:
+//   1. Build the canonical stdlib index once and initialize a fresh LspServerState.
+//   2. While the buffer holds a complete frame, dispatch it and update state.
+//   3. Otherwise poll oo_read_stdin_chunk(100ms) for the next 4KB chunk; idle >30s ends the session.
+//   4. Reject inputs above the safety cap, frames above LSP_MAX_FRAME_BYTES, and bail on shutdown/exit/EOF.
+//   5. Append each framed response to the cumulative output buffer; print on exit.
+
+import "lsp/types/lsp_types.oo";
+import "lsp_jsonrpc.oo";
+import "lsp/server/lsp_server_dispatch.oo";
+import "lsp/symbols/lsp_e_m_concat.oo";
+import "lsp/methods/lsp_text.oo";
+
+pub fn lsp_input_cap_bytes() -> Int { return lsp_maneuver_cap_input(); }
+pub fn lsp_safety_max_msgs() -> Int { return lsp_maneuver_cap_msgs(); }
+pub fn lsp_max_frame_bytes() -> Int { return lsp_maneuver_cap_text(); }
+pub fn lsp_stdin_poll_ms() -> Int { return 100; }
+pub fn lsp_stdin_idle_iters() -> Int { return 300; }
+
+fn lsp_take_json_object(s: String) -> LspFrame {
+    let n: Int = chars_len(s);
+    if n == 0 { return lsp_frame_none(); }
+    if char_at(s, 0) != "{" { return lsp_frame_none(); }
+    let mut depth: Int = 0;
+    let mut i: Int = 0;
+    let mut in_str: Bool = false;
+    let mut esc: Bool = false;
+    while i < n {
+        let c: String = char_at(s, i);
+        if in_str {
+            if esc { esc = false; }
+            else if c == "\\" { esc = true; }
+            else if c == "\"" { in_str = false; }
+        } else if c == "\"" { in_str = true; }
+        else if c == "{" { depth = depth + 1; }
+        else if c == "}" {
+            depth = depth - 1;
+            if depth == 0 {
+                return lsp_frame_take(str_slice(s, 0, i + 1), str_slice(s, i + 1, n));
+            }
+        }
+        i = i + 1;
+    }
+    return lsp_frame_none();
+}
+
+pub fn lsp_jsonrpc_take_message(buf: String) -> LspFrame {
+    let n: Int = chars_len(buf);
+    let i: Int = lsp_text_skip_ws(buf, 0);
+    if i >= n { return lsp_frame_none(); }
+    let tail: String = str_slice(buf, i, n);
+    if str_starts_with(tail, "Content-Length:") {
+        let clen: Int = lsp_jsonrpc_parse_content_length(tail);
+        let crlf: Int = str_index_of(tail, "\r\n\r\n");
+        let lf: Int = str_index_of(tail, "\n\n");
+        let mut sep: Int = 0 - 1;
+        let mut sepn: Int = 0;
+        if crlf >= 0 { sep = crlf; sepn = 4; }
+        if lf >= 0 { if sep < 0 || lf < sep { sep = lf; sepn = 2; } }
+        if sep < 0 { return lsp_frame_none(); }
+        let start: Int = sep + sepn;
+        let tlen: Int = bytes_len(tail);
+        if clen < 1 || start + clen > tlen { return lsp_frame_none(); }
+        return lsp_frame_take(byte_slice(tail, start, start + clen), byte_slice(tail, start + clen, tlen));
+    }
+    return lsp_take_json_object(tail);
+}
+
+pub fn lsp_serve_buffer(fs: &FsReadCap, env: &EnvCap, explicit_root: String, raw: String) -> String {
+    if bytes_len(raw) > lsp_input_cap_bytes() { return ""; }
+    let idx: List[String] = lsp_server_refresh_index(fs, explicit_root);
+    let mut state: LspServerState = lsp_server_state_new();
+    let mut buf: String = raw;
+    let mut out: String = "";
+    let mut n: Int = 0;
+    let cap: Int = lsp_safety_max_msgs();
+    let fcap: Int = lsp_max_frame_bytes();
+    while n < cap {
+        n = n + 1;
+        let fr: LspFrame = lsp_jsonrpc_take_message(buf);
+        if !lsp_frame_is_ok(&fr) { return out; }
+        buf = lsp_frame_rest(&fr);
+        let f_body: String = lsp_frame_body(&fr);
+        if chars_len(f_body) == 0 { continue; }
+        if bytes_len(f_body) > fcap { continue; }
+        let r: LspProcessResult = lsp_server_process_message(state, f_body, idx);
+        state = r.new_state;
+        if chars_len(r.response) > 0 { out = out + r.response; }
+        let method: String = lsp_jsonrpc_extract_method(f_body);
+        if method == "shutdown" || method == "exit" { return out; }
+    }
+    return out;
+}
+
+pub fn lsp_serve(fs: &FsReadCap, env: &EnvCap, explicit_root: String) {
+    let idx: List[String] = lsp_server_refresh_index(fs, explicit_root);
+    let mut state: LspServerState = lsp_server_state_new();
+    let mut buf: String = "";
+    let mut total_bytes: Int = 0;
+    let mut msgs: Int = 0;
+    let cap_msgs: Int = lsp_safety_max_msgs();
+    let cap_input: Int = lsp_input_cap_bytes();
+    let cap_frame: Int = lsp_max_frame_bytes();
+    let poll_ms: Int = lsp_stdin_poll_ms();
+    let idle_max: Int = lsp_stdin_idle_iters();
+    let mut out: String = "";
+    let mut idle: Int = 0;
+    while msgs < cap_msgs {
+        let fr: LspFrame = lsp_jsonrpc_take_message(buf);
+        if lsp_frame_is_ok(&fr) {
+            buf = lsp_frame_rest(&fr);
+            let f_body: String = lsp_frame_body(&fr);
+            if chars_len(f_body) > 0 && bytes_len(f_body) <= cap_frame {
+                let r: LspProcessResult = lsp_server_process_message(state, f_body, idx);
+                state = r.new_state;
+                if chars_len(r.response) > 0 { out = out + r.response; }
+                let method: String = lsp_jsonrpc_extract_method(f_body);
+                if method == "shutdown" || method == "exit" { println(out); return; }
+            }
+            idle = 0;
+        } else {
+            if total_bytes > cap_input { break; }
+            let r: Result[String, String] = oo_read_stdin_chunk(poll_ms);
+            if !r.is_ok() { break; }
+            let chunk: String = match r { Ok(s) => s, Err(_) => "" };
+            if chars_len(chunk) == 0 {
+                idle = idle + 1;
+                if idle > idle_max { break; }
+            } else {
+                buf = buf + chunk;
+                total_bytes = total_bytes + bytes_len(chunk);
+                idle = 0;
+            }
+        }
+        msgs = msgs + 1;
+    }
+    println(out);
+}

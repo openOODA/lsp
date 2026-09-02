@@ -1,0 +1,41 @@
+// # LSP Compiler Symbol Table Types
+//
+// Logline: Defines the RFC 0006 §6 compiler-integration types: 4 leaf symbol records (LspFunction, LspStruct, LspEnum, LspCapabilityUse) and the LspModuleSymbolTable that aggregates them. The blue-ocean CompilerReadCap bridge.
+//
+// Setup: No imports. The compiler API in lsp_compile.oo produces these records by walking source text; the merge layer in lsp_compiler_merge.oo consumes them. Minimal narrow: no shell-out, no NetCap, in-memory only.
+//
+// Beats:
+//   1. Declare LspFunction (function symbol record).
+//   2. Declare LspStruct (struct symbol record).
+//   3. Declare LspEnum (enum symbol record).
+//   4. Declare LspCapabilityUse (capability-reference record).
+//   5. Declare LspModuleSymbolTable (per-URI aggregate) and lsp_module_empty constructor.
+//   6. Provide structural constructor functions for the 4 leaf types.
+
+// §6 Compiler-integration types — gated by &CompilerReadCap (RFC 0006).
+// Minimal narrow: no shell-out, no NetCap, in-memory only.
+type LspFunction = struct { name: String, line: Int, col: Int };
+type LspStruct = struct { name: String, line: Int, col: Int };
+type LspEnum = struct { name: String, line: Int, col: Int };
+type LspCapabilityUse = struct { cap_token: String, line: Int, col: Int, evidence: String };
+type LspModuleSymbolTable = struct { uri: String, functions: List[LspFunction], structs: List[LspStruct], enums: List[LspEnum], capabilities: List[LspCapabilityUse] };
+
+pub fn lsp_module_empty(uri: String) -> LspModuleSymbolTable {
+    return LspModuleSymbolTable { uri: uri, functions: list_new(), structs: list_new(), enums: list_new(), capabilities: list_new() };
+}
+
+pub fn lsp_function_new(name: String, line: Int, col: Int) -> LspFunction {
+    return LspFunction { name: name, line: line, col: col };
+}
+
+pub fn lsp_struct_new(name: String, line: Int, col: Int) -> LspStruct {
+    return LspStruct { name: name, line: line, col: col };
+}
+
+pub fn lsp_enum_new(name: String, line: Int, col: Int) -> LspEnum {
+    return LspEnum { name: name, line: line, col: col };
+}
+
+pub fn lsp_cap_use_new(tok: String, line: Int, col: Int, ev: String) -> LspCapabilityUse {
+    return LspCapabilityUse { cap_token: tok, line: line, col: col, evidence: ev };
+}

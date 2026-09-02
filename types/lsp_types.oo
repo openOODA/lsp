@@ -1,0 +1,106 @@
+// # LSP Wire Type Definitions — Envelopes, State, Payloads
+//
+// Logline: Defines the LSP wire type system: the in-process framed-message envelope (LspFrame), per-session state (LspServerState, LspDoc), and outbound payload types (LspDiagnostic, LspCodeAction).
+//
+// Setup: Pure record definitions and structural constructor functions. All fields are built-in primitives (String/Int/Bool). No imports. Layer-1 of the LSP type system.
+//
+// Beats:
+//   1. Declare LspFrame (in-process framed message with body/rest/ok).
+//   2. Declare per-session state: LspServerState, LspDoc.
+//   3. Declare outbound payload types: LspDiagnostic, LspCodeAction.
+//   4. Provide constructor + accessor functions for the live types.
+
+type LspFrame = struct {
+    body: String,
+    rest: String,
+    ok: Bool
+};
+
+type LspServerState = struct {
+    is_initialized: Bool,
+    root_uri: String
+};
+
+type LspProcessResult = struct {
+    response: String,
+    new_state: LspServerState
+};
+
+type LspDoc = struct {
+    uri: String,
+    text: String,
+    has_doc: Bool
+};
+
+type LspDiagnostic = struct {
+    start_line: Int,
+    start_col: Int,
+    end_line: Int,
+    end_col: Int,
+    severity: Int,
+    code: String,
+    message: String,
+    source: String
+};
+
+type LspCodeAction = struct {
+    title: String,
+    kind: String,
+    edit: String,
+    start_line: Int,
+    start_col: Int,
+    end_line: Int,
+    end_col: Int
+};
+
+pub fn lsp_frame_none() -> LspFrame {
+    return LspFrame { body: "", rest: "", ok: false };
+}
+
+pub fn lsp_frame_take(body: String, rest: String) -> LspFrame {
+    return LspFrame { body: body, rest: rest, ok: true };
+}
+
+pub fn lsp_frame_body(fr: &LspFrame) -> String { return fr.body; }
+pub fn lsp_frame_rest(fr: &LspFrame) -> String { return fr.rest; }
+pub fn lsp_frame_is_ok(fr: &LspFrame) -> Bool { return fr.ok; }
+
+pub fn lsp_server_state_new() -> LspServerState {
+    return LspServerState { is_initialized: false, root_uri: "" };
+}
+
+pub fn lsp_process_result_new(response: String, new_state: LspServerState) -> LspProcessResult {
+    return LspProcessResult { response: response, new_state: new_state };
+}
+
+pub fn lsp_doc_new(uri: String, text: String, has_doc: Bool) -> LspDoc {
+    return LspDoc { uri: uri, text: text, has_doc: has_doc };
+}
+
+pub fn lsp_diagnostic_new(sl: Int, sc: Int, el: Int, ec: Int, sev: Int, code: String, msg: String, src: String) -> LspDiagnostic {
+    return LspDiagnostic { start_line: sl, start_col: sc, end_line: el, end_col: ec, severity: sev, code: code, message: msg, source: src };
+}
+
+pub fn lsp_action_simple_new(title: String, kind: String, edit: String, start_line: Int, start_col: Int, end_line: Int, end_col: Int) -> LspCodeAction {
+    return LspCodeAction { title: title, kind: kind, edit: edit, start_line: start_line, start_col: start_col, end_line: end_line, end_col: end_col };
+}
+
+pub fn lsp_code_action_title(a: &LspCodeAction) -> String { return a.title; }
+pub fn lsp_code_action_kind(a: &LspCodeAction) -> String { return a.kind; }
+pub fn lsp_code_action_edit(a: &LspCodeAction) -> String { return a.edit; }
+
+pub fn lsp_module_with_function(t: LspModuleSymbolTable, f: LspFunction) -> LspModuleSymbolTable {
+    return LspModuleSymbolTable { uri: t.uri, functions: list_push(t.functions, f), structs: t.structs, enums: t.enums, capabilities: t.capabilities };
+}
+
+pub fn lsp_module_with_capability(t: LspModuleSymbolTable, c: LspCapabilityUse) -> LspModuleSymbolTable {
+    return LspModuleSymbolTable { uri: t.uri, functions: t.functions, structs: t.structs, enums: t.enums, capabilities: list_push(t.capabilities, c) };
+}
+
+pub fn lsp_module_with_struct(t: LspModuleSymbolTable, s: LspStruct) -> LspModuleSymbolTable {
+    return LspModuleSymbolTable { uri: t.uri, functions: t.functions, structs: list_push(t.structs, s), enums: t.enums, capabilities: t.capabilities };
+}
+
+pub fn lsp_module_with_enum(t: LspModuleSymbolTable, e: LspEnum) -> LspModuleSymbolTable {
+    return LspModuleSymbolTable { uri: t.uri, functions: t.functions, structs: t.structs, enums: list_push(t.enums, e), capabilities: t.capabilities };
+}

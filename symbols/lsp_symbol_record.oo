@@ -1,0 +1,57 @@
+// # LSP Symbol Index Record CRUD
+//
+// Logline: In-memory record CRUD for the symbol index. Each record is a `name|kind|signature|doc` 4-tuple. Provides construct, append, prefix-match, exact-lookup, and field-accessor operations.
+//
+// Setup: Imports lsp_symbol_codec.oo for the escape/split primitives. Layer-1 of the symbol index (above the wire codec).
+//
+// Beats:
+//   1. Allocate an empty index and compute its size.
+//   2. Encode a 4-tuple into a record and append it.
+//   3. Read a record's individual field (name, kind, signature, doc) by index.
+//   4. Filter records by case-sensitive prefix for autocomplete.
+//   5. Resolve a single exact-match record by name for go-to-definition and hover.
+
+import "lsp_symbol_codec.oo";
+
+pub fn lsp_index_new() -> List[String] { return list_new(); }
+pub fn lsp_index_size(idx: List[String]) -> Int { return list_len(idx); }
+
+pub fn lsp_index_encode(name: String, kind: String, signature: String, doc: String) -> String {
+    let sep: String = lsp_index_sep();
+    return lsp_index_escape(name) + sep + lsp_index_escape(kind) + sep + lsp_index_escape(signature) + sep + lsp_index_escape(doc);
+}
+
+pub fn lsp_index_add(idx: List[String], name: String, kind: String, signature: String, doc: String) -> List[String] {
+    return list_push(idx, lsp_index_encode(name, kind, signature, doc));
+}
+
+pub fn lsp_index_field(record: String, field_idx: Int) -> String {
+    let parts: List[String] = lsp_index_split_n(record, lsp_index_sep());
+    if field_idx < 0 { return ""; }
+    if field_idx >= list_len(parts) { return ""; }
+    return lsp_index_unescape(list_get(parts, field_idx));
+}
+
+pub fn lsp_index_name(record: String) -> String { return lsp_index_field(record, 0); }
+pub fn lsp_index_kind(record: String) -> String { return lsp_index_field(record, 1); }
+pub fn lsp_index_signature(record: String) -> String { return lsp_index_field(record, 2); }
+pub fn lsp_index_doc(record: String) -> String { return lsp_index_field(record, 3); }
+
+pub fn lsp_index_prefix(idx: List[String], prefix: String) -> List[String] {
+    let mut out: List[String] = list_new();
+    let n: Int = list_len(idx);
+    let mut i: Int = 0;
+    while i < n {
+        let rec: String = list_get(idx, i);
+        if str_starts_with(lsp_index_name(rec), prefix) { out = list_push(out, rec); }
+        i = i + 1;
+    }
+    return out;
+}
+
+pub fn lsp_index_lookup(idx: List[String], name: String) -> String {
+    let n: Int = list_len(idx);
+    let mut i: Int = 0;
+    while i < n { if lsp_index_name(list_get(idx, i)) == name { return list_get(idx, i); } i = i + 1; }
+    return "";
+}

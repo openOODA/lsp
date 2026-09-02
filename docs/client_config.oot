@@ -1,0 +1,45 @@
+# LSP Client Configuration
+
+File: ooda/lsp/docs/client_config.oot
+
+## 1. Launching the Server
+
+```sh
+# stdio mode (the real editor case)
+ooda lsp
+
+# file mode (one-shot, used by smoke tests)
+ooda lsp path/to/request.txt
+```
+
+The server reads from stdin and writes to stdout. Stderr is for diagnostics.
+
+## 2. Initialization
+
+The client must send an `initialize` request before any other request. The server responds with its capabilities (see `LSP_SETUP.oot`). After receiving the response, the client sends `initialized` (a notification, no response).
+
+## 3. Workspace Trust
+
+The server enforces workspace trust: every URI is validated against the configured root prefix. Traversal and outside-root paths are rejected with `-32602` before any handler runs. This is in `ooda/lsp/server/lsp_server_guards.oo`.
+
+## 4. Editor Configuration
+
+For VS Code (or any LSP 3.17 client):
+```json
+{
+  "openooda-lsp": {
+    "command": "ooda",
+    "args": ["lsp"],
+    "filetypes": ["ooda"]
+  }
+}
+```
+
+For Neovim (with nvim-lspconfig):
+```lua
+require('lspconfig').openooda_lsp.setup{
+  cmd = {'ooda', 'lsp'},
+  filetypes = {'ooda'},
+  root_dir = require('lspconfig.util').find_git_ancestor,
+}
+```

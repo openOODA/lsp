@@ -1,0 +1,121 @@
+// # LSP Code Action — Live Cap Attenuation
+//
+// Logline: Generates quick-fix transforms for the three live E-M diagnostics: E_EM_WEIGHT (>256-line source), E_EM_PS (Ps<1), E_EM_DRAG (token_burn).
+//
+// Setup: Maps the three live E_EM_* codes to OCap-narrow edits. No broad caps, no fallbacks.
+//
+// Beats:
+//   1. Resolve live E_EM_WEIGHT / E_EM_PS / E_EM_DRAG to severity-matched edits.
+//   2. Offer OCap-narrow attenuation &FsCap->&FsReadCap and 256-cap split-file suggestions.
+//   3. Serialize CodeAction to JSON-RPC 2.0 with 256-line capping.
+
+import "lsp/types/lsp_types.oo";
+import "lsp_text.oo";
+
+fn lsp_code_action_first_array_object(arr: String) -> String {
+    let n: Int = chars_len(arr);
+    let mut i: Int = 0;
+    i = lsp_text_skip_ws(arr, i);
+    if i < n && char_at(arr, i) == "[" {
+        i = i + 1;
+    }
+    i = lsp_text_skip_ws(arr, i);
+    if i >= n || char_at(arr, i) != "{" {
+        return "";
+    }
+    let start: Int = i;
+    let mut depth: Int = 0;
+    let mut in_str: Bool = false;
+    let mut esc: Bool = false;
+    while i < n {
+        let c: String = char_at(arr, i);
+        if in_str {
+            if esc {
+                esc = false;
+            } else if c == "\\" {
+                esc = true;
+            } else if c == "\"" {
+                in_str = false;
+            }
+        } else if c == "\"" {
+            in_str = true;
+        } else if c == "{" {
+            depth = depth + 1;
+        } else if c == "}" {
+            depth = depth - 1;
+            if depth == 0 {
+                return str_slice(arr, start, i + 1);
+            }
+        }
+        i = i + 1;
+    }
+    return "";
+}
+
+pub fn lsp_code_action_parse_diagnostic(params: String) -> LspDiagnostic {
+    let ctx: String = lsp_jsonrpc_extract_object(params, "context");
+    let diags_arr: String = lsp_jsonrpc_extract_object(ctx, "diagnostics");
+    let first: String = lsp_code_action_first_array_object(diags_arr);
+    let code: String = lsp_jsonrpc_extract_string(first, "code");
+    let rng: String = lsp_jsonrpc_extract_object(first, "range");
+    let start: String = lsp_jsonrpc_extract_object(rng, "start");
+    let end: String = lsp_jsonrpc_extract_object(rng, "end");
+    let sl: Int = lsp_jsonrpc_extract_int(start, "line");
+    let sc: Int = lsp_jsonrpc_extract_int(start, "character");
+    let el: Int = lsp_jsonrpc_extract_int(end, "line");
+    let ec: Int = lsp_jsonrpc_extract_int(end, "character");
+    return lsp_diagnostic_new(sl, sc, el, ec, 1, code, "", "openOODA");
+}
+
+pub fn lsp_code_action_resolve(diag: &LspDiagnostic) -> List[LspCodeAction] {
+    let mut actions: List[LspCodeAction] = list_new();
+    let code: String = diag.code;
+    let sl: Int = diag.start_line;
+    let sc: Int = diag.start_col;
+    let el: Int = diag.end_line;
+    let ec: Int = diag.end_col;
+
+    if code == "E_EM_WEIGHT" {
+        let title: String = "E-M: Split file to enforce 256 cap ((T-D)/W)*V";
+        let edit: String = "// split: W=lines+AST exceeds 256 — extract module";
+        actions = list_push(actions, lsp_action_simple_new(title, "quickfix", edit, sl, sc, el, ec));
+    } else if code == "E_EM_PS" {
+        let title: String = "E-M: Reduce D_alloc/D_search to raise Ps=((T-D)/W)*V";
+        let edit: String = "// reduce D_alloc/D_search — use arena, outline";
+        actions = list_push(actions, lsp_action_simple_new(title, "quickfix", edit, sl, sc, el, ec));
+    } else if code == "E_EM_DRAG" {
+        let title: String = "E-M: Attenuate drag live";
+        let edit: String = "// attenuate D: heap->arena, search->index";
+        actions = list_push(actions, lsp_action_simple_new(title, "quickfix", edit, sl, sc, el, ec));
+    }
+
+    return actions;
+}
+
+pub fn lsp_code_action_to_json(action: &LspCodeAction, uri: String) -> String {
+    let ttl: String = lsp_jsonrpc_escape(lsp_code_action_title(action));
+    let knd: String = lsp_jsonrpc_escape(lsp_code_action_kind(action));
+    let edt: String = lsp_jsonrpc_escape(lsp_code_action_edit(action));
+    let u: String = lsp_jsonrpc_escape(uri);
+    let sl: String = action.start_line.to_string();
+    let sc: String = action.start_col.to_string();
+    let el: String = action.end_line.to_string();
+    let ec: String = action.end_col.to_string();
+    return "{\"title\":\"" + ttl + "\",\"kind\":\"" + knd + "\",\"edit\":{\"changes\":{\"" + u + "\":[{\"range\":{\"start\":{\"line\":" + sl + ",\"character\":" + sc + "},\"end\":{\"line\":" + el + ",\"character\":" + ec + "}},\"newText\":\"" + edt + "\"}]}}}";
+}
+
+pub fn lsp_code_actions_to_json(actions: List[LspCodeAction], uri: String) -> String {
+    let mut out: String = "[";
+    let n: Int = list_len(actions);
+    let mut i: Int = 0;
+    while i < n {
+        if i > 0 {
+            out = out + ",";
+        }
+        let act: LspCodeAction = list_get(actions, i);
+        out = out + lsp_code_action_to_json(&act, uri);
+        i = i + 1;
+    }
+    out = out + "]";
+    return out;
+}

@@ -1,0 +1,98 @@
+// # LSP Document Formatting & Symbols
+//
+// Logline: Trims trailing whitespace and extracts public function symbols for the documentSymbol method.
+//
+// Setup: Pure string manipulation functions without external capability requirements.
+//
+// Beats:
+//   1. Strip trailing whitespace per line for textDocument/formatting.
+//   2. Extract public function symbols for textDocument/documentSymbol.
+//   3. Handle LSP formatting response generation.
+//   4. Handle LSP document symbol response generation.
+
+import "lsp/wire/lsp_json_encode.oo";
+
+pub fn lsp_formatting_strip_trailing_ws(src: String) -> String {
+    let n: Int = chars_len(src);
+    let mut out: String = "";
+    let mut i: Int = 0;
+    let mut line_start: Int = 0;
+    while i < n {
+        if char_at(src, i) == "\n" {
+            let mut end: Int = i;
+            while end > line_start {
+                let c: String = char_at(src, end - 1);
+                if c == " " || c == "\t" || c == "\r" { end = end - 1; } else { break; }
+            }
+            out = out + str_slice(src, line_start, end) + "\n";
+            i = i + 1;
+            line_start = i;
+        } else {
+            i = i + 1;
+        }
+    }
+    if line_start < n {
+        let mut end: Int = n;
+        while end > line_start {
+            let c: String = char_at(src, end - 1);
+            if c == " " || c == "\t" || c == "\r" { end = end - 1; } else { break; }
+        }
+        out = out + str_slice(src, line_start, end);
+    }
+    return out;
+}
+
+pub fn lsp_formatting_handle_formatting(id: String, uri: String, src: String) -> String {
+    let normalized: String = lsp_formatting_strip_trailing_ws(src);
+    let esc: String = lsp_jsonrpc_escape(normalized);
+    let end_line: Int = lsp_text_count_lines(src);
+    let end_line_s: String = end_line.to_string();
+    let body: String = "[{\"range\":{\"start\":{\"line\":0,\"character\":0},\"end\":{\"line\":" + end_line_s + ",\"character\":0}},\"newText\":\"" + esc + "\"}]";
+    return lsp_jsonrpc_frame(lsp_jsonrpc_make_response(id, body));
+}
+
+pub fn lsp_formatting_extract_doc_symbols(uri: String, src: String) -> String {
+    let n: Int = chars_len(src);
+    let mut out: String = "";
+    let mut i: Int = 0;
+    let mut line_num: Int = 0;
+    let mut col_num: Int = 0;
+    let esc_uri: String = lsp_json_escape(uri);
+    while i < n {
+        let c: String = char_at(src, i);
+        if c == "\n" { line_num = line_num + 1; col_num = 0; i = i + 1; continue; }
+        if c == " " || c == "\t" { col_num = col_num + 1; i = i + 1; continue; }
+        if c == "p" {
+            if i + 6 < n && str_slice(src, i, i + 7) == "pub fn " {
+                let name_start: Int = i + 7;
+                let mut j: Int = name_start;
+                while j < n {
+                    let cc: String = char_at(src, j);
+                    let code: Int = byte_at(cc, 0);
+                    let is_letter: Bool = (code >= 65 && code <= 90) || (code >= 97 && code <= 122);
+                    let is_digit: Bool = code >= 48 && code <= 57;
+                    if !is_letter && !is_digit && cc != "_" { break; }
+                    j = j + 1;
+                }
+                if j > name_start {
+                    let name: String = str_slice(src, name_start, j);
+                    let name_esc: String = lsp_json_escape(name);
+                    let ln: String = line_num.to_string();
+                    let cn: String = col_num.to_string();
+                    if chars_len(out) > 0 { out = out + ","; }
+                    out = out + "{\"name\":\"" + name_esc + "\",\"kind\":" + lsp_formatting_symbol_kind_function() + ",\"location\":{\"uri\":\"" + esc_uri + "\",\"range\":{\"start\":{\"line\":" + ln + ",\"character\":" + cn + "},\"end\":{\"line\":" + ln + ",\"character\":" + cn + "}}}}";
+                }
+            }
+        }
+        col_num = col_num + 1;
+        i = i + 1;
+    }
+    return "[" + out + "]";
+}
+
+pub fn lsp_formatting_symbol_kind_function() -> String { return "12"; }
+
+pub fn lsp_formatting_handle_document_symbol(id: String, uri: String, src: String) -> String {
+    let body: String = lsp_formatting_extract_doc_symbols(uri, src);
+    return lsp_jsonrpc_frame(lsp_jsonrpc_make_response(id, body));
+}

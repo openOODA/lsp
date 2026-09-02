@@ -1,0 +1,147 @@
+// # Sovereign LSP Hover via Symbol Index
+//
+// Logline: Renders hover by looking up the symbol in the canonical index and prepending the Academy 4-element header from the source file.
+//
+// Setup: Active path is lsp_hover_from_index (index lookup). Academy parse augments the Markdown body. The index already contains the stdlib seed + stdlib scan + user-symbol merge.
+//
+// Beats:
+//   1. Parse the four Academy elements: Title, Logline, Setup, and Beats from a source file.
+//   2. Render the parsed header as a Markdown hover block with type signature.
+//   3. Build a hover payload using index-fetched symbol with cap_kind/cap_token params.
+//   4. Emit a JSON hover response envelope with contents and a default range.
+
+import "lsp/symbols/lsp_symbol_record.oo";
+import "lsp/wire/lsp_json_encode.oo";
+import "lsp_text.oo";
+import "lsp/wire/lsp_jsonrpc.oo";
+
+pub fn lsp_hover_find_pub_fn_line(src: String, name: String) -> Int {
+    let needle: String = "pub fn " + name;
+    let mut line: Int = 0;
+    let n: Int = chars_len(src);
+    let mut i: Int = 0;
+    while i < n {
+        let cur: String = lsp_text_line_at(src, line);
+        let stripped: String = lsp_hover_strip_header_token(cur);
+        if str_starts_with(stripped, needle) { return line; }
+        while i < n { if char_at(src, i) == "\n" { i = i + 1; line = line + 1; break; } i = i + 1; }
+    }
+    return 0 - 1;
+}
+
+pub fn lsp_hover_parse_academy_in_range(src: String, start_line: Int, end_line: Int) -> List[String] {
+    let mut out: List[String] = list_new();
+    let mut title: String = "";
+    let mut logline: String = "";
+    let mut setup: String = "";
+    let mut beats: String = "";
+    let mut header_line: Int = 0 - 1;
+    let mut i: Int = start_line - 1;
+    while i >= 0 {
+        let cur_line: String = lsp_text_line_at(src, i);
+        let stripped: String = lsp_hover_strip_header_token(cur_line);
+        if str_starts_with(stripped, "#") {
+            header_line = i;
+            title = lsp_text_trim(str_slice(stripped, 1, chars_len(stripped)));
+            break;
+        }
+        i = i - 1;
+    }
+    if header_line < 0 { return out; }
+    let mut j: Int = header_line + 1;
+    let stop: Int = end_line;
+    while j < stop {
+        let jl: String = lsp_text_line_at(src, j);
+        let jstrip: String = lsp_hover_strip_header_token(jl);
+        if str_starts_with(jstrip, "Logline:") { logline = lsp_text_trim(str_slice(jstrip, 8, chars_len(jstrip))); }
+        else if str_starts_with(jstrip, "Setup:") {
+            let add: String = lsp_text_trim(str_slice(jstrip, 6, chars_len(jstrip)));
+            if chars_len(setup) == 0 { setup = add; } else { setup = setup + " " + add; }
+        } else if str_starts_with(jstrip, "Beats:") {
+            let mut k: Int = j + 1;
+            let mut collected: String = "";
+            while k < stop {
+                let kl: String = lsp_text_line_at(src, k);
+                let kstrip: String = lsp_hover_strip_header_token(kl);
+                let first: String = str_slice(kstrip, 0, 1);
+                if lsp_text_is_digit(first) {
+                    if chars_len(collected) > 0 { collected = collected + " | "; }
+                    collected = collected + lsp_text_trim(kstrip);
+                    k = k + 1;
+                } else { if chars_len(kstrip) == 0 { k = k + 1; continue; } break; }
+            }
+            beats = collected;
+        }
+        j = j + 1;
+    }
+    out = list_push(out, title);
+    out = list_push(out, logline);
+    out = list_push(out, setup);
+    out = list_push(out, beats);
+    return out;
+}
+
+pub fn lsp_hover_strip_header_token(s: String) -> String {
+    let trimmed: String = lsp_text_trim(s);
+    if str_starts_with(trimmed, "//") {
+        return lsp_text_trim(str_slice(trimmed, 2, chars_len(trimmed)));
+    }
+    return trimmed;
+}
+
+pub fn lsp_hover_parse_academy(src: String) -> List[String] {
+    return lsp_hover_parse_academy_in_range(src, 0, lsp_text_count_lines(src) + 1);
+}
+
+pub fn lsp_hover_title(parsed: List[String]) -> String { return list_get(parsed, 0); }
+pub fn lsp_hover_logline(parsed: List[String]) -> String { return list_get(parsed, 1); }
+pub fn lsp_hover_setup(parsed: List[String]) -> String { return list_get(parsed, 2); }
+pub fn lsp_hover_beats(parsed: List[String]) -> String { return list_get(parsed, 3); }
+
+pub fn lsp_hover_format_markdown(parsed: List[String]) -> String {
+    let title: String = lsp_hover_title(parsed);
+    let logline: String = lsp_hover_logline(parsed);
+    let setup: String = lsp_hover_setup(parsed);
+    let beats: String = lsp_hover_beats(parsed);
+    let mut out: String = "";
+    if chars_len(title) > 0 { out = out + "### " + title + "\n\n"; }
+    if chars_len(logline) > 0 { out = out + "**Logline.** " + logline + "\n\n"; }
+    if chars_len(setup) > 0 { out = out + "**Setup.** " + setup + "\n\n"; }
+    if chars_len(beats) > 0 {
+        out = out + "**Beats.**\n";
+        out = out + beats + "\n";
+    }
+    return out;
+}
+
+pub fn lsp_hover_render(symbol: String, signature: String, doc: String) -> String {
+    let sig: String = if chars_len(signature) > 0 { signature } else { symbol };
+    let mut out: String = "";
+    out = out + "```oo\n" + sig + "\n```\n\n";
+    if chars_len(doc) > 0 { out = out + doc + "\n"; }
+    return out;
+}
+
+pub fn lsp_hover_from_index(idx: List[String], name: String, id: String, line: Int, col: Int, src: String) -> String {
+    let rec: String = lsp_index_lookup(idx, name);
+    if chars_len(rec) == 0 { return lsp_jsonrpc_make_response(id, "null"); }
+    let sig: String = lsp_index_signature(rec);
+    let doc: String = lsp_index_doc(rec);
+    let idx_md: String = lsp_hover_render(name, sig, doc);
+    let mut full_md: String = idx_md;
+    if chars_len(src) > 0 {
+        let pub_line: Int = lsp_hover_find_pub_fn_line(src, name);
+        let mut parsed: List[String] = list_new();
+        if pub_line >= 0 { parsed = lsp_hover_parse_academy_in_range(src, 0, pub_line); }
+        if list_len(parsed) == 0 || chars_len(list_get(parsed, 0)) == 0 { parsed = lsp_hover_parse_academy_in_range(src, 0, 32); }
+        let academy_md: String = lsp_hover_format_markdown(parsed);
+        if chars_len(academy_md) > 0 { full_md = academy_md + idx_md; }
+    }
+    let esc: String = lsp_json_escape(full_md);
+    let sline: String = line.to_string();
+    let scol: String = col.to_string();
+    let eline: String = line.to_string();
+    let ecol: String = (col + chars_len(name)).to_string();
+    let res: String = "{\"contents\":{\"kind\":\"markdown\",\"value\":\"" + esc + "\"},\"range\":{\"start\":{\"line\":" + sline + ",\"character\":" + scol + "},\"end\":{\"line\":" + eline + ",\"character\":" + ecol + "}}}";
+    return lsp_jsonrpc_make_response(id, res);
+}

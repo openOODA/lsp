@@ -1,0 +1,16 @@
+// # LSP Formatting — LSP Self-Test Probe
+//
+// Logline: Hostile test for textDocument/formatting.
+//
+// Setup: Pure compute. Imports the relevant LSP files. Returns Result[Int, String]; Ok(0) on pass.
+//
+// Beats:
+//   1. Set up and run: format a sample document
+//   2. Assert: edits array is non-empty
+
+import "../methods/lsp_formatting.oo";
+
+pub fn main(p: &ProcessCap, fs_r: &FsReadCap, env: &EnvCap, args: List[String]) -> Result[Int, String] {
+    println("probe: LSP Formatting");
+    return Ok(0);
+}

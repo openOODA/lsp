@@ -1,0 +1,126 @@
+// # LSP Request Dispatcher and In-Process Message Processor
+//
+// Logline: Routes JSON-RPC method names to per-method handlers, enforces the init-before-use guard, evolves per-session state, and is the single canonical in-process entry point for tests.
+//
+// Setup: Imports the protocol types, the rpc-method classifier, the text utilities, the JSON-RPC framer, the guards + handlers, plus formatting, extras, and code-action. This is the Layer-3 dispatcher — the only file that knows the full 16-method routing table (initialize, shutdown, exit, initialized, didOpen, didChange, completion, hover, definition, formatting, documentSymbol, codeAction, diagnostic, documentLink, inlayHint, executeCommand).
+//
+// Beats:
+//   1. lsp_server_dispatch_request — the 16-method if/else chain that routes method name to handler.
+//   2. lsp_server_process_message — extracts method/id/params, evolves state, returns (response, new_state) so the stdio loop can thread state across requests.
+
+import "lsp/types/lsp_types.oo";
+import "lsp/wire/lsp_rpc_methods.oo";
+import "lsp/wire/lsp_jsonrpc.oo";
+import "lsp/methods/lsp_text.oo";
+import "lsp_server_guards.oo";
+import "lsp_server_handlers.oo";
+import "lsp/methods/lsp_formatting.oo";
+import "lsp/methods/lsp_methods_extra.oo";
+import "lsp/methods/lsp_code_action.oo";
+
+pub fn lsp_server_dispatch_request(state: LspServerState, idx: List[String], method: String, id: String, params: String) -> String {
+    if !state.is_initialized && lsp_rpc_methods_is_document(method) {
+        if method == "textDocument/didOpen" || method == "textDocument/didChange" { return ""; }
+        return lsp_jsonrpc_frame(lsp_jsonrpc_make_error(id, 0 - 32602, "Server not initialized: " + method));
+    }
+    if method == "initialize" {
+        if state.is_initialized {
+            return lsp_jsonrpc_frame(lsp_jsonrpc_make_error(id, 0 - 32600, "Server already initialized"));
+        }
+        return lsp_server_handle_initialize(id);
+    }
+    if method == "shutdown" { return lsp_server_handle_shutdown(id); }
+    if method == "exit" { return ""; }
+    if method == "initialized" { return ""; }
+    if method == "textDocument/didOpen" {
+        let d: LspDoc = lsp_server_extract_doc(params);
+        if !lsp_server_uri_acceptable(d.uri, state.root_uri) { return ""; }
+        return lsp_server_handle_did_open(d.uri, d.text);
+    }
+    if method == "textDocument/didChange" {
+        let d: LspDoc = lsp_server_extract_doc(params);
+        if !lsp_server_uri_acceptable(d.uri, state.root_uri) { return ""; }
+        return lsp_server_handle_did_change(d.uri, d.text);
+    }
+    if method == "textDocument/completion" {
+        let d: LspDoc = lsp_server_extract_doc(params);
+        let pos: String = lsp_jsonrpc_extract_object(params, "position");
+        let line: Int = if chars_len(pos) > 0 { lsp_jsonrpc_extract_int(pos, "line") } else { 0 };
+        let col: Int = if chars_len(pos) > 0 { lsp_jsonrpc_extract_int(pos, "character") } else { 0 };
+        return lsp_server_handle_completion(id, idx, lsp_text_completion_prefix(d.text, line, col));
+    }
+    if method == "textDocument/hover" {
+        let d: LspDoc = lsp_server_extract_doc(params);
+        let pos: String = lsp_jsonrpc_extract_object(params, "position");
+        let line: Int = if chars_len(pos) > 0 { lsp_jsonrpc_extract_int(pos, "line") } else { 0 };
+        let col: Int = if chars_len(pos) > 0 { lsp_jsonrpc_extract_int(pos, "character") } else { 0 };
+        let mut sym: String = lsp_jsonrpc_extract_string(params, "symbol");
+        if chars_len(sym) == 0 { sym = lsp_text_completion_prefix(d.text, line, col); }
+        return lsp_server_handle_hover(id, idx, sym, line, col, d.text);
+    }
+    if method == "textDocument/definition" {
+        let d: LspDoc = lsp_server_extract_doc(params);
+        let err: String = lsp_server_trust_check(state, d.uri, id);
+        if chars_len(err) > 0 { return err; }
+        let pos: String = lsp_jsonrpc_extract_object(params, "position");
+        let line: Int = if chars_len(pos) > 0 { lsp_jsonrpc_extract_int(pos, "line") } else { 0 };
+        let col: Int = if chars_len(pos) > 0 { lsp_jsonrpc_extract_int(pos, "character") } else { 0 };
+        let mut sym: String = lsp_jsonrpc_extract_string(params, "symbol");
+        if chars_len(sym) == 0 { sym = lsp_text_completion_prefix(d.text, line, col); }
+        return lsp_server_handle_definition(id, idx, sym, d.uri);
+    }
+    if method == "textDocument/formatting" {
+        let d: LspDoc = lsp_server_extract_doc(params);
+        let err: String = lsp_server_trust_check(state, d.uri, id);
+        if chars_len(err) > 0 { return err; }
+        return lsp_formatting_handle_formatting(id, d.uri, d.text);
+    }
+    if method == "textDocument/documentSymbol" {
+        let d: LspDoc = lsp_server_extract_doc(params);
+        return lsp_formatting_handle_document_symbol(id, d.uri, d.text);
+    }
+    if method == "textDocument/codeAction" {
+        let d: LspDoc = lsp_server_extract_doc(params);
+        let err: String = lsp_server_trust_check(state, d.uri, id);
+        if chars_len(err) > 0 { return err; }
+        let diag: LspDiagnostic = lsp_code_action_parse_diagnostic(params);
+        let actions: List[LspCodeAction] = lsp_code_action_resolve(&diag);
+        let res: String = lsp_code_actions_to_json(actions, d.uri);
+        return lsp_jsonrpc_frame(lsp_jsonrpc_make_response(id, res));
+    }
+    if method == "textDocument/diagnostic" {
+        let d: LspDoc = lsp_server_extract_doc(params);
+        let err: String = lsp_server_trust_check(state, d.uri, id);
+        if chars_len(err) > 0 { return err; }
+        return lsp_server_handle_diagnostic(id, d.uri, d.text);
+    }
+    if method == "textDocument/documentLink" {
+        let d: LspDoc = lsp_server_extract_doc(params);
+        return lsp_extras_handle_document_link(id, d.text);
+    }
+    if method == "textDocument/inlayHint" {
+        let d: LspDoc = lsp_server_extract_doc(params);
+        return lsp_extras_handle_inlay_hint(id, d.text);
+    }
+    if method == "workspace/executeCommand" {
+        let command: String = lsp_jsonrpc_extract_string(params, "command");
+        let args: String = lsp_jsonrpc_extract_object(params, "arguments");
+        return lsp_extras_handle_execute_command(id, idx, command, args);
+    }
+    return lsp_jsonrpc_frame(lsp_jsonrpc_make_error(id, 0 - 32601, "Method not found: " + method));
+}
+
+pub fn lsp_server_process_message(state: LspServerState, raw_body: String, idx: List[String]) -> LspProcessResult {
+    let method: String = lsp_jsonrpc_extract_method(raw_body);
+    let id: String = lsp_jsonrpc_extract_id(raw_body);
+    let params: String = lsp_jsonrpc_extract_params(raw_body);
+    let mut next: LspServerState = state;
+    if method == "initialize" {
+        let root: String = lsp_jsonrpc_extract_string(params, "rootUri");
+        if chars_len(root) > 0 { next = lsp_server_stamp(next, true, root); }
+        else { next = lsp_server_stamp(next, true, next.root_uri); }
+    }
+    if method == "shutdown" { next = lsp_server_stamp(next, next.is_initialized, next.root_uri); }
+    let resp: String = lsp_server_dispatch_request(next, idx, method, id, params);
+    return lsp_process_result_new(resp, next);
+}

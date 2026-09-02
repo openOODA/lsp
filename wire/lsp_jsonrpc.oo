@@ -1,0 +1,244 @@
+// # JSON-RPC 2.0 Framing and Codec
+//
+// Logline: Encodes and decodes JSON-RPC 2.0 messages with Content-Length headers for stream transport.
+//
+// Setup: Pure string manipulation and JSON-RPC 2.0 envelope framing.
+//
+// Beats:
+//   1. Frame payloads with standard Content-Length headers and delimiters.
+//   2. Parse Content-Length header integers and extract payload slices.
+//   3. Construct standard JSON-RPC 2.0 success and error response envelopes.
+//   4. Extract request IDs, methods, and parameters with whitespace tolerance.
+
+import "lsp_json_encode.oo";
+
+pub fn lsp_jsonrpc_frame(payload: String) -> String {
+    let len: Int = bytes_len(payload);
+    let len_str: String = len.to_string();
+    return "Content-Length: " + len_str + "\r\n\r\n" + payload;
+}
+
+pub fn lsp_parse_int(s: String) -> Int {
+    let n: Int = chars_len(s);
+    let mut v: Int = 0;
+    let mut i: Int = 0;
+    while i < n {
+        let c: String = char_at(s, i);
+        let code: Int = byte_at(c, 0);
+        if code >= 48 && code <= 57 {
+            v = v * 10 + (code - 48);
+        }
+        i = i + 1;
+    }
+    return v;
+}
+
+pub fn lsp_jsonrpc_parse_content_length(header: String) -> Int {
+    let prefix: String = "Content-Length: ";
+    let plen: Int = chars_len(prefix);
+    let hlen: Int = chars_len(header);
+    if hlen < plen { return 0; }
+    if !str_starts_with(header, prefix) { return 0; }
+    let mut i: Int = plen;
+    let mut val_str: String = "";
+    while i < hlen {
+        let c: String = char_at(header, i);
+        if c == "0" || c == "1" || c == "2" || c == "3" || c == "4" || c == "5" || c == "6" || c == "7" || c == "8" || c == "9" {
+            val_str = val_str + c;
+        } else if c != "\r" && c != "\n" && c != " " { break; }
+        i = i + 1;
+    }
+    if chars_len(val_str) == 0 { return 0; }
+    return lsp_parse_int(val_str);
+}
+
+pub fn lsp_jsonrpc_is_safe_id(s: String) -> Bool {
+    let n: Int = chars_len(s);
+    let mut i: Int = 0;
+    if n == 0 { return true; }
+    if char_at(s, 0) == "\"" {
+        if n < 2 || char_at(s, n - 1) != "\"" { return false; }
+        i = 1;
+        let mut j: Int = 1;
+        while j < n - 1 {
+            let c: String = char_at(s, j);
+            if c == "\\" { j = j + 2; continue; }
+            if c == "\"" { return false; }
+            j = j + 1;
+        }
+        return true;
+    }
+    if s == "null" { return true; }
+    while i < n {
+        let c: String = char_at(s, i);
+        if c == "-" && i == 0 { i = i + 1; continue; }
+        let code: Int = byte_at(c, 0);
+        if code < 48 || code > 57 { return false; }
+        i = i + 1;
+    }
+    return n > 0;
+}
+
+pub fn lsp_jsonrpc_make_response(id: String, result_json: String) -> String {
+    let safe_id: String = if lsp_jsonrpc_is_safe_id(id) { id } else { "0" };
+    return "{\"jsonrpc\":\"2.0\",\"id\":" + safe_id + ",\"result\":" + result_json + "}";
+}
+
+pub fn lsp_jsonrpc_make_error(id: String, code: Int, msg: String) -> String {
+    let safe_id: String = if lsp_jsonrpc_is_safe_id(id) { id } else { "0" };
+    let code_str: String = code.to_string();
+    let escaped_msg: String = lsp_jsonrpc_escape(msg);
+    return "{\"jsonrpc\":\"2.0\",\"id\":" + safe_id + ",\"error\":{\"code\":" + code_str + ",\"message\":\"" + escaped_msg + "\"}}";
+}
+
+pub fn lsp_jsonrpc_make_notification(method: String, body_json: String) -> String {
+    let escaped_method: String = lsp_jsonrpc_escape(method);
+    return "{\"jsonrpc\":\"2.0\",\"method\":\"" + escaped_method + "\",\"params\":" + body_json + "}";
+}
+
+pub fn lsp_jsonrpc_escape(s: String) -> String {
+    return lsp_json_escape(s);
+}
+
+fn lsp_is_ws(c: String) -> Bool {
+    return c == " " || c == "\t" || c == "\n" || c == "\r";
+}
+
+fn lsp_jsonrpc_find_val_pos(json: String, key: String) -> Int {
+    let kpat: String = "\"" + key + "\"";
+    let klen: Int = chars_len(kpat);
+    let jlen: Int = chars_len(json);
+    if jlen <= klen { return 0 - 1; }
+    let mut i: Int = 0;
+    while i <= jlen - klen {
+        let mut match_k: Bool = true;
+        let mut j: Int = 0;
+        while j < klen {
+            if char_at(json, i + j) != char_at(kpat, j) { match_k = false; break; }
+            j = j + 1;
+        }
+        if match_k {
+            let mut pos: Int = i + klen;
+            while pos < jlen && lsp_is_ws(char_at(json, pos)) { pos = pos + 1; }
+            if pos < jlen && char_at(json, pos) == ":" {
+                pos = pos + 1;
+                while pos < jlen && lsp_is_ws(char_at(json, pos)) { pos = pos + 1; }
+                return pos;
+            }
+        }
+        i = i + 1;
+    }
+    return 0 - 1;
+}
+
+pub fn lsp_jsonrpc_extract_string(json: String, key: String) -> String {
+    let pos: Int = lsp_jsonrpc_find_val_pos(json, key);
+    let jlen: Int = chars_len(json);
+    if pos < 0 || pos >= jlen { return ""; }
+    if char_at(json, pos) != "\"" { return ""; }
+    let start_pos: Int = pos + 1;
+    let mut end_pos: Int = start_pos;
+    while end_pos < jlen {
+        let c: String = char_at(json, end_pos);
+        if c == "\"" {
+            let mut b_count: Int = 0;
+            let mut b_pos: Int = end_pos - 1;
+            while b_pos >= start_pos && char_at(json, b_pos) == "\\" {
+                b_count = b_count + 1;
+                b_pos = b_pos - 1;
+            }
+            if b_count % 2 == 0 { break; }
+        }
+        end_pos = end_pos + 1;
+    }
+    return str_slice(json, start_pos, end_pos);
+}
+
+pub fn lsp_jsonrpc_extract_id(json: String) -> String {
+    let pos: Int = lsp_jsonrpc_find_val_pos(json, "id");
+    let jlen: Int = chars_len(json);
+    if pos < 0 || pos >= jlen { return "0"; }
+    if char_at(json, pos) == "\"" {
+        let str_id: String = lsp_jsonrpc_extract_string(json, "id");
+        return "\"" + str_id + "\"";
+    }
+    let start_pos: Int = pos;
+    let mut end_pos: Int = start_pos;
+    while end_pos < jlen {
+        let c: String = char_at(json, end_pos);
+        if c == "," || c == "}" || c == " " || c == "\t" || c == "\r" || c == "\n" { break; }
+        end_pos = end_pos + 1;
+    }
+    let res: String = str_slice(json, start_pos, end_pos);
+    if chars_len(res) == 0 { return "0"; }
+    return res;
+}
+
+pub fn lsp_jsonrpc_extract_method(json: String) -> String {
+    return lsp_jsonrpc_extract_string(json, "method");
+}
+
+pub fn lsp_jsonrpc_extract_object(json: String, key: String) -> String {
+    let pos: Int = lsp_jsonrpc_find_val_pos(json, key);
+    let jlen: Int = chars_len(json);
+    if pos < 0 || pos >= jlen { return ""; }
+    let start_c: String = char_at(json, pos);
+    if start_c == "{" || start_c == "[" {
+        let mut depth: Int = 0;
+        let mut in_str: Bool = false;
+        let mut esc: Bool = false;
+        let mut i: Int = pos;
+        while i < jlen {
+            let c: String = char_at(json, i);
+            if in_str {
+                if esc { esc = false; }
+                else if c == "\\" { esc = true; }
+                else if c == "\"" { in_str = false; }
+            } else if c == "\"" { in_str = true; }
+            else if c == start_c { depth = depth + 1; }
+            else if (start_c == "{" && c == "}") || (start_c == "[" && c == "]") {
+                depth = depth - 1;
+                if depth == 0 { return str_slice(json, pos, i + 1); }
+            }
+            i = i + 1;
+        }
+    }
+    return "";
+}
+
+pub fn lsp_jsonrpc_extract_params(json: String) -> String {
+    let obj: String = lsp_jsonrpc_extract_object(json, "params");
+    if chars_len(obj) == 0 { return "{}"; }
+    return obj;
+}
+
+pub fn lsp_jsonrpc_extract_int(json: String, key: String) -> Int {
+    let pos: Int = lsp_jsonrpc_find_val_pos(json, key);
+    let jlen: Int = chars_len(json);
+    if pos < 0 || pos >= jlen { return 0; }
+    let mut i: Int = pos;
+    let mut neg: Bool = false;
+    if char_at(json, i) == "-" { neg = true; i = i + 1; }
+    let start: Int = i;
+    while i < jlen {
+        let c: String = char_at(json, i);
+        let code: Int = byte_at(c, 0);
+        if code < 48 || code > 57 { break; }
+        i = i + 1;
+    }
+    let v: Int = lsp_parse_int(str_slice(json, start, i));
+    if neg { return 0 - v; }
+    return v;
+}
+
+pub fn lsp_jsonrpc_extract_nested_string(json: String, outer: String, inner: String) -> String {
+    let obj: String = lsp_jsonrpc_extract_object(json, outer);
+    if chars_len(obj) == 0 { return ""; }
+    return lsp_jsonrpc_extract_string(obj, inner);
+}
+
+pub fn lsp_jsonrpc_extract_nested_int(json: String, outer: String, inner: String) -> Int {
+    let obj: String = lsp_jsonrpc_extract_object(json, outer);
+    if chars_len(obj) == 0 { return 0; }
+    return lsp_jsonrpc_extract_int(obj, inner);
+}

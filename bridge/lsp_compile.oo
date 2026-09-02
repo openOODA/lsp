@@ -1,0 +1,134 @@
+// # OODAC LSP Bridge — CompilerReadCap-Gated Symbol Table
+//
+// Logline: RFC 0006 §6 in-memory text-walker that produces a real LspModuleSymbolTable from openOODA source under &CompilerReadCap; the blue-ocean merge that turns the LSP index from a static seed into a live per-document view.
+//
+// Setup: Pure text-walker; no FsReadCap, no shell-out, no NetCap. &CompilerReadCap gates the bridge so only compiler-trusted callers may inject module-local symbols into the index.
+//
+// Beats:
+//   1. lsp_compile_module walks the source and harvests pub fn, &Cap, and pub struct/enum declarations into the real LspModuleSymbolTable shape (functions, structs, enums, capabilities).
+//   2. lsp_compile_take_ident extracts a valid identifier from a string.
+//   3. lsp_compile_cap_table_contains is an O(N) membership test for the cap table.
+
+import "lsp/methods/lsp_text.oo";
+import "lsp_compiler_types.oo";
+
+pub fn lsp_compile_module(c: &CompilerReadCap, uri: String, text: String) -> LspModuleSymbolTable {
+  let mut t: LspModuleSymbolTable = lsp_module_empty(uri);
+  if chars_len(text) == 0 { return t; }
+  let lines: List[String] = lsp_text_lines(text);
+  t = lsp_compile_walk_fns(c, t, lines);
+  t = lsp_compile_walk_caps(c, t, lines);
+  t = lsp_compile_walk_structs(c, t, lines);
+  t = lsp_compile_walk_enums(c, t, lines);
+  return t;
+}
+
+pub fn lsp_compile_walk_fns(c: &CompilerReadCap, t: LspModuleSymbolTable, lines: List[String]) -> LspModuleSymbolTable {
+  let n: Int = list_len(lines);
+  let mut i: Int = 0;
+  let mut out: LspModuleSymbolTable = t;
+  while i < n {
+    let name: String = lsp_compile_extract_pub_fn_name(list_get(lines, i));
+    if chars_len(name) > 0 {
+      let fn_node: LspFunction = lsp_function_new(name, i, 0);
+      out = lsp_module_with_function(out, fn_node);
+    }
+    i = i + 1;
+  }
+  return out;
+}
+
+pub fn lsp_compile_walk_caps(c: &CompilerReadCap, t: LspModuleSymbolTable, lines: List[String]) -> LspModuleSymbolTable {
+  let n: Int = list_len(lines);
+  let mut i: Int = 0;
+  let mut out: LspModuleSymbolTable = t;
+  while i < n {
+    let cap: String = lsp_compile_extract_cap_ref(list_get(lines, i));
+    if chars_len(cap) > 0 {
+      let use: LspCapabilityUse = lsp_cap_use_new(cap, i, 0, "param ref in " + out.uri);
+      if !lsp_compile_cap_table_contains(out.capabilities, cap) {
+        out = lsp_module_with_capability(out, use);
+      }
+    }
+    i = i + 1;
+  }
+  return out;
+}
+
+pub fn lsp_compile_walk_structs(c: &CompilerReadCap, t: LspModuleSymbolTable, lines: List[String]) -> LspModuleSymbolTable {
+  let n: Int = list_len(lines);
+  let mut i: Int = 0;
+  let mut out: LspModuleSymbolTable = t;
+  while i < n {
+    let nm: String = lsp_compile_extract_pub_type_decl(list_get(lines, i), "struct");
+    if chars_len(nm) > 0 {
+      let st: LspStruct = lsp_struct_new(nm, i, 0);
+      out = lsp_module_with_struct(out, st);
+    }
+    i = i + 1;
+  }
+  return out;
+}
+
+pub fn lsp_compile_walk_enums(c: &CompilerReadCap, t: LspModuleSymbolTable, lines: List[String]) -> LspModuleSymbolTable {
+  let n: Int = list_len(lines);
+  let mut i: Int = 0;
+  let mut out: LspModuleSymbolTable = t;
+  while i < n {
+    let nm: String = lsp_compile_extract_pub_type_decl(list_get(lines, i), "enum");
+    if chars_len(nm) > 0 {
+      let en: LspEnum = lsp_enum_new(nm, i, 0);
+      out = lsp_module_with_enum(out, en);
+    }
+    i = i + 1;
+  }
+  return out;
+}
+
+pub fn lsp_compile_extract_pub_fn_name(line: String) -> String {
+  let t: String = lsp_text_trim(line);
+  if str_starts_with(t, "//") { return ""; }
+  if !str_starts_with(t, "pub fn ") { return ""; }
+  return lsp_compile_take_ident(str_slice(t, 7, chars_len(t)));
+}
+
+pub fn lsp_compile_extract_pub_type_decl(line: String, kw: String) -> String {
+  let t: String = lsp_text_trim(line);
+  if str_starts_with(t, "//") { return ""; }
+  let pat: String = "pub " + kw + " ";
+  if str_index_of(t, pat) != 0 { return ""; }
+  return lsp_compile_take_ident(str_slice(t, chars_len(pat), chars_len(t)));
+}
+
+pub fn lsp_compile_extract_cap_ref(line: String) -> String {
+  let t: String = lsp_text_trim(line);
+  if str_starts_with(t, "//") { return ""; }
+  if !str_starts_with(t, "&") { return ""; }
+  return lsp_compile_take_ident(str_slice(t, 1, chars_len(t)));
+}
+
+pub fn lsp_compile_take_ident(s: String) -> String {
+  let n: Int = chars_len(s);
+  let mut i: Int = 0;
+  let mut out: String = "";
+  while i < n {
+    let c: String = char_at(s, i);
+    let code: Int = byte_at(c, 0);
+    let is_alpha: Bool = (code >= 65 && code <= 90) || (code >= 97 && code <= 122) || code == 95;
+    let is_digit: Bool = code >= 48 && code <= 57;
+    if i == 0 { if !is_alpha { return out; } } else { if !is_alpha && !is_digit { return out; } }
+    out = out + c;
+    i = i + 1;
+  }
+  return out;
+}
+
+pub fn lsp_compile_cap_table_contains(xs: List[LspCapabilityUse], tok: String) -> Bool {
+  let n: Int = list_len(xs);
+  let mut i: Int = 0;
+  while i < n {
+    if list_get(xs, i).cap_token == tok { return true; }
+    i = i + 1;
+  }
+  return false;
+}

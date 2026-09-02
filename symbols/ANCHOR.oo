@@ -1,0 +1,16 @@
+// # LSP Canonical Symbol Index
+//
+// Logline: In-memory symbol records, stdlib scan, symbol codec, E-M telemetry concat.
+//
+// Setup: Pure data layer. Methods read; bridge writes (compiler integration).
+//
+// Beats:
+//   1. 5 files implementing the symbols layer.
+//   2. All files follow the 4-element Academy header and the 256-line cap.
+//   3. Imports go to siblings in this subdir; cross-subdir imports use the new lsp/<subdir>/<file> path.
+
+import "lsp_e_m_concat.oo";
+import "lsp_stdlib.oo";
+import "lsp_symbol_canonical.oo";
+import "lsp_symbol_codec.oo";
+import "lsp_symbol_record.oo";

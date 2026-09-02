@@ -1,0 +1,17 @@
+# lsp version and compat contract
+#
+# Format: NAME=MAJOR.MINOR.PATCH[-PRERELEASE]
+# Bump MAJOR: incompatible API change (consumers must update imports)
+# Bump MINOR: backwards-compatible feature (consumers continue to work)
+# Bump PATCH: backwards-compatible bug fix
+#
+# lsp refuses to run if the installed ooda toolchain does not satisfy
+# the declared range. The api_surface field is a structural check: the
+# loader asserts the LSP ANCHOR.oo exposes exactly 6 public subdirs.
+
+lsp=0.5.0
+ooda=2.10.0
+ooda_max=2.99.0
+oodac=2.10.0
+std=2.10.0
+api_surface=6

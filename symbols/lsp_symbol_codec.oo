@@ -1,0 +1,100 @@
+// # LSP Symbol Index Wire Codec
+//
+// Logline: Serialization scheme for the in-memory symbol index. Encodes/decodes records using a stable four-field `||`-separated format. The literal `B` character is escaped to `BS`; the literal `||` separator pattern is escaped to `PP`.
+//
+// Setup: Pure string codec. No imports, no capabilities. Layer-0 of the symbol index.
+//
+// Beats:
+//   1. Define the four-field separator and the escape tokens.
+//   2. Provide a `split_n` helper that decomposes a record on a separator.
+//   3. Provide escape/unescape for arbitrary strings before/after split.
+
+pub fn lsp_index_sep() -> String { return "||"; }
+
+pub fn lsp_index_is_sep_prefix(s: String, i: Int) -> Bool {
+    let n: Int = chars_len(s);
+    if i + 1 >= n { return false; }
+    if char_at(s, i) != "|" { return false; }
+    if char_at(s, i + 1) != "|" { return false; }
+    return true;
+}
+
+pub fn lsp_index_is_pescape(s: String, i: Int) -> Bool {
+    let n: Int = chars_len(s);
+    if i + 1 >= n { return false; }
+    if char_at(s, i) != "P" { return false; }
+    if char_at(s, i + 1) != "P" { return false; }
+    return true;
+}
+
+pub fn lsp_index_escape(s: String) -> String {
+    let n: Int = chars_len(s);
+    let mut out: String = "";
+    let mut i: Int = 0;
+    while i < n {
+        let c: String = char_at(s, i);
+        let is_bs: Bool = c == "B";
+        let is_pipe: Bool = c == "|";
+        if is_bs { out = out + "B"; out = out + "S"; }
+        else if is_pipe {
+            if lsp_index_is_sep_prefix(s, i) { out = out + "P"; out = out + "P"; i = i + 1; }
+            else { out = out + "|"; }
+        }
+        else { out = out + c; }
+        i = i + 1;
+    }
+    return out;
+}
+
+pub fn lsp_index_unescape(s: String) -> String {
+    let n: Int = chars_len(s);
+    let mut out: String = "";
+    let mut i: Int = 0;
+    while i < n {
+        let c: String = char_at(s, i);
+        let is_bs: Bool = c == "B";
+        if is_bs {
+            if i + 1 < n {
+                let nxt: String = char_at(s, i + 1);
+                let is_s: Bool = nxt == "S";
+                if is_s { out = out + "B"; i = i + 2; }
+                else { out = out + c; i = i + 1; }
+            } else { out = out + c; i = i + 1; }
+            continue;
+        }
+        if lsp_index_is_pescape(s, i) { out = out + "|"; out = out + "|"; i = i + 1; continue; }
+        out = out + c;
+        i = i + 1;
+    }
+    return out;
+}
+
+pub fn lsp_index_split_n(s: String, sep: String) -> List[String] {
+    let mut out: List[String] = list_new();
+    let sl: Int = chars_len(sep);
+    let n: Int = chars_len(s);
+    let mut start: Int = 0;
+    let mut i: Int = 0;
+    while i <= n {
+        let at_end: Bool = i == n;
+        let mut is_sep: Bool = false;
+        if !at_end {
+            if i + sl <= n {
+                let mut match_ok: Bool = true;
+                let mut k: Int = 0;
+                while k < sl {
+                    if char_at(s, i + k) != char_at(sep, k) { match_ok = false; }
+                    k = k + 1;
+                }
+                if match_ok { is_sep = true; }
+            }
+        }
+        if at_end || is_sep {
+            out = list_push(out, str_slice(s, start, i));
+            if is_sep { i = i + sl - 1; }
+            start = i + 1;
+        }
+        i = i + 1;
+    }
+    return out;
+}

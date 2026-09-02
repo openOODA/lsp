@@ -1,0 +1,38 @@
+# LSP Wire Protocol
+
+File: ooda/lsp/docs/protocol.oot
+
+## 1. JSON-RPC 2.0 Framing
+
+The LSP server speaks JSON-RPC 2.0 over `Content-Length`-framed stream transport (stdio or socket).
+
+Each frame:
+```
+Content-Length: <bytes>\r\n
+\r\n
+<json-body>
+```
+
+The server's framing loop is in `ooda/lsp/wire/lsp_stdio.oo::lsp_serve`.
+
+## 2. Request / Response / Notification
+
+- **Request**: `{"jsonrpc": "2.0", "id": <int>, "method": "<name>", "params": {...}}` — expects a response
+- **Response**: `{"jsonrpc": "2.0", "id": <int>, "result": ...}` or `{"jsonrpc": "2.0", "id": <int>, "error": {"code": <int>, "message": "<str>"}}`
+- **Notification**: same as request but no `id` — fire-and-forget
+
+## 3. Standard LSP 3.17 Methods
+
+See `LSP_SETUP.oot` for the full method list. The server implements:
+- Lifecycle: `initialize`, `initialized`, `shutdown`, `exit`
+- Document: `textDocument/didOpen`, `didChange`, `didClose`, `completion`, `hover`, `definition`, `documentSymbol`, `formatting`, `codeAction`, `diagnostic`
+- Workspace: `workspace/executeCommand`, `workspace/didChangeWatchedFiles` (not advertised per LSP_SETUP.oot)
+
+## 4. Error Codes
+
+- `-32700`: Parse error
+- `-32600`: Invalid request
+- `-32601`: Method not found
+- `-32602`: Invalid params
+- `-32603`: Internal error
+- `-32000` to `-32099`: Server-defined (the LSP server uses `-32000` for guard violations)

@@ -1,0 +1,15 @@
+// # LSP Wire Protocol
+//
+// Logline: JSON-RPC 2.0 framing, transport, encoding, and method classification.
+//
+// Setup: Pure wire layer. Sits at the outermost edge of the LSP server; methods and server depend on it.
+//
+// Beats:
+//   1. 4 files implementing the wire layer.
+//   2. All files follow the 4-element Academy header and the 256-line cap.
+//   3. Imports go to siblings in this subdir; cross-subdir imports use the new lsp/<subdir>/<file> path.
+
+import "lsp_json_encode.oo";
+import "lsp_jsonrpc.oo";
+import "lsp_rpc_methods.oo";
+import "lsp_stdio.oo";

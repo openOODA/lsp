@@ -1,0 +1,14 @@
+// # LSP Compiler Bridge
+//
+// Logline: In-memory text-walker, symbol-table fetch+merge, compiler-integration types.
+//
+// Setup: The only place LSP talks to the oodac compiler. Uses &CompilerReadCap. Depends on types/.
+//
+// Beats:
+//   1. 3 files implementing the bridge layer.
+//   2. All files follow the 4-element Academy header and the 256-line cap.
+//   3. Imports go to siblings in this subdir; cross-subdir imports use the new lsp/<subdir>/<file> path.
+
+import "lsp_compile.oo";
+import "lsp_compiler_merge.oo";
+import "lsp_compiler_types.oo";

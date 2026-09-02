@@ -1,0 +1,69 @@
+// # LSP Server Workspace Trust Guards
+//
+// Logline: Workspace trust enforcement and per-session state stamping. Every URI is validated against the root prefix; traversal and outside-root paths are rejected with -32602 before any handler runs.
+//
+// Setup: Imports the protocol types (LspDoc, LspServerState) and the text cap query. No LSP method dispatch happens here — these are pure guard functions used by the dispatcher and by the in-process message processor.
+//
+// Beats:
+//   1. Query the 4MB text cap (delegated to lsp_maneuver_cap_text).
+//   2. Provide lsp_server_extract_doc — pulls the textDocument out of a params blob with fallback to params-level uri/text.
+//   3. Provide lsp_server_trust_check — fail-closed -32602 envelope on traversal or outside-root (used by request methods that expect a response).
+//   4. Provide lsp_server_uri_acceptable — silent Bool predicate for notification methods (didOpen/didChange) where a JSON-RPC reply is forbidden by spec.
+//   5. Provide lsp_server_stamp — pure state constructor for per-request state evolution.
+//   6. Provide lsp_server_uri_is_under and lsp_server_uri_has_traversal — the two URI predicates (path-segment aware).
+//   7. Provide lsp_server_cap_text — cap text payloads at the 4MB ceiling.
+
+import "lsp/types/lsp_types.oo";
+import "lsp/wire/lsp_jsonrpc.oo";
+import "lsp/symbols/lsp_e_m_concat.oo";
+
+pub fn lsp_server_text_cap() -> Int { return lsp_maneuver_cap_text(); }
+
+pub fn lsp_server_extract_doc(params: String) -> LspDoc {
+    let td: String = lsp_jsonrpc_extract_object(params, "textDocument");
+    let uri: String = if chars_len(td) > 0 { lsp_jsonrpc_extract_string(td, "uri") } else { lsp_jsonrpc_extract_string(params, "uri") };
+    let raw: String = if chars_len(td) > 0 { lsp_jsonrpc_extract_string(td, "text") } else { lsp_jsonrpc_extract_string(params, "text") };
+    return lsp_doc_new(uri, lsp_server_cap_text(raw), chars_len(td) > 0);
+}
+
+pub fn lsp_server_trust_check(state: LspServerState, uri: String, id: String) -> String {
+    if lsp_server_uri_has_traversal(uri) { return lsp_jsonrpc_frame(lsp_jsonrpc_make_error(id, 0 - 32602, "URI traversal refused: " + uri)); }
+    if !lsp_server_uri_is_under(uri, state.root_uri) { return lsp_jsonrpc_frame(lsp_jsonrpc_make_error(id, 0 - 32602, "URI outside root: " + uri)); }
+    return "";
+}
+
+pub fn lsp_server_uri_acceptable(uri: String, root: String) -> Bool {
+    if lsp_server_uri_has_traversal(uri) { return false; }
+    return lsp_server_uri_is_under(uri, root);
+}
+
+pub fn lsp_server_stamp(s: LspServerState, init: Bool, root: String) -> LspServerState {
+    return LspServerState { is_initialized: init, root_uri: root };
+}
+
+pub fn lsp_server_uri_is_under(uri: String, root: String) -> Bool {
+    if chars_len(root) == 0 { return false; }
+    if chars_len(uri) < chars_len(root) { return false; }
+    if !str_starts_with(uri, root) { return false; }
+    if chars_len(uri) == chars_len(root) { return true; }
+    return char_at(uri, chars_len(root)) == "/";
+}
+
+pub fn lsp_server_uri_has_traversal(uri: String) -> Bool {
+    let n: Int = chars_len(uri);
+    let mut i: Int = 0;
+    while i < n {
+        if char_at(uri, i) == "." && i + 1 < n && char_at(uri, i + 1) == "." {
+            let before: Bool = i == 0 || char_at(uri, i - 1) == "/";
+            let after: Bool = i + 2 == n || char_at(uri, i + 2) == "/";
+            if before && after { return true; }
+        }
+        i = i + 1;
+    }
+    return false;
+}
+
+pub fn lsp_server_cap_text(text: String) -> String {
+    if bytes_len(text) <= lsp_server_text_cap() { return text; }
+    return byte_slice(text, 0, lsp_server_text_cap());
+}

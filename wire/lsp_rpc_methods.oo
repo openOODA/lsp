@@ -1,0 +1,40 @@
+// # LSP Method Classifier
+//
+// Logline: Classify a JSON-RPC method string as lifecycle, document, or workspace; the canonical answer is the only answer.
+//
+// Setup: Pure string matching. No capability required.
+//
+// Beats:
+//   1. lsp_rpc_methods_is_lifecycle: initialize, initialized, shutdown, exit.
+//   2. lsp_rpc_methods_is_document: textDocument/* methods (11 known).
+//   3. lsp_rpc_methods_is_known: any of the 13 dispatched methods.
+
+pub fn lsp_rpc_methods_is_lifecycle(method: String) -> Bool {
+    if method == "initialize" { return true; }
+    if method == "initialized" { return true; }
+    if method == "shutdown" { return true; }
+    if method == "exit" { return true; }
+    return false;
+}
+
+pub fn lsp_rpc_methods_is_document(method: String) -> Bool {
+    if method == "textDocument/didOpen" { return true; }
+    if method == "textDocument/didChange" { return true; }
+    if method == "textDocument/completion" { return true; }
+    if method == "textDocument/hover" { return true; }
+    if method == "textDocument/definition" { return true; }
+    if method == "textDocument/formatting" { return true; }
+    if method == "textDocument/documentSymbol" { return true; }
+    if method == "textDocument/codeAction" { return true; }
+    if method == "textDocument/diagnostic" { return true; }
+    if method == "textDocument/documentLink" { return true; }
+    if method == "textDocument/inlayHint" { return true; }
+    return false;
+}
+
+pub fn lsp_rpc_methods_is_known(method: String) -> Bool {
+    if lsp_rpc_methods_is_lifecycle(method) { return true; }
+    if lsp_rpc_methods_is_document(method) { return true; }
+    if method == "workspace/executeCommand" { return true; }
+    return false;
+}

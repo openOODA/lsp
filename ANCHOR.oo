@@ -1,0 +1,23 @@
+// # LSP Subsystem — Anchor for Agents
+//
+// Logline: Front door for the ooda/lsp/ directory. Re-exports the 6 functional subdirs.
+//
+// Setup: Pure structural file. Imports register the 6 subdir ANCHOR.oo files plus qa/, scripts/, docs/, examples/.
+//
+// Beats:
+//   1. The 6 subdirs are: wire, types, server, methods, symbols, bridge.
+//   2. Each subdir has its own ANCHOR.oo front door and its own mod.oo module entry.
+//   3. qa/ has 8 self-test probe drivers; scripts/ has build, test, verify, release.
+//   4. docs/ has LSP_SETUP.oot, protocol.oot, and client_config.oot; examples/ has 3 sample JSON-RPC pairs.
+//   5. VERSION declares lsp=0.5.0 with ooda compat range and api_surface=6.
+
+import "wire/ANCHOR.oo";
+import "types/ANCHOR.oo";
+import "server/ANCHOR.oo";
+import "methods/ANCHOR.oo";
+import "symbols/ANCHOR.oo";
+import "bridge/ANCHOR.oo";
+import "qa/ANCHOR.oo";
+import "scripts/ANCHOR.oo";
+import "docs/ANCHOR.oo";
+import "examples/ANCHOR.oo";

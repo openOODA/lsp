@@ -1,0 +1,39 @@
+// # RFC 8259 JSON String Escape Helper
+//
+// Logline: Escapes control and quote characters so LSP and JSON-RPC payloads remain standards-compliant.
+//
+// Setup: Pure string codec. No capability required.
+//
+// Beats:
+//   1. Encode a byte as a two-digit uppercase hex string.
+//   2. Escape backslash, quote, and JSON short escapes.
+//   3. Emit \u00XX for remaining C0 control bytes (0x00-0x1F).
+
+pub fn lsp_json_hex_byte(b: Int) -> String {
+    let hex: String = "0123456789ABCDEF";
+    let hi: Int = b / 16;
+    let lo: Int = b % 16;
+    return char_at(hex, hi) + char_at(hex, lo);
+}
+
+pub fn lsp_json_escape(s: String) -> String {
+    let n: Int = chars_len(s);
+    let mut out: String = "";
+    let mut i: Int = 0;
+    while i < n {
+        let c: String = char_at(s, i);
+        let b: Int = byte_at(c, 0);
+        if c == "\\" { out = out + "\\\\"; }
+        else if c == "\"" { out = out + "\\\""; }
+        else if c == "\n" { out = out + "\\n"; }
+        else if c == "\r" { out = out + "\\r"; }
+        else if c == "\t" { out = out + "\\t"; }
+        else if b >= 0 && b < 32 {
+            out = out + "\\u00" + lsp_json_hex_byte(b);
+        } else {
+            out = out + c;
+        }
+        i = i + 1;
+    }
+    return out;
+}

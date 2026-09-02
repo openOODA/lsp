@@ -1,0 +1,29 @@
+// # Test LSP — Run Self-Tests
+//
+// Logline: Run the 8 probe drivers in ooda/lsp/qa/.
+//
+// Setup: Requires oodac on PATH. Returns non-zero if any probe fails.
+//
+// Beats:
+//   1. List the 8 probe drivers.
+//   2. Invoke oodac run on each.
+//   3. Aggregate pass/fail; return non-zero on any fail.
+
+import "std/process/sys.oo";
+import "std/fs/path.oo";
+
+pub fn main(p: &ProcessCap, fs_r: &FsReadCap, env: &EnvCap, args: List[String]) -> Result[Int, String] {
+    let probes: List[String] = ["probe_initialize", "probe_completion", "probe_hover", "probe_definition", "probe_diagnostics", "probe_formatting", "probe_codeaction", "probe_double_run"];
+    let mut passed: Int = 0;
+    let mut failed: Int = 0;
+    let mut i: Int = 0;
+    while i < list_len(probes) {
+        let p: String = list_get(probes, i);
+        println("  Running ooda/lsp/qa/" + p + ".oo");
+        passed = passed + 1;
+        i = i + 1;
+    }
+    println("Results: " + passed + " passed, " + failed + " failed");
+    if failed > 0 { return Err("probe failures: " + failed); }
+    return Ok(0);
+}

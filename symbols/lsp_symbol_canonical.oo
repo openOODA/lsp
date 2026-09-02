@@ -1,0 +1,86 @@
+// # LSP Canonical Symbol Index Seed
+//
+// Logline: Builds the canonical stdlib symbol index that the LSP server ships at startup. The seed encodes the 17 OCap tokens, the 19 openOODA keywords, the 7 primitive types, and the 22 built-in functions — all knowledge required for autocomplete to be useful on a brand-new .oo file.
+//
+// Setup: Imports lsp_symbol_record.oo. No capabilities required. The seed is pure data; the CompilerReadCap merge (in lsp_compile.oo + lsp_compiler_merge.oo) layers user symbols on top at runtime.
+//
+// Beats:
+//   1. Provide 4 kind-specific seed helpers: capability, keyword, type, function.
+//   2. Build the canonical seed: capabilities → keywords → types → builtins, in that order.
+
+import "lsp_symbol_record.oo";
+
+pub fn lsp_index_seed_capability(idx: List[String], name: String, doc: String) -> List[String] { return lsp_index_add(idx, name, "Capability", "&" + name, doc); }
+pub fn lsp_index_seed_keyword(idx: List[String], name: String, doc: String) -> List[String] { return lsp_index_add(idx, name, "Keyword", name, doc); }
+pub fn lsp_index_seed_type(idx: List[String], name: String, doc: String) -> List[String] { return lsp_index_add(idx, name, "Type", name, doc); }
+pub fn lsp_index_seed_function(idx: List[String], name: String, signature: String, doc: String) -> List[String] { return lsp_index_add(idx, name, "Function", signature, doc); }
+
+pub fn lsp_index_build_canonical() -> List[String] {
+    let mut idx: List[String] = lsp_index_new();
+    idx = lsp_index_seed_capability(idx, "ProcessCap", "Spawn child processes and await exit status.");
+    idx = lsp_index_seed_capability(idx, "FsReadCap", "Read files and inspect directory contents.");
+    idx = lsp_index_seed_capability(idx, "FsWriteCap", "Write files inside OODA_FS_WRITEDIR sandbox.");
+    idx = lsp_index_seed_capability(idx, "FsCap", "Legacy broad filesystem capability.");
+    idx = lsp_index_seed_capability(idx, "EnvCap", "Read OODA_ and OO_ environment variables.");
+    idx = lsp_index_seed_capability(idx, "TimeCap", "Wall clock and monotonic timer access.");
+    idx = lsp_index_seed_capability(idx, "RandCap", "Cryptographic random number generator.");
+    idx = lsp_index_seed_capability(idx, "AllocCap", "Memory allocator and arena management.");
+    idx = lsp_index_seed_capability(idx, "ThreadCap", "Spawn threads, lock mutexes, and pass channels.");
+    idx = lsp_index_seed_capability(idx, "SysCap", "Legacy broad operating system capability.");
+    idx = lsp_index_seed_capability(idx, "NetCap", "Legacy broad network capability.");
+    idx = lsp_index_seed_capability(idx, "HttpCap", "HTTP/1.0 GET client.");
+    idx = lsp_index_seed_capability(idx, "TcpCap", "TCP socket connect, read, write, and close.");
+    idx = lsp_index_seed_capability(idx, "UdpCap", "UDP bind and receive.");
+    idx = lsp_index_seed_capability(idx, "BindCap", "TCP listening socket bind.");
+    idx = lsp_index_seed_capability(idx, "GpuCap", "GPU kernel dispatch.");
+    idx = lsp_index_seed_capability(idx, "UnsafeFFICap", "Direct calls into external C dynamic libraries.");
+    idx = lsp_index_seed_keyword(idx, "fn", "Declare a function with typed parameters.");
+    idx = lsp_index_seed_keyword(idx, "pub", "Mark a declaration with public module visibility.");
+    idx = lsp_index_seed_keyword(idx, "let", "Bind an immutable variable within lexical scope.");
+    idx = lsp_index_seed_keyword(idx, "mut", "Mark a binding as mutable.");
+    idx = lsp_index_seed_keyword(idx, "struct", "Define a structured record with named fields.");
+    idx = lsp_index_seed_keyword(idx, "type", "Declare a type alias or struct definition.");
+    idx = lsp_index_seed_keyword(idx, "import", "Load symbols from another .oo source module.");
+    idx = lsp_index_seed_keyword(idx, "match", "Pattern match on algebraic data type variants.");
+    idx = lsp_index_seed_keyword(idx, "if", "Conditional branch expression.");
+    idx = lsp_index_seed_keyword(idx, "else", "Else branch expression.");
+    idx = lsp_index_seed_keyword(idx, "while", "Conditional loop statement.");
+    idx = lsp_index_seed_keyword(idx, "return", "Return a value from a function.");
+    idx = lsp_index_seed_keyword(idx, "verify", "Formal verification block checked at compile time.");
+    idx = lsp_index_seed_keyword(idx, "requires", "Function precondition contract clause.");
+    idx = lsp_index_seed_keyword(idx, "ensures", "Function postcondition contract clause.");
+    idx = lsp_index_seed_keyword(idx, "spec", "Function specification clause for the verifier.");
+    idx = lsp_index_seed_keyword(idx, "trait", "Declare a trait for static polymorphism.");
+    idx = lsp_index_seed_keyword(idx, "newtype", "Zero-cost type abstraction over an existing type.");
+    idx = lsp_index_seed_keyword(idx, "where", "Refinement type predicate clause.");
+    idx = lsp_index_seed_type(idx, "Int", "Signed 64-bit two's complement integer.");
+    idx = lsp_index_seed_type(idx, "Float", "64-bit IEEE 754 double precision float.");
+    idx = lsp_index_seed_type(idx, "String", "Immutable UTF-8 encoded text string.");
+    idx = lsp_index_seed_type(idx, "Bool", "Boolean logical value: true or false.");
+    idx = lsp_index_seed_type(idx, "List", "Dynamic homogeneous array container.");
+    idx = lsp_index_seed_type(idx, "Result", "Sum type carrying Ok(T) or Err(E).");
+    idx = lsp_index_seed_type(idx, "Option", "Sum type carrying Some(T) or None.");
+    idx = lsp_index_seed_function(idx, "println", "println(msg: String)", "Print msg plus newline to stdout.");
+    idx = lsp_index_seed_function(idx, "print", "print(msg: String)", "Print msg without a trailing newline.");
+    idx = lsp_index_seed_function(idx, "read_file", "read_file(fs: &FsReadCap, path: String) -> Result[String, String]", "Read file contents into a String.");
+    idx = lsp_index_seed_function(idx, "write_file", "write_file(fs: &FsWriteCap, path: String, content: String) -> Result[Int, String]", "Persist content to path inside OODA_FS_WRITEDIR.");
+    idx = lsp_index_seed_function(idx, "path_exists", "path_exists(fs: &FsReadCap, path: String) -> Bool", "Return whether path exists on the filesystem.");
+    idx = lsp_index_seed_function(idx, "file_size", "file_size(fs: &FsReadCap, path: String) -> Int", "Return the byte size of file at path.");
+    idx = lsp_index_seed_function(idx, "sys_exec", "sys_exec(sys: &ProcessCap, cmd: String, ...) -> Result[String, String]", "Execute command synchronously and capture stdout.");
+    idx = lsp_index_seed_function(idx, "env_get", "env_get(env: &EnvCap, key: String) -> String", "Read an OODA_ or OO_ environment variable.");
+    idx = lsp_index_seed_function(idx, "now_ms", "now_ms(t: &TimeCap) -> Int", "Return current wall clock in milliseconds.");
+    idx = lsp_index_seed_function(idx, "sleep_ms", "sleep_ms(t: &TimeCap, ms: Int) -> ()", "Block the current thread for ms milliseconds.");
+    idx = lsp_index_seed_function(idx, "random", "random(r: &RandCap) -> Int", "Draw 64 bits of cryptographically secure entropy.");
+    idx = lsp_index_seed_function(idx, "list_new", "list_new() -> List[T]", "Allocate an empty dynamic list.");
+    idx = lsp_index_seed_function(idx, "list_push", "list_push(l: List[T], v: T) -> List[T]", "Append v to the tail of l and return the new list.");
+    idx = lsp_index_seed_function(idx, "list_len", "list_len(l: List[T]) -> Int", "Return the number of elements in l.");
+    idx = lsp_index_seed_function(idx, "list_get", "list_get(l: List[T], i: Int) -> T", "Return the element of l at index i.");
+    idx = lsp_index_seed_function(idx, "chars_len", "chars_len(s: String) -> Int", "Return the number of UTF-8 characters in s.");
+    idx = lsp_index_seed_function(idx, "char_at", "char_at(s: String, i: Int) -> String", "Return the single-character string at index i.");
+    idx = lsp_index_seed_function(idx, "str_slice", "str_slice(s: String, a: Int, b: Int) -> String", "Return the substring from index a to b exclusive.");
+    idx = lsp_index_seed_function(idx, "str_index_of", "str_index_of(s: String, needle: String) -> Int", "Return index of first occurrence of needle in s.");
+    idx = lsp_index_seed_function(idx, "str_starts_with", "str_starts_with(s: String, prefix: String) -> Bool", "Return whether s begins with prefix.");
+    idx = lsp_index_seed_function(idx, "to_string", "to_string(v: T) -> String", "Convert value v to its String representation.");
+    idx = lsp_index_seed_function(idx, "process_exit", "process_exit(code: Int) -> ()", "Terminate the process with the given exit code.");
+    return idx;
+}

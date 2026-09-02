@@ -1,0 +1,61 @@
+// # Native LSP Diagnostic Publisher — Live E-M Diagnostic Converters
+//
+// Logline: Transforms E-M gauge readings (W, Ps, SSoT pins) into LSP 3.17 Diagnostic JSON for the textDocument/publishDiagnostics push.
+//
+// Setup: Imports lsp_types.oo (LspDiagnostic) + lsp_json_encode.oo (string escape). No file, network, or process capability required.
+//
+// Beats:
+//   1. Map 4 LSP severity levels (error=1, warning=2, info=3, hint=4).
+//   2. Serialize a single LspDiagnostic into LSP 3.17 JSON.
+//   3. Build the E-M weight, Ps, and SSoT-pins diagnostic converters used by lsp_server_extract_diags.
+
+import "lsp/types/lsp_types.oo";
+import "lsp/wire/lsp_json_encode.oo";
+
+pub fn lsp_diag_severity_error() -> Int { return 1; }
+pub fn lsp_diag_severity_warning() -> Int { return 2; }
+pub fn lsp_diag_severity_info() -> Int { return 3; }
+pub fn lsp_diag_severity_hint() -> Int { return 4; }
+
+pub fn lsp_diag_to_json(d: LspDiagnostic) -> String {
+    let sl = d.start_line; let sc = d.start_col; let el = d.end_line; let ec = d.end_col; let sev = d.severity;
+    let sl_str = sl.to_string(); let sc_str = sc.to_string(); let el_str = el.to_string(); let ec_str = ec.to_string(); let sev_str = sev.to_string();
+    let esc_code: String = lsp_json_escape(d.code); let esc_msg: String = lsp_json_escape(d.message); let esc_src: String = lsp_json_escape(d.source);
+    return "{\"range\":{\"start\":{\"line\":" + sl_str + ",\"character\":" + sc_str + "},\"end\":{\"line\":" + el_str + ",\"character\":" + ec_str + "}},\"severity\":" + sev_str + ",\"code\":\"" + esc_code + "\",\"source\":\"" + esc_src + "\",\"message\":\"" + esc_msg + "\"}";
+}
+
+pub fn lsp_diag_line_width() -> Int { return 80; }
+
+pub fn lsp_diag_t_default() -> Int { return 100; }
+pub fn lsp_diag_d_default() -> Int { return 20; }
+pub fn lsp_diag_v_default() -> Int { return 10; }
+
+pub fn lsp_diag_ps_score(t: Int, d: Int, w: Int, v: Int) -> Int { if w == 0 { return 0; } let excess: Int = t - d; return (excess / w) * v; }
+
+pub fn lsp_diag_weight_msg(line_count: Int) -> String { if line_count > 256 { return "E-M Weight Ps↓ ΔW: 256 ceiling exceeded"; } return ""; }
+
+pub fn lsp_diag_pins_drift_msg(content: String) -> String {
+    let lines: List[String] = lsp_text_lines(content);
+    let n: Int = list_len(lines);
+    let mut i: Int = 0;
+    while i < n {
+        let line: String = lsp_text_trim(list_get(lines, i));
+        if str_starts_with(line, "//") {
+            if str_index_of(line, "Floor:") >= 0 { return "SSoT pins drift: Floor:/Thrust:/Patch: must be 0, version lives in ooda.pkg"; }
+            if str_index_of(line, "Thrust:") >= 0 { return "SSoT pins drift: Floor:/Thrust:/Patch: must be 0, version lives in ooda.pkg"; }
+            if str_index_of(line, "Patch:") >= 0 { return "SSoT pins drift: Floor:/Thrust:/Patch: must be 0, version lives in ooda.pkg"; }
+        }
+        i = i + 1;
+    }
+    return "";
+}
+
+pub fn lsp_diag_ps_gauge_msg(t: Int, d: Int, w: Int, v: Int) -> String { if w == 0 { return "E-M Ps↓ W=0 fail-closed"; } let ps: Int = lsp_diag_ps_score(t, d, w, v); if ps < 1 { return "E-M Ps↓ " + ps.to_string() + " ((T=" + t.to_string() + "-D=" + d.to_string() + ")/W=" + w.to_string() + ")*V=" + v.to_string(); } return ""; }
+
+pub fn lsp_diag_build(code: String, msg: String, sev: Int) -> String { let d: LspDiagnostic = lsp_diagnostic_new(0, 0, 0, lsp_diag_line_width(), sev, code, msg, "em"); return lsp_diag_to_json(d); }
+
+pub fn lsp_diag_weight_to_diagnostic(line_count: Int) -> String { let msg: String = lsp_diag_weight_msg(line_count); if chars_len(msg) == 0 { return ""; } return lsp_diag_build("E_EM_WEIGHT", msg, lsp_diag_severity_warning()); }
+
+pub fn lsp_diag_pins_to_diagnostic(content: String) -> String { let msg: String = lsp_diag_pins_drift_msg(content); if chars_len(msg) == 0 { return ""; } return lsp_diag_build("E_EM_PINS", msg, lsp_diag_severity_info()); }
+
+pub fn lsp_diag_ps_to_diagnostic(t: Int, d: Int, w: Int, v: Int) -> String { let msg: String = lsp_diag_ps_gauge_msg(t, d, w, v); if chars_len(msg) == 0 { return ""; } return lsp_diag_build("E_EM_PS", msg, lsp_diag_severity_error()); }

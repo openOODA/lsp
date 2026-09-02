@@ -1,0 +1,12 @@
+// # LSP Type System
+//
+// Logline: The wire type system: LspFrame, LspDoc, LspServerState, LspDiagnostic, LspCodeAction.
+//
+// Setup: Pure type definitions. No I/O. Used by every other subdir.
+//
+// Beats:
+//   1. 1 files implementing the types layer.
+//   2. All files follow the 4-element Academy header and the 256-line cap.
+//   3. Imports go to siblings in this subdir; cross-subdir imports use the new lsp/<subdir>/<file> path.
+
+import "lsp_types.oo";

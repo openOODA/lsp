@@ -1,0 +1,66 @@
+// # LSP Compiler Index Wire — Blue-Ocean Symbol Table
+//
+// Logline: Fetch live LspModuleSymbolTable via CompilerReadCap and merge into index.
+//
+// Setup: Requires &CompilerReadCap + &FsReadCap. No heuristics, no shell-out.
+//
+// Beats:
+//   1. Fetch the compiler-walked LspModuleSymbolTable for a single document.
+//   2. Merge the per-document symbols into the canonical stdlib index.
+
+import "lsp_compile.oo";
+import "lsp/symbols/lsp_symbol_record.oo";
+import "lsp_compiler_types.oo";
+
+pub fn lsp_compiler_merge_table(c: &CompilerReadCap, idx: List[String], uri: String, text: String) -> List[String] {
+  if chars_len(text) == 0 { return idx; }
+  let t: LspModuleSymbolTable = lsp_compile_module(c, uri, text);
+  return lsp_compiler_merge_into_index(idx, t, uri);
+}
+
+pub fn lsp_compiler_merge_into_index(idx: List[String], t: LspModuleSymbolTable, uri: String) -> List[String] {
+  let mut out: List[String] = idx;
+  let nf: Int = list_len(t.functions);
+  let mut i: Int = 0;
+  while i < nf {
+    let fn_node: LspFunction = list_get(t.functions, i);
+    let nm: String = fn_node.name;
+    if chars_len(lsp_index_lookup(out, nm)) == 0 {
+      out = lsp_index_add(out, nm, "Function", "pub fn " + nm + "()", "declared in " + uri);
+    }
+    i = i + 1;
+  }
+  let nc: Int = list_len(t.capabilities);
+  let mut j: Int = 0;
+  while j < nc {
+    let cp: String = list_get(t.capabilities, j).cap_token;
+    if chars_len(lsp_index_lookup(out, cp)) == 0 {
+      out = lsp_index_add(out, cp, "Capability", "&" + cp, "capability reference in " + uri);
+    }
+    j = j + 1;
+  }
+  let nst: Int = list_len(t.structs);
+  let mut k: Int = 0;
+  while k < nst {
+    let sn: String = list_get(t.structs, k).name;
+    if chars_len(lsp_index_lookup(out, sn)) == 0 {
+      out = lsp_index_add(out, sn, "Struct", "struct " + sn, "declared in " + uri);
+    }
+    k = k + 1;
+  }
+  let nen: Int = list_len(t.enums);
+  let mut m: Int = 0;
+  while m < nen {
+    let en: String = list_get(t.enums, m).name;
+    if chars_len(lsp_index_lookup(out, en)) == 0 {
+      out = lsp_index_add(out, en, "Enum", "enum " + en, "declared in " + uri);
+    }
+    m = m + 1;
+  }
+  return out;
+}
+
+pub fn lsp_compiler_fetch(c: &CompilerReadCap, fs: &FsReadCap, uri: String, content: String) -> List[String] {
+  let base: List[String] = lsp_index_build_canonical();
+  return lsp_compiler_merge_table(c, base, uri, content);
+}

@@ -1,0 +1,22 @@
+// # LSP E-M Telemetry — SSoT Caps & Diagnostic Concat
+//
+// Logline: Expose the 3 SSoT input caps (4MB text, 100MB input, 1M msgs) and concatenate up to 4 diagnostic strings with comma separators.
+//
+// Setup: Pure constants and string concat. No file, network, or process capability required.
+//
+// Beats:
+//   1. Expose SSoT caps as const — 4MB text / 100MB input / 1M msgs safety ceilings.
+//   2. Concatenate 4 diagnostic strings into a comma-separated list, skipping empty fields.
+
+pub fn lsp_maneuver_cap_text() -> Int { return 4194304; }
+pub fn lsp_maneuver_cap_input() -> Int { return 104857600; }
+pub fn lsp_maneuver_cap_msgs() -> Int { return 1000000; }
+
+pub fn lsp_maneuver_concat_diags(a: String, b: String, c: String, d: String) -> String {
+  let mut out: String = "";
+  if chars_len(a) > 0 { out = a; }
+  if chars_len(b) > 0 { if chars_len(out) > 0 { out = out + ","; } out = out + b; }
+  if chars_len(c) > 0 { if chars_len(out) > 0 { out = out + ","; } out = out + c; }
+  if chars_len(d) > 0 { if chars_len(out) > 0 { out = out + ","; } out = out + d; }
+  return out;
+}
