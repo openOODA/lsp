@@ -10,7 +10,7 @@
 //   3. Each subdir has its own ANCHOR.oo front door.
 //   4. qa/ has 8 self-test probe drivers; scripts/ has build, test, verify, release.
 //   5. docs/ has LSP_SETUP.oot, protocol.oot, and client_config.oot; examples/ has 3 sample JSON-RPC pairs.
-//   6. VERSION declares lsp=0.5.0 with ooda compat range and api_surface=7.
+//   6. VERSION declares lsp=0.6.0 with ooda compat range and api_surface=7.
 
 import "wire/ANCHOR.oo";
 import "types/ANCHOR.oo";
