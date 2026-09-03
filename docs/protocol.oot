@@ -2,37 +2,183 @@
 
 File: ooda/lsp/docs/protocol.oot
 
-## 1. JSON-RPC 2.0 Framing
+This doc is the authoritative JSON-RPC 2.0 wire reference for the openOODA
+native LSP engine. The full method-by-method handler table is the source
+of truth; the per-method request and response shapes below are derived
+from `ooda/lsp/server/lsp_server_dispatch.oo`, `lsp_server_handlers.oo`,
+and `lsp_methods_extra.oo`.
 
-The LSP server speaks JSON-RPC 2.0 over `Content-Length`-framed stream transport (stdio or socket).
+The server implements 16 JSON-RPC methods across 3 families: 4 lifecycle,
+11 document, and 1 workspace. Every method routes through one
+`if/else` chain in `lsp_server_dispatch.oo`; the chain ends in
+`-32601 Method not found` for any other name.
 
-Each frame:
+## 1. Transport
+
+The transport is the LSP 3.17 standard: a single full-duplex byte stream
+over the process stdin and stdout. Stderr is reserved for server
+diagnostics and is not part of the wire.
+
+The framing loop is `ooda/lsp/wire/lsp_stdio.oo::lsp_serve`. It polls
+`oo_read_stdin_chunk(100ms)`, parses each chunk for complete frames, and
+appends responses to the same stream.
+
+## 2. Framing
+
+Every frame is a standard LSP 2-byte header followed by a JSON body:
+
 ```
 Content-Length: <bytes>\r\n
 \r\n
 <json-body>
 ```
 
-The server's framing loop is in `ooda/lsp/wire/lsp_stdio.oo::lsp_serve`.
+The server reads the `Content-Length` integer, then reads exactly that
+many bytes of body. A body that is shorter than the declared length is
+treated as a truncated frame and dropped. The 4 MB per-frame and 100 MB
+per-session caps are enforced in `lsp_stdio.oo`.
 
-## 2. Request / Response / Notification
+## 3. JSON-RPC 2.0 envelope
 
-- **Request**: `{"jsonrpc": "2.0", "id": <int>, "method": "<name>", "params": {...}}` — expects a response
-- **Response**: `{"jsonrpc": "2.0", "id": <int>, "result": ...}` or `{"jsonrpc": "2.0", "id": <int>, "error": {"code": <int>, "message": "<str>"}}`
-- **Notification**: same as request but no `id` — fire-and-forget
+The server uses standard JSON-RPC 2.0 envelopes. Three message kinds
+are used:
 
-## 3. Standard LSP 3.17 Methods
+- **Request**: `{"jsonrpc":"2.0","id":<int|string|null>,"method":"<name>","params":<object>}`. The server replies with either a `result` or an `error`.
+- **Notification**: same as a request but with no `id` field. The server emits a notification when it pushes data to the client (publishDiagnostics) and silently drops client notifications that the spec forbids a reply to (initialized, exit, didOpen, didChange).
+- **Response**: `{"jsonrpc":"2.0","id":<id>,"result":<json>}` on success or `{"jsonrpc":"2.0","id":<id>,"error":{"code":<int>,"message":"<str>"}}` on failure.
 
-See `LSP_SETUP.oot` for the full method list. The server implements:
-- Lifecycle: `initialize`, `initialized`, `shutdown`, `exit`
-- Document: `textDocument/didOpen`, `didChange`, `didClose`, `completion`, `hover`, `definition`, `documentSymbol`, `formatting`, `codeAction`, `diagnostic`
-- Workspace: `workspace/executeCommand`, `workspace/didChangeWatchedFiles` (not advertised per LSP_SETUP.oot)
+The `id` may be an integer, a string, or `null`. The server treats any
+`id` whose outer characters are not digits, not quoted, and not the
+literal `null` as unsafe and replaces it with `0`.
 
-## 4. Error Codes
+## 4. Error codes
 
-- `-32700`: Parse error
-- `-32600`: Invalid request
-- `-32601`: Method not found
-- `-32602`: Invalid params
-- `-32603`: Internal error
-- `-32000` to `-32099`: Server-defined (the LSP server uses `-32000` for guard violations)
+The server uses the standard JSON-RPC 2.0 error code set:
+
+- `-32700` — Parse error. Malformed JSON body.
+- `-32600` — Invalid request. A request that is structurally valid but violates protocol (e.g. `initialize` called twice on the same session).
+- `-32601` — Method not found. A method name that is not in the 16-method dispatch table.
+- `-32602` — Invalid params. The params blob is well-formed JSON but a guard refused it. The server uses `-32602` for two cases: (a) `textDocument.*` called before `initialize`, (b) URI traversal or outside-root URI.
+- `-32603` — Internal error. Reserved.
+- `-32000` to `-32099` — Server-defined. The LSP server uses `-32000` for guard violations where `-32602` does not apply (reserved, not yet emitted in 0.5.0).
+
+The server does NOT emit `-32603` today; an internal error today
+returns `-32601` with a descriptive `message` so the client surfaces it
+in the log.
+
+## 5. Lifecycle methods
+
+### 5.1 `initialize` (request, expects response)
+
+- **When called**: First message on the wire, before any other. The server rejects `initialize` if `is_initialized` is already true.
+- **Request params**: `{ processId, rootUri, capabilities, ... }`. `rootUri` is required to seed workspace trust.
+- **Response result**: the full capabilities JSON (see `CAPABILITIES.oot`). The `id` is echoed.
+
+### 5.2 `initialized` (notification)
+
+- **When called**: Right after the client receives the `initialize` response. The server silently drops it (returns the empty string, no envelope).
+
+### 5.3 `shutdown` (request, expects response)
+
+- **When called**: When the client wants a clean exit. The server replies with `result: null`.
+- **Note**: `shutdown` does NOT terminate the process. The client must send `exit` next.
+
+### 5.4 `exit` (notification)
+
+- **When called**: After `shutdown`, when the client wants the server to terminate. The stdio loop in `lsp_stdio.oo` returns and the process exits.
+
+## 6. Document methods
+
+### 6.1 `textDocument/didOpen` (notification)
+
+- **When called**: Client opens an `.oo` file.
+- **Server behavior**: extracts the `textDocument.uri` and `textDocument.text`, runs the URI guard, emits a `textDocument/publishDiagnostics` notification (see §8) on the same stream. No reply.
+- **Text cap**: 4 MB; longer bodies are truncated to 4 MB by `lsp_server_cap_text`.
+
+### 6.2 `textDocument/didChange` (notification)
+
+- **When called**: Client edits an `.oo` file.
+- **Server behavior**: identical to `didOpen`. Same publishDiagnostics emission.
+
+### 6.3 `textDocument/completion` (request)
+
+- **When called**: Client triggers completion (typing `.`, `&`, `:`, or explicit request).
+- **Request params**: `{ textDocument, position, context }`. The `position` is 0-indexed line and character.
+- **Response result**: `{ "isIncomplete": false, "items": [ CompletionItem, ... ] }` where each item is `{ label, kind, detail }`. The index is the merged 69-entry stdlib seed plus the user module's compiler-fetched symbols. Items are sorted by kind, then label.
+
+### 6.4 `textDocument/hover` (request)
+
+- **When called**: Client requests hover docs at a position.
+- **Request params**: `{ textDocument, position }`. The server also accepts an optional `params.symbol` for direct symbol lookup (a non-standard extension used by the smoke tests).
+- **Response result**: `{ contents: { kind: "markdown", value: "<markdown>" } }` if the symbol resolves; `null` otherwise. The markdown block is the Academy 4-element header (Title/Logline/Setup/Beats) parsed from the source file, prepended to the canonical symbol's signature and doc.
+
+### 6.5 `textDocument/definition` (request)
+
+- **When called**: Client requests go-to-definition at a position.
+- **Response result**: a single `Location` (URI + line + col) if the symbol is a capability builtin or a user `pub fn`; `null` otherwise. Capability builtins resolve to `ooda/runtime/chs_rt_*.c` URIs; user `pub fn` resolve to the compiler URI + line + col.
+
+### 6.6 `textDocument/documentSymbol` (request)
+
+- **When called**: Client requests the outline.
+- **Response result**: an array of `DocumentSymbol` items. Each symbol is `kind=12` (Function) extracted by a `pub fn ` scan of the source text. No class or interface kinds; no hierarchical nesting.
+
+### 6.7 `textDocument/formatting` (request)
+
+- **When called**: Client requests a format pass.
+- **Response result**: an array of `TextEdit` items, normally a single full-file edit with normalized indentation. The formatter is a single pass that collapses tabs to 4 spaces and trims trailing whitespace.
+
+### 6.8 `textDocument/codeAction` (request)
+
+- **When called**: Client requests quick-fixes for a diagnostic.
+- **Response result**: an array of `CodeAction` items. The server ships 4 built-in actions keyed off the diagnostic code: `E_CAP` → add `&Cap` parameter, `E_PARSE` → close brace, `E_EM_WEIGHT` → split file, `E_CAP_ATTENUATE` → narrow to `&FsReadCap`.
+
+### 6.9 `textDocument/diagnostic` (request, LSP 3.16+ pull mode)
+
+- **When called**: Client requests the current diagnostic set on demand.
+- **Response result**: `{ items: [ Diagnostic, ... ] }` synchronously. The 6 governance diagnostics (see `LSP_SETUP.oot` §E-M diagnostics) are returned.
+
+### 6.10 `textDocument/documentLink` (request)
+
+- **When called**: Client requests clickable links in the document.
+- **Response result**: an array of `DocumentLink` items. The server scans for `&Cap` references and resolves each to the oodac/ runtime source URI from the canonical path table.
+
+### 6.11 `textDocument/inlayHint` (request)
+
+- **When called**: Client requests inline type hints.
+- **Response result**: an array of `InlayHint` items. The server scans for `let x = <literal>` and emits a hint with the inferred literal type (`String`, `Int`, `Bool`).
+
+## 7. Workspace methods
+
+### 7.1 `workspace/executeCommand` (request)
+
+- **When called**: Client invokes a server-defined command.
+- **Request params**: `{ command, arguments }`.
+- **Known commands** (advertised in the `executeCommandProvider.commands` capability):
+  - `ooda.lsp.version` — returns the LSP engine version string (SSoT: `lsp_facade_version()` in `lsp_version.oo`).
+  - `ooda.lsp.indexSize` — returns the size of the in-memory symbol index as a decimal integer.
+  - `ooda.lsp.echo` — returns the `arguments` blob unchanged (debug aid).
+- **Unknown commands**: server replies with `-32601 Method not found`.
+
+## 8. Server-to-client notifications
+
+### 8.1 `textDocument/publishDiagnostics`
+
+- **When emitted**: After every `textDocument/didOpen` and `textDocument/didChange`, when the URI guard passes.
+- **Params**: `{ uri: "<the doc URI>", diagnostics: [ Diagnostic, ... ] }`.
+- **Up to 6 diagnostics**: `W_GEN_LAYER`, `E_EM_WEIGHT`, `E_EM_PS`, `E_EM_PINS`, `E_EM_SSO`, `E_CAP_ATTENUATE`. Severity ranges 1 (Error) to 4 (Hint). These are governance meta, not compile errors. Real `oodac` compile errors are a separate stream.
+- **Clearing**: the server does not emit an empty `diagnostics: []` on close because `textDocument/didClose` is not currently dispatched. Clients see stale diagnostics until the next `didOpen` or `didChange`.
+
+## 9. Workspace trust guard
+
+Every text-bearing request runs through `lsp_server_trust_check` (or its
+silent sibling `lsp_server_uri_acceptable` for notifications). A URI
+fails the guard if:
+
+1. It contains a `..` path segment (path-segment aware, not substring).
+2. It is not a prefix-equal prefix of the workspace root from `initialize.params.rootUri` (the next character after the root must be `/` or end of string).
+3. It matches a hardcoded deny-list of system paths: `..`, `/proc/`, `/dev/`, `/etc/`, `file:///root`, `file:///home`.
+
+Notifications (`didOpen`, `didChange`) that fail the guard are
+silently dropped. Requests that fail the guard get a `-32602` envelope.
+A request that is text-bearing but arrives before `initialize` also
+gets a `-32602` envelope with the message `Server not initialized: <method>`.

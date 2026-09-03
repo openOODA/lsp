@@ -2,7 +2,14 @@
 
 File: ooda/lsp/docs/client_config.oot
 
-## 1. Launching the Server
+This doc shows how to wire the openOODA native LSP engine into a
+standards-compliant LSP 3.17 client. The server has no bundled client;
+the operator is expected to wire their own editor to `ooda lsp` over
+stdio. A bundled VSCode extension and a Neovim plugin live on the
+marketing site `openooda.github.io/tools/vscode` and are not in this
+repo.
+
+## 1. Launching the server
 
 ```sh
 # stdio mode (the real editor case)
@@ -12,22 +19,57 @@ ooda lsp
 ooda lsp path/to/request.txt
 ```
 
-The server reads from stdin and writes to stdout. Stderr is for diagnostics.
+The server reads from stdin and writes to stdout. Stderr is for
+diagnostics only and is not part of the wire. See `LSP_SETUP.oot` for
+the framing loop details and the per-frame / per-session safety caps.
 
-## 2. Initialization
+The server expects no environment variables. The path to `ooda` must
+be on the editor's `PATH`, or the client must invoke the absolute
+path directly.
 
-The client must send an `initialize` request before any other request. The server responds with its capabilities (see `LSP_SETUP.oot`). After receiving the response, the client sends `initialized` (a notification, no response).
+## 2. The initialization handshake
 
-## 3. Workspace Trust
+Every client must complete the standard 3-step handshake:
 
-The server enforces workspace trust: every URI is validated against the configured root prefix. Traversal and outside-root paths are rejected with `-32602` before any handler runs. This is in `ooda/lsp/server/lsp_server_guards.oo`.
+1. Send `initialize` with `rootUri` set to the workspace root. The server uses this root for the trust guard (see `protocol.oot` §9).
+2. Wait for the response. The response carries the capability declaration; the client should ignore any capability it does not understand.
+3. Send the `initialized` notification. After that, the client may send `textDocument/*` and `workspace/*` requests.
 
-## 4. Editor Configuration
+Most clients do this automatically. The handshake fails closed: any
+`textDocument/*` request that arrives before step 3 is rejected with
+`-32602 Server not initialized: <method>`.
 
-For VS Code (or any LSP 3.17 client):
+## 3. The `openooda-lsp` client config (generic shape)
+
+A generic LSP 3.17 client takes a config of the form:
+
 ```json
 {
   "openooda-lsp": {
+    "command": "ooda",
+    "args": ["lsp"],
+    "filetypes": ["ooda"],
+    "rootMarkers": ["ANCHOR.oo", "ooda.pkg"]
+  }
+}
+```
+
+`filetypes` is the editor's filetype name. For `.oo` files the
+canonical filetype is `ooda`. `rootMarkers` is the file or directory
+the client uses to detect the workspace root; the server itself uses
+`rootUri` from the `initialize` request and does not look at the
+filesystem.
+
+## 4. VS Code
+
+There is no VSCode extension in this repo. To use the LSP from VSCode:
+
+1. Install a generic LSP client such as `vscode-langservers-extracted` or `vscode-ripgrep` (any client that supports arbitrary command + filetype).
+2. Add to `settings.json`:
+
+```json
+{
+  "langserver.openooda-lsp": {
     "command": "ooda",
     "args": ["lsp"],
     "filetypes": ["ooda"]
@@ -35,11 +77,104 @@ For VS Code (or any LSP 3.17 client):
 }
 ```
 
-For Neovim (with nvim-lspconfig):
+3. Map `.oo` files to filetype `ooda` via `files.associations`:
+
+```json
+{
+  "files.associations": {
+    "*.oo": "ooda"
+  }
+}
+```
+
+The bundled extension at `openooda.github.io/tools/vscode` wraps this
+and adds the `.oo` filetype association plus a launch icon.
+
+## 5. Neovim (nvim-lspconfig)
+
+Add `ooda` to the `lspconfig` setup:
+
 ```lua
 require('lspconfig').openooda_lsp.setup{
   cmd = {'ooda', 'lsp'},
   filetypes = {'ooda'},
   root_dir = require('lspconfig.util').find_git_ancestor,
+  settings = {},
 }
 ```
+
+Add a filetype detection for `.oo` files:
+
+```lua
+vim.cmd[[ autocmd BufRead,BufNewFile *.oo set filetype=ooda ]]
+```
+
+## 6. Helix
+
+Add to `~/.config/helix/languages.toml`:
+
+```toml
+[[language]]
+name = "ooda"
+scope = "source.ooda"
+file-types = ["oo"]
+roots = ["ANCHOR.oo", "ooda.pkg"]
+
+[language-server.openooda-lsp]
+command = "ooda"
+args = ["lsp"]
+```
+
+## 7. Emacs (lsp-mode)
+
+```elisp
+(with-eval-after-load 'lsp-mode
+  (add-to-list 'lsp-language-id-configuration '(ooda-mode . "ooda"))
+  (lsp-register-custom-type
+   'openooda-lsp
+   '((command . ("ooda" "lsp"))
+     (root-markers . ("ANCHOR.oo" "ooda.pkg")))))
+
+(add-to-list 'auto-mode-alist '("\\.oo\\'" . ooda-mode))
+```
+
+## 8. Vim (vim-lsp)
+
+```vim
+if executable('ooda')
+  augroup lsp_ooda
+    autocmd!
+    autocmd User lsp_setup call lsp#register_server({
+      \ 'name': 'openooda-lsp',
+      \ 'cmd': {server_info->['ooda', 'lsp']},
+      \ 'root_uri': {server_info->lsp#utils#find_git_root()},
+      \ 'whitelist': ['ooda'],
+      \ })
+  augroup END
+endif
+```
+
+## 9. Capabilities alignment
+
+The server advertises 9 server-side capabilities. Clients that
+opt into a capability but the server does not advertise it should
+not invoke the corresponding method; the server replies with
+`-32601 Method not found` for any method it does not implement.
+
+The full capability declaration is in `CAPABILITIES.oot`. The 4
+extras clients typically want to know are:
+
+- `completionProvider.triggerCharacters` is `[".", "&", ":"]`.
+- `documentLinkProvider.resolveProvider` is `false`; the server returns targets directly.
+- `diagnosticProvider.interFileDependencies` is `false`; pull mode is local-only.
+- `executeCommandProvider.commands` is `["ooda.lsp.version", "ooda.lsp.indexSize", "ooda.lsp.echo"]`.
+
+## 10. Workspace root
+
+The server uses `initialize.params.rootUri` as the single workspace
+root for the whole session. There is no `workspace/didChangeConfiguration`
+flow; the operator does not need to push `rootUri` updates.
+
+If the editor's workspace changes mid-session, the operator should
+restart the LSP process. The stdio loop has a 30 s idle timeout, so
+an idle editor will be cleaned up automatically.

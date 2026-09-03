@@ -1,0 +1,200 @@
+# LSP Server Capabilities
+
+File: ooda/lsp/docs/CAPABILITIES.oot
+
+The openOODA native LSP engine advertises a fixed, minimal set of
+capabilities in the `initialize` response. This doc is the
+authoritative spec for that declaration. The single source of truth
+in the source tree is `ooda/lsp/server/lsp_server_capabilities.oo`,
+which returns one constant JSON string. The doc duplicates that
+string, explains every entry, and lists what is intentionally
+NOT advertised and why.
+
+## 1. The capability JSON
+
+The `initialize` response body is:
+
+```json
+{
+  "capabilities": {
+    "textDocumentSync": {
+      "openClose": true,
+      "change": 1
+    },
+    "completionProvider": {
+      "resolveProvider": true,
+      "triggerCharacters": [".", "&", ":"]
+    },
+    "hoverProvider": true,
+    "definitionProvider": true,
+    "documentSymbolProvider": true,
+    "documentFormattingProvider": true,
+    "codeActionProvider": true,
+    "documentLinkProvider": {
+      "resolveProvider": false
+    },
+    "inlayHintProvider": true,
+    "diagnosticProvider": {
+      "interFileDependencies": false,
+      "workspaceDiagnostics": false
+    },
+    "executeCommandProvider": {
+      "commands": [
+        "ooda.lsp.version",
+        "ooda.lsp.indexSize",
+        "ooda.lsp.echo"
+      ]
+    },
+    "workspace": {
+      "workspaceFolders": {
+        "supported": true
+      }
+    }
+  }
+}
+```
+
+`serverInfo` is set to `{ "name": "openooda-lsp", "version": "0.5.0" }`
+where `0.5.0` comes from the `lsp=` line in `VERSION`. The engine
+version returned by `ooda.lsp.version` is a separate value
+(`lsp_facade_version()` in `lsp_version.oo`) and is the
+double-run-proof SSoT.
+
+## 2. Capability-by-capability rationale
+
+### 2.1 `textDocumentSync` (kind: full, change: 1)
+
+- `openClose: true` — the server wants `didOpen` so it can compute
+  the governance diagnostics and emit `publishDiagnostics`.
+- `change: 1` — full sync. The client sends the full text on every
+  `didChange`. The server does not implement incremental sync (LSP
+  3.17 `change: 2`).
+- **Note**: `textDocument/didClose` is NOT in the dispatcher
+  (lsp_server_dispatch.oo). The `openClose: true` flag is therefore
+  over-advertised today. A `didClose` will be rejected with
+  `-32601 Method not found`. The 0.5.0 server expects the client to
+  ignore this and not surface it as an error.
+
+### 2.2 `completionProvider` (resolveProvider: true, trigger: . & :)
+
+- `triggerCharacters` are `.`, `&`, `:`. `.` is the namespace
+  member access, `&` is the OCap capability token, `:` is the type
+  annotation.
+- `resolveProvider: true` advertises that the server accepts
+  `completionItem/resolve` to fill in `documentation`. The 0.5.0
+  server returns the static detail on the initial call and does not
+  distinguish a resolve pass; the flag is honest but minimal.
+
+### 2.3 `hoverProvider: true`
+
+- Hover returns a markdown Contents block: the Academy 4-element
+  header (Title, Logline, Setup, Beats) parsed from the source text
+  prepended to the canonical symbol's signature and doc. `null` for
+  unknown symbols.
+
+### 2.4 `definitionProvider: true`
+
+- Definition returns a `Location` for capability builtins (URI is
+  `ooda/runtime/chs_rt_*.c`) and for user `pub fn` (URI + line + col
+  from the compiler index). `null` otherwise.
+
+### 2.5 `documentSymbolProvider: true`
+
+- DocumentSymbol returns `kind=12` (Function) entries extracted by a
+  `pub fn ` scan. No class, interface, or namespace kinds. No
+  hierarchical nesting. The server is single-file today and does not
+  model the module tree.
+
+### 2.6 `documentFormattingProvider: true`
+
+- Formatting returns a single full-file `TextEdit` with normalized
+  indentation: tabs to 4 spaces, trailing whitespace trimmed. The
+  formatter is a single pass; it does not implement an LSP
+  `DocumentRangeFormattingProvider` and does not honor
+  `DocumentFormattingOptions`.
+
+### 2.7 `codeActionProvider: true`
+
+- CodeAction returns up to 4 fixes keyed off the diagnostic code:
+  `E_CAP`, `E_PARSE`, `E_EM_WEIGHT`, `E_CAP_ATTENUATE`. The server
+  does not advertise a `codeActionKinds` array; all actions are of
+  kind `quickfix`.
+
+### 2.8 `documentLinkProvider` (resolveProvider: false)
+
+- DocumentLink scans for `&Cap` references and resolves each to an
+  oodac/ runtime source URI. The server does not implement
+  `documentLink/resolve`; the targets are returned directly. Hence
+  `resolveProvider: false`.
+
+### 2.9 `inlayHintProvider: true`
+
+- InlayHint scans for `let x = <literal>` and emits a hint with the
+  inferred literal type: `String`, `Int`, `Bool`. The hint is emitted
+  with `kind: 1` (Type). The server does not honor
+  `InlayHintOptions.resolveProvider`.
+
+### 2.10 `diagnosticProvider` (interFileDependencies: false, workspaceDiagnostics: false)
+
+- Pull mode (LSP 3.16+) is supported via `textDocument/diagnostic`.
+  The response is `{ items: [...] }` synchronous.
+- `interFileDependencies: false` because the 6 governance
+  diagnostics are local to the single file.
+- `workspaceDiagnostics: false` because there is no
+  `workspace/diagnostic` handler in the dispatcher.
+
+### 2.11 `executeCommandProvider`
+
+- 3 commands: `ooda.lsp.version`, `ooda.lsp.indexSize`,
+  `ooda.lsp.echo`. See `protocol.oot` §7.1 for request and response
+  shapes.
+
+### 2.12 `workspace.workspaceFolders.supported: true`
+
+- The server uses a single root from `initialize.params.rootUri`. The
+  `workspaceFolders` capability is advertised for clients that
+  require the flag, but the server does not implement
+  `workspace/workspaceFolders` or `workspace/didChangeWorkspaceFolders`.
+
+## 3. What is NOT supported
+
+The following standard LSP 3.17 methods are intentionally NOT
+advertised. Each entry has a one-line rationale.
+
+| Method | Status | Rationale |
+|--------|--------|-----------|
+| `workspace/didChangeWatchedFiles` | Not advertised | The stdlib index is rescanned at startup. Slice D removed the no-op handler and the capability lie. |
+| `workspace/symbol` | Not advertised | No workspace-wide search; the index is file-scoped. |
+| `workspace/diagnostic` | Not advertised | Governance diagnostics are file-local (`interFileDependencies: false`). |
+| `textDocument/didClose` | Dispatcher missing | Over-advertised via `textDocumentSync.openClose`; clients should ignore the mismatch. |
+| `textDocument/references` | Not advertised | No cross-file reference index; the compiler index is single-file. |
+| `textDocument/rename` | Not advertised | No rename-aware symbol table; refactor is out of scope. |
+| `textDocument/signatureHelp` | Not advertised | The `.oo` syntax does not need paren-completion; cap + type sigs are inline. |
+| `textDocument/rangeFormatting` | Not advertised | The formatter is full-file only. |
+| `textDocument/onTypeFormatting` | Not advertised | Trigger characters already drive completion. |
+| `textDocument/documentHighlight` | Not advertised | No semantics for "this binding is used here". |
+| `textDocument/foldingRange` | Not advertised | Editor-side. |
+| `textDocument/selectionRange` | Not advertised | Editor-side. |
+| `textDocument/semanticTokens` | Not advertised | The 6 governance diagnostics are not token streams. |
+| `textDocument/moniker` | Not advertised | No module name resolution; `ANCHOR.oo` paths are the closest equivalent and are not exposed over LSP. |
+| `textDocument/typeDefinition` | Not advertised | `pub fn` is the only top-level decl with a definition URI; types do not have one. |
+| `textDocument/implementation` | Not advertised | No interfaces in `.oo`. |
+| `textDocument/prepareTypeHierarchy` | Not advertised | No type hierarchy. |
+| `textDocument/colorProvider` | Not advertised | No semantic color values. |
+| `textDocument/prepareCallHierarchy` | Not advertised | The call graph is not built. |
+
+## 4. SSoT: where the JSON lives
+
+The capability JSON is one constant string in
+`ooda/lsp/server/lsp_server_capabilities.oo`. It is not assembled
+from per-capability fields; any change to a capability's shape
+must be made in that file. The `lsp_server_handle_initialize` in
+`lsp_server_handlers.oo` reads the constant and frames the
+`initialize` response.
+
+The `version` in `serverInfo` is the `lsp=` line in `VERSION`. The
+`ooda.lsp.version` executeCommand result is the
+`lsp_facade_version()` constant in `lsp_version.oo`. The two
+versions are intentionally separate: `serverInfo.version` is the
+package version (driven by the release script), `ooda.lsp.version`
+is the engine version (driven by the double-run proof).
