@@ -30,7 +30,7 @@ pub fn main() {
   let v1: String = lsp_version();
   let v2: String = lsp_version();
   if v1 == v2 { pass("version deterministic: " + v1); } else { fail("version not deterministic"); }
-  if v1 == "2.11.0" { pass("version SSoT 2.11.0"); } else { fail("version drift: got " + v1); }
+  if v1 == "2.12.0" { pass("version SSoT 2.12.0"); } else { fail("version drift: got " + v1); }
 
   let payload: String = "{\"jsonrpc\":\"2.0\",\"id\":\"1\",\"result\":{}}";
   let f1: String = lsp_jsonrpc_frame(payload);

@@ -9,7 +9,7 @@
 # the declared range. The api_surface field is a structural check: the
 # loader asserts the LSP ANCHOR.oo exposes exactly 7 public subdirs.
 
-lsp=0.5.0
+lsp=0.6.0
 ooda=2.10.0
 ooda_max=2.99.0
 oodac=2.10.0
