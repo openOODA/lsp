@@ -1,0 +1,140 @@
+// # LSP oodac check Diagnostic Parse
+//
+// Logline: Turns oodac `ERR\\tkind\\tmsg` stdout into LSP Diagnostic JSON objects.
+//
+// Setup: Pure parse. Line/col in oodac are 1-based. LSP is 0-based. No spawn here.
+//
+// Beats:
+//   1. Split capture into lines. Take ERR records. Optional --> path:line:col.
+//   2. Map kind to E_TC / E_PARSE / E_CHECK / E_LEX / E_CAP.
+//   3. Emit comma-separated diagnostic objects for concat with WEIGHT/PINS.
+
+import "lsp/wire/lsp_json_encode.oo";
+import "lsp_text.oo";
+
+pub fn lsp_check_kind_code(kind: String) -> String {
+    if kind == "type" { return "E_TC"; }
+    if kind == "parse" { return "E_PARSE"; }
+    if kind == "lex" { return "E_LEX"; }
+    if kind == "capability" { return "E_CAP"; }
+    if kind == "check" { return "E_CHECK"; }
+    if kind == "load" { return "E_LOAD"; }
+    return "E_CHECK";
+}
+
+fn lsp_check_digits(s: String, i0: Int) -> Int {
+    let n: Int = chars_len(s);
+    let mut i: Int = i0;
+    let mut v: Int = 0;
+    let mut any: Bool = false;
+    while i < n {
+        let c: String = char_at(s, i);
+        let code: Int = byte_at(c, 0);
+        if code < 48 || code > 57 { break; }
+        v = v * 10 + (code - 48);
+        any = true;
+        i = i + 1;
+    }
+    if !any { return 0; }
+    return v;
+}
+
+fn lsp_check_loc_pair(msg: String) -> String {
+    let p: Int = str_index_of(msg, "Type error at ");
+    if p < 0 { return "0\t0"; }
+    let line: Int = lsp_check_digits(msg, p + 14);
+    let mut colon: Int = p + 14;
+    while colon < chars_len(msg) && char_at(msg, colon) != ":" { colon = colon + 1; }
+    let col: Int = if colon < chars_len(msg) { lsp_check_digits(msg, colon + 1) } else { 0 };
+    return line.to_string() + "\t" + col.to_string();
+}
+
+fn lsp_check_arrow_pair(line: String) -> String {
+    if !str_starts_with(line, "--> ") { return "0\t0"; }
+    let rest: String = str_slice(line, 4, chars_len(line));
+    let n: Int = chars_len(rest);
+    let mut i: Int = n - 1;
+    while i >= 0 && char_at(rest, i) != ":" { i = i - 1; }
+    if i < 0 { return "0\t0"; }
+    let col: Int = lsp_check_digits(rest, i + 1);
+    let mut j: Int = i - 1;
+    while j >= 0 && char_at(rest, j) != ":" { j = j - 1; }
+    if j < 0 { return "0\t0"; }
+    let ln: Int = lsp_check_digits(rest, j + 1);
+    return ln.to_string() + "\t" + col.to_string();
+}
+
+fn lsp_check_field(pair: String, idx: Int) -> Int {
+    let tab: Int = str_index_of(pair, "\t");
+    if tab < 0 { return 0; }
+    if idx == 0 { return lsp_check_digits(pair, 0); }
+    return lsp_check_digits(pair, tab + 1);
+}
+
+fn lsp_check_one(kind: String, msg: String, line1: Int, col1: Int) -> String {
+    let sl: Int = if line1 > 0 { line1 - 1 } else { 0 };
+    let sc: Int = if col1 > 0 { col1 - 1 } else { 0 };
+    let code: String = lsp_json_escape(lsp_check_kind_code(kind));
+    let emsg: String = lsp_json_escape(msg);
+    let sls: String = sl.to_string();
+    let scs: String = sc.to_string();
+    let ecs: String = (sc + 1).to_string();
+    return "{\"range\":{\"start\":{\"line\":" + sls + ",\"character\":" + scs + "},\"end\":{\"line\":" + sls + ",\"character\":" + ecs + "}},\"severity\":1,\"code\":\"" + code + "\",\"source\":\"oodac\",\"message\":\"" + emsg + "\"}";
+}
+
+pub fn lsp_check_parse(raw: String) -> String {
+    let lines: List[String] = lsp_text_lines(raw);
+    let n: Int = list_len(lines);
+    let mut out: String = "";
+    let mut kind: String = "";
+    let mut msg: String = "";
+    let mut line1: Int = 0;
+    let mut col1: Int = 0;
+    let mut pending: Bool = false;
+    let mut i: Int = 0;
+    while i < n {
+        let line: String = list_get(lines, i);
+        if str_starts_with(line, "ERR\t") {
+            if pending {
+                if chars_len(out) > 0 { out = out + ","; }
+                out = out + lsp_check_one(kind, msg, line1, col1);
+            }
+            let rest: String = str_slice(line, 4, chars_len(line));
+            let tab: Int = str_index_of(rest, "\t");
+            if tab < 0 {
+                kind = rest;
+                msg = rest;
+            } else {
+                kind = str_slice(rest, 0, tab);
+                msg = str_slice(rest, tab + 1, chars_len(rest));
+            }
+            let loc: String = lsp_check_loc_pair(msg);
+            line1 = lsp_check_field(loc, 0);
+            col1 = lsp_check_field(loc, 1);
+            pending = true;
+        } else if pending && str_starts_with(line, "--> ") {
+            let loc2: String = lsp_check_arrow_pair(line);
+            let ln: Int = lsp_check_field(loc2, 0);
+            let col: Int = lsp_check_field(loc2, 1);
+            if ln > 0 { line1 = ln; }
+            if col > 0 { col1 = col; }
+        }
+        i = i + 1;
+    }
+    if pending {
+        if chars_len(out) > 0 { out = out + ","; }
+        out = out + lsp_check_one(kind, msg, line1, col1);
+    }
+    return out;
+}
+
+pub fn lsp_check_run(p: &ProcessCap, fs: &FsReadCap, compiler: String, path: String) -> String {
+    if chars_len(compiler) == 0 { return ""; }
+    if chars_len(path) == 0 { return ""; }
+    if str_index_of(path, "..") >= 0 { return ""; }
+    if !str_ends_with(path, ".oo") && !str_ends_with(path, ".oot") { return ""; }
+    if !path_exists(fs, path) { return ""; }
+    let r: Result[String, String] = sys_exec(p, compiler, "check", path);
+    let raw: String = match r { Ok(s) => s, Err(e) => e };
+    return lsp_check_parse(raw);
+}

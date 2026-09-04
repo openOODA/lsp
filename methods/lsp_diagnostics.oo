@@ -68,8 +68,8 @@ pub fn lsp_server_extract_diags(uri: String, src: String) -> String {
     return lsp_em_concat_diags("", em_w, em_pins, "");
 }
 
-pub fn lsp_server_emit_diagnostics(uri: String, src: String) -> String {
-    let diags: String = lsp_server_extract_diags(uri, src);
+pub fn lsp_server_emit_diagnostics(uri: String, src: String, extra: String) -> String {
+    let diags: String = lsp_em_concat_diags(lsp_server_extract_diags(uri, src), extra, "", "");
     let esc_uri: String = lsp_jsonrpc_escape(uri);
     let body: String = "{\"uri\":\"" + esc_uri + "\",\"diagnostics\":[" + diags + "]}";
     return lsp_jsonrpc_frame(lsp_jsonrpc_make_notification("textDocument/publishDiagnostics", body));

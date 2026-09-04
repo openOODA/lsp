@@ -1,6 +1,6 @@
 // # Sovereign LSP Go-To-Definition
 //
-// Logline: Resolves a symbol to a Location: pub fn in the open file, or oodar grant file from the loaded cap table.
+// Logline: Resolves a symbol to a Location: pub fn/struct/enum/type in the open file, or oodar grant file from the loaded cap table.
 //
 // Setup: Cap paths come only from symbols/lsp_cap_table.oo rows. Empty rows yield null. No hard-coded table.
 //
@@ -14,6 +14,7 @@ import "lsp/symbols/lsp_symbol_record.oo";
 import "lsp/symbols/lsp_cap_table.oo";
 import "lsp/wire/lsp_jsonrpc.oo";
 import "lsp_text.oo";
+import "lsp/bridge/lsp_compiler_merge.oo";
 
 pub fn lsp_definition_format_location(name: String, path: String, line: Int, col: Int) -> String {
     let sl: String = line.to_string();
@@ -32,15 +33,7 @@ pub fn lsp_definition_builtin_path(name: String, rows: List[String], oodar_root:
 }
 
 pub fn lsp_definition_find_line(src: String, name: String) -> Int {
-    let needle: String = "pub fn " + name;
-    let lines: List[String] = lsp_text_lines(src);
-    let n: Int = list_len(lines);
-    let mut i: Int = 0;
-    while i < n {
-        if str_index_of(list_get(lines, i), needle) >= 0 { return i; }
-        i = i + 1;
-    }
-    return 0 - 1;
+    return lsp_compiler_find_line(src, name);
 }
 
 pub fn lsp_definition_resolve_in_doc(

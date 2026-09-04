@@ -1,0 +1,45 @@
+// # LSP Multi-Document Store - Hostile Probe
+//
+// Logline: Proves two open files both merge, and closing one drops only that file's symbols.
+//
+// Setup: Requires &CompilerReadCap. Does not import the dispatcher.
+//
+// Beats:
+//   1. Put a.oo and b.oo. Merge contains alpha and beta.
+//   2. Get returns the stored text. Remove a.oo drops alpha, keeps beta.
+//   3. Empty store merge equals the seed.
+
+import "lsp/server/lsp_server_docs.oo";
+import "lsp/symbols/lsp_symbol_canonical.oo";
+import "lsp/symbols/lsp_symbol_record.oo";
+
+fn fail(msg: String) {
+    println("FAIL " + msg);
+    process_exit(1);
+}
+
+pub fn main(c: &CompilerReadCap) {
+    let seed: List[String] = lsp_index_build_canonical();
+    let mut docs: List[String] = lsp_docs_empty();
+    docs = lsp_docs_put(docs, "file:///tmp/ws/a.oo", "pub fn alpha() {}\n");
+    docs = lsp_docs_put(docs, "file:///tmp/ws/b.oo", "pub struct beta {}\n");
+    if lsp_docs_get(docs, "file:///tmp/ws/a.oo") != "pub fn alpha() {}\n" { fail("get a"); }
+    if list_len(docs) != 2 { fail("len"); }
+    docs = lsp_docs_put(docs, "file:///tmp/ws/a.oo", "pub fn alpha() -> Int { return 1; }\n");
+    if list_len(docs) != 2 { fail("upsert grew"); }
+    println("PASS put/get");
+
+    let idx: List[String] = lsp_docs_merge_all(c, seed, docs);
+    if chars_len(lsp_index_lookup(idx, "alpha")) == 0 { fail("alpha missing"); }
+    if chars_len(lsp_index_lookup(idx, "beta")) == 0 { fail("beta missing"); }
+    println("PASS merge both");
+
+    docs = lsp_docs_remove(docs, "file:///tmp/ws/a.oo");
+    let idx2: List[String] = lsp_docs_merge_all(c, seed, docs);
+    if chars_len(lsp_index_lookup(idx2, "alpha")) != 0 { fail("alpha survived close"); }
+    if chars_len(lsp_index_lookup(idx2, "beta")) == 0 { fail("beta dropped"); }
+    let empty: List[String] = lsp_docs_merge_all(c, seed, lsp_docs_empty());
+    if chars_len(lsp_index_lookup(empty, "alpha")) != 0 { fail("empty merge"); }
+    println("PASS close one");
+    println("probe_docs PASSED");
+}

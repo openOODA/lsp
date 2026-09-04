@@ -1,12 +1,12 @@
 // # LSP DocumentSymbol - Hostile Probe
 //
-// Logline: Proves documentSymbol lists pub fn names and ignores a private fn.
+// Logline: Proves documentSymbol lists pub fn/struct/enum/type and ignores a private fn.
 //
 // Setup: Pure extract. No filesystem.
 //
 // Beats:
 //   1. `pub fn hello` appears with kind 12.
-//   2. `fn hidden` does not appear.
+//   2. struct/enum/type use kinds 23/10/26. `fn hidden` does not appear.
 //   3. Empty source is [].
 
 import "lsp/methods/lsp_formatting.oo";
@@ -18,12 +18,18 @@ fn fail(msg: String) {
 
 pub fn main() {
     let uri: String = "file:///tmp/a.oo";
-    let src: String = "pub fn hello() {}\nfn hidden() {}\n";
+    let src: String = "pub fn hello() {}\nfn hidden() {}\npub struct Widget {}\npub enum Kind {}\npub type Alias = Int\n";
     let body: String = lsp_formatting_extract_doc_symbols(uri, src);
     if str_index_of(body, "hello") < 0 { fail("hello missing: " + body); }
-    if str_index_of(body, "\"kind\":12") < 0 { fail("kind: " + body); }
+    if str_index_of(body, "\"kind\":12") < 0 { fail("kind fn: " + body); }
+    if str_index_of(body, "Widget") < 0 { fail("Widget missing: " + body); }
+    if str_index_of(body, "\"kind\":23") < 0 { fail("kind struct: " + body); }
+    if str_index_of(body, "Kind") < 0 { fail("Kind missing: " + body); }
+    if str_index_of(body, "\"kind\":10") < 0 { fail("kind enum: " + body); }
+    if str_index_of(body, "Alias") < 0 { fail("Alias missing: " + body); }
+    if str_index_of(body, "\"kind\":26") < 0 { fail("kind type: " + body); }
     if str_index_of(body, "hidden") >= 0 { fail("hidden must not appear: " + body); }
-    println("PASS pub fn");
+    println("PASS pub kinds");
 
     let empty: String = lsp_formatting_extract_doc_symbols(uri, "");
     if empty != "[]" { fail("empty: " + empty); }

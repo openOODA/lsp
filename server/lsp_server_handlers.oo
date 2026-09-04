@@ -6,7 +6,7 @@
 //
 // Beats:
 //   1. initialize returns capabilities plus serverInfo.version from lsp_facade_version().
-//   2. didOpen and didChange publish E_EM_WEIGHT and E_EM_PINS.
+//   2. didOpen and didChange publish WEIGHT, PINS, and optional oodac check extras.
 //   3. definition uses the open document and the loaded cap table.
 //   4. didClose lives in methods/lsp_diagnostics.oo with the other diagnostic emitters.
 
@@ -38,8 +38,8 @@ pub fn lsp_server_handle_definition(id: String, idx: List[String], rows: List[St
     return lsp_jsonrpc_frame(resp);
 }
 
-pub fn lsp_server_handle_did_open(uri: String, src: String) -> String { return lsp_server_emit_diagnostics(uri, src); }
-pub fn lsp_server_handle_did_change(uri: String, src: String) -> String { return lsp_server_emit_diagnostics(uri, src); }
+pub fn lsp_server_handle_did_open(uri: String, src: String, extra: String) -> String { return lsp_server_emit_diagnostics(uri, src, extra); }
+pub fn lsp_server_handle_did_change(uri: String, src: String, extra: String) -> String { return lsp_server_emit_diagnostics(uri, src, extra); }
 
 pub fn lsp_server_handle_diagnostic(id: String, uri: String, src: String) -> String {
     let diags: String = lsp_server_extract_diags(uri, src);

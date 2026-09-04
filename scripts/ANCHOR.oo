@@ -6,7 +6,7 @@
 //
 // Beats:
 //   1. build.oo - typecheck lsp/cli/main.oo via `oodac check`.
-//   2. test.oo - emit-c, write_file, gcc, run all 19 probe drivers in qa/.
+//   2. test.oo - emit-c, write_file, gcc, run all 21 probe drivers in qa/.
 //   3. verify.oo - ANCHOR presence, 256-line cap, no VERSION file.
 //   4. release.oo - build + test + verify. Git tag is auto-release on push.
 //   5. lsp_script_path.oo - refuse `..`, shell metacharacters, and whitespace.

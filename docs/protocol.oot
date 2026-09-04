@@ -34,12 +34,12 @@ Denied URI path prefixes: `/proc`, `/dev`, `/etc`, `/root`.
 
 ## 4. Document methods
 
-- `didOpen` / `didChange`: merge pub fn/struct/enum/type under CompilerReadCap, then publish WEIGHT and PINS
+- `didOpen` / `didChange`: merge every open doc, publish WEIGHT/PINS plus oodac check when a compiler path is set
 - `didClose`: publish `diagnostics: []`
 - `completion`: `{isIncomplete:false, items:[...]}` from the index
 - `hover`: markdown contents or `null`
-- `definition`: Location or `null`. Cap tokens need `--oodar-root`.
-- `documentSymbol`: `kind=12` for `pub fn`
+- `definition`: Location or `null` for pub fn/struct/enum/type. Cap tokens need `--oodar-root`.
+- `documentSymbol`: `kind=12` fn, `23` struct, `10` enum, `26` type
 - `formatting`: one full-file TextEdit (tabs to 4 spaces, trailing ws stripped)
 - `codeAction`: quickfix for `E_EM_PINS` only (delete the pin line)
 - `diagnostic`: `{items:[...]}` pull mode

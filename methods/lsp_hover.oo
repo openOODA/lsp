@@ -15,19 +15,10 @@ import "lsp/wire/lsp_json_encode.oo";
 import "lsp_text.oo";
 import "lsp/wire/lsp_jsonrpc.oo";
 import "lsp_token.oo";
+import "lsp/bridge/lsp_compiler_merge.oo";
 
 pub fn lsp_hover_find_pub_fn_line(src: String, name: String) -> Int {
-    let needle: String = "pub fn " + name;
-    let mut line: Int = 0;
-    let n: Int = chars_len(src);
-    let mut i: Int = 0;
-    while i < n {
-        let cur: String = lsp_text_line_at(src, line);
-        let stripped: String = lsp_hover_strip_header_token(cur);
-        if str_starts_with(stripped, needle) { return line; }
-        while i < n { if char_at(src, i) == "\n" { i = i + 1; line = line + 1; break; } i = i + 1; }
-    }
-    return 0 - 1;
+    return lsp_compiler_find_line(src, name);
 }
 
 pub fn lsp_hover_parse_academy_in_range(src: String, start_line: Int, end_line: Int) -> List[String] {
@@ -144,7 +135,7 @@ pub fn lsp_hover_from_index(idx: List[String], name: String, id: String, line: I
     let idx_md: String = lsp_hover_render(name, sig, doc);
     let mut full_md: String = idx_md;
     if chars_len(src) > 0 {
-        let pub_line: Int = lsp_hover_find_pub_fn_line(src, name);
+        let pub_line: Int = lsp_compiler_find_line(src, name);
         let mut parsed: List[String] = list_new();
         if pub_line >= 0 { parsed = lsp_hover_parse_academy_in_range(src, pub_line, pub_line); }
         let academy_md: String = lsp_hover_format_markdown(parsed);

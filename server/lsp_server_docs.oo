@@ -1,0 +1,90 @@
+// # LSP Open Document Store
+//
+// Logline: Many open files as uri\\ntext records. Merge rebuilds the index from every open document.
+//
+// Setup: Pure list ops plus CompilerReadCap merge. No dispatcher. No LspFrame.
+//
+// Beats:
+//   1. Lookup, upsert, and remove by URI.
+//   2. Rebuild the symbol index from base plus every stored document.
+
+import "lsp/bridge/lsp_compiler_merge.oo";
+
+pub fn lsp_docs_empty() -> List[String] { return list_new(); }
+
+pub fn lsp_docs_rec(uri: String, text: String) -> String { return uri + "\n" + text; }
+
+pub fn lsp_docs_uri(rec: String) -> String {
+    let n: Int = chars_len(rec);
+    let mut i: Int = 0;
+    while i < n {
+        if char_at(rec, i) == "\n" { return str_slice(rec, 0, i); }
+        i = i + 1;
+    }
+    return rec;
+}
+
+pub fn lsp_docs_text(rec: String) -> String {
+    let n: Int = chars_len(rec);
+    let mut i: Int = 0;
+    while i < n {
+        if char_at(rec, i) == "\n" { return str_slice(rec, i + 1, n); }
+        i = i + 1;
+    }
+    return "";
+}
+
+pub fn lsp_docs_get(docs: List[String], uri: String) -> String {
+    let n: Int = list_len(docs);
+    let mut i: Int = 0;
+    while i < n {
+        let rec: String = list_get(docs, i);
+        if lsp_docs_uri(rec) == uri { return lsp_docs_text(rec); }
+        i = i + 1;
+    }
+    return "";
+}
+
+pub fn lsp_docs_put(docs: List[String], uri: String, text: String) -> List[String] {
+    let rec: String = lsp_docs_rec(uri, text);
+    let n: Int = list_len(docs);
+    let mut out: List[String] = list_new();
+    let mut found: Bool = false;
+    let mut i: Int = 0;
+    while i < n {
+        let old: String = list_get(docs, i);
+        if lsp_docs_uri(old) == uri {
+            out = list_push(out, rec);
+            found = true;
+        } else {
+            out = list_push(out, old);
+        }
+        i = i + 1;
+    }
+    if !found { out = list_push(out, rec); }
+    return out;
+}
+
+pub fn lsp_docs_remove(docs: List[String], uri: String) -> List[String] {
+    let n: Int = list_len(docs);
+    let mut out: List[String] = list_new();
+    let mut i: Int = 0;
+    while i < n {
+        let rec: String = list_get(docs, i);
+        if lsp_docs_uri(rec) != uri { out = list_push(out, rec); }
+        i = i + 1;
+    }
+    return out;
+}
+
+pub fn lsp_docs_merge_all(c: &CompilerReadCap, base: List[String], docs: List[String]) -> List[String] {
+    let n: Int = list_len(docs);
+    let mut idx: List[String] = base;
+    let mut i: Int = 0;
+    while i < n {
+        let rec: String = list_get(docs, i);
+        idx = lsp_compiler_merge_table(c, idx, lsp_docs_uri(rec), lsp_docs_text(rec));
+        i = i + 1;
+    }
+    return idx;
+}

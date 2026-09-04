@@ -46,14 +46,14 @@ pub fn lsp_server_dispatch_request(state: LspServerState, idx: List[String], row
         if !d.has_doc { return ""; }
         if lsp_server_text_too_large(d.text) { return ""; }
         if !lsp_server_uri_acceptable(d.uri, state.root_uri) { return ""; }
-        return lsp_server_handle_did_open(d.uri, d.text);
+        return lsp_server_handle_did_open(d.uri, d.text, "");
     }
     if method == "textDocument/didChange" {
         let d: LspDoc = lsp_server_extract_doc(params);
         if !d.has_doc { return ""; }
         if lsp_server_text_too_large(d.text) { return ""; }
         if !lsp_server_uri_acceptable(d.uri, state.root_uri) { return ""; }
-        return lsp_server_handle_did_change(d.uri, d.text);
+        return lsp_server_handle_did_change(d.uri, d.text, "");
     }
     if method == "textDocument/didClose" {
         let d: LspDoc = lsp_server_extract_doc(params);
@@ -144,7 +144,7 @@ pub fn lsp_server_dispatch_request(state: LspServerState, idx: List[String], row
     return lsp_jsonrpc_frame(lsp_jsonrpc_make_error(id, 0 - 32601, "Method not found: " + method));
 }
 
-pub fn lsp_server_process_message(state: LspServerState, raw_body: String, idx: List[String], rows: List[String]) -> LspProcessResult {
+pub fn lsp_server_process_message(state: LspServerState, raw_body: String, idx: List[String], rows: List[String], extra_diags: String) -> LspProcessResult {
     let method: String = lsp_jsonrpc_extract_method(raw_body);
     let id: String = lsp_jsonrpc_extract_id(raw_body);
     let params: String = lsp_jsonrpc_extract_params(raw_body);
@@ -164,8 +164,21 @@ pub fn lsp_server_process_message(state: LspServerState, raw_body: String, idx: 
     }
     if method == "textDocument/didClose" {
         let d: LspDoc = lsp_server_extract_doc(params);
-        if d.uri == next.doc_uri { next = lsp_server_clear_doc(next); }
+        next = lsp_server_clear_doc(next, d.uri);
     }
-    let resp: String = lsp_server_dispatch_request(next, idx, rows, method, id, params);
+    let mut resp: String = "";
+    if method == "textDocument/didOpen" {
+        let d: LspDoc = lsp_server_extract_doc(params);
+        if d.has_doc && !lsp_server_text_too_large(d.text) && lsp_server_uri_acceptable(d.uri, next.root_uri) {
+            resp = lsp_server_handle_did_open(d.uri, d.text, extra_diags);
+        }
+    } else if method == "textDocument/didChange" {
+        let d: LspDoc = lsp_server_extract_doc(params);
+        if d.has_doc && !lsp_server_text_too_large(d.text) && lsp_server_uri_acceptable(d.uri, next.root_uri) {
+            resp = lsp_server_handle_did_change(d.uri, lsp_server_doc_text(next, d), extra_diags);
+        }
+    } else {
+        resp = lsp_server_dispatch_request(next, idx, rows, method, id, params);
+    }
     return lsp_process_result_new(resp, next);
 }

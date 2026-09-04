@@ -24,6 +24,8 @@
 //   17. probe_json_smuggle.oo - string-aware JSON method extract.
 //   18. probe_utf16.oo - UTF-16 columns and prefix.
 //   19. probe_struct_merge.oo - struct/enum/type merge.
+//   20. probe_docs.oo - multi-document store and merge-all.
+//   21. probe_check.oo - oodac ERR parse to LSP diagnostics.
 
 import "probe_initialize.oo";
 import "probe_completion.oo";
@@ -44,3 +46,5 @@ import "probe_execute_command.oo";
 import "probe_json_smuggle.oo";
 import "probe_utf16.oo";
 import "probe_struct_merge.oo";
+import "probe_docs.oo";
+import "probe_check.oo";

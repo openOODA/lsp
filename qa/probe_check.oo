@@ -1,0 +1,38 @@
+// # LSP oodac check Parse - Hostile Probe
+//
+// Logline: Proves ERR type lines become E_TC diagnostics at 0-based line/col, and OK is empty.
+//
+// Setup: Pure parse. No spawn. No filesystem.
+//
+// Beats:
+//   1. Type error at 3:5 becomes line 2 col 4 with code E_TC.
+//   2. --> path:line:col fills missing loc.
+//   3. OK and empty captures yield no objects.
+
+import "lsp/methods/lsp_check.oo";
+
+fn fail(msg: String) {
+    println("FAIL " + msg);
+    process_exit(1);
+}
+
+pub fn main() {
+    let raw: String = "ERR\ttype\tType error at 3:5: undefined variable 'print'\n--> /tmp/a.oo:3:5\n";
+    let j: String = lsp_check_parse(raw);
+    if str_index_of(j, "E_TC") < 0 { fail("code: " + j); }
+    if str_index_of(j, "\"line\":2") < 0 { fail("line 0-based: " + j); }
+    if str_index_of(j, "\"character\":4") < 0 { fail("col 0-based: " + j); }
+    if str_index_of(j, "oodac") < 0 { fail("source: " + j); }
+    println("PASS type loc");
+
+    let arrow: String = "ERR\tparse\tunclosed brace\n--> /tmp/a.oo:10:1\n";
+    let j2: String = lsp_check_parse(arrow);
+    if str_index_of(j2, "E_PARSE") < 0 { fail("parse code: " + j2); }
+    if str_index_of(j2, "\"line\":9") < 0 { fail("arrow line: " + j2); }
+    println("PASS arrow loc");
+
+    if chars_len(lsp_check_parse("OK\n")) != 0 { fail("OK must be empty"); }
+    if chars_len(lsp_check_parse("")) != 0 { fail("empty must be empty"); }
+    println("PASS ok empty");
+    println("probe_check PASSED");
+}

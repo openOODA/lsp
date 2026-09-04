@@ -70,7 +70,7 @@ pub fn main(p: &ProcessCap, fs_r: &FsReadCap, fw: &FsWriteCap, env: &EnvCap, arg
     if !lsp_script_path_ok(chs) { return Err("chs_rt path refused"); }
     if !path_exists(fs_r, chs) { return Err("missing " + chs); }
 
-    let probes: List[String] = ["probe_initialize", "probe_completion", "probe_hover", "probe_definition", "probe_diagnostics", "probe_formatting", "probe_codeaction", "probe_double_run", "probe_token", "probe_uri", "probe_bridge", "probe_session", "probe_document_link", "probe_inlay", "probe_document_symbol", "probe_execute_command", "probe_json_smuggle", "probe_utf16", "probe_struct_merge"];
+    let probes: List[String] = ["probe_initialize", "probe_completion", "probe_hover", "probe_definition", "probe_diagnostics", "probe_formatting", "probe_codeaction", "probe_double_run", "probe_token", "probe_uri", "probe_bridge", "probe_session", "probe_document_link", "probe_inlay", "probe_document_symbol", "probe_execute_command", "probe_json_smuggle", "probe_utf16", "probe_struct_merge", "probe_docs", "probe_check"];
     let mut failed: Int = 0;
     let mut i: Int = 0;
     while i < list_len(probes) {

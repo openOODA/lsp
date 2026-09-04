@@ -50,5 +50,14 @@ pub fn main() {
     let miss: String = lsp_definition_resolve_in_doc(idx, rows, "oodar", "nope", "file:///tmp/a.oo", src);
     if chars_len(miss) != 0 { fail("unknown symbol must be empty"); }
     println("PASS user definition");
+
+    let src2: String = "pub struct Widget {}\npub enum Kind {}\npub type Alias = Int\n";
+    let locw: String = lsp_definition_resolve_in_doc(idx, rows, "oodar", "Widget", "file:///tmp/a.oo", src2);
+    if str_index_of(locw, "\"line\":0") < 0 { fail("Widget loc: " + locw); }
+    let lock: String = lsp_definition_resolve_in_doc(idx, rows, "oodar", "Kind", "file:///tmp/a.oo", src2);
+    if str_index_of(lock, "\"line\":1") < 0 { fail("Kind loc: " + lock); }
+    let loca: String = lsp_definition_resolve_in_doc(idx, rows, "oodar", "Alias", "file:///tmp/a.oo", src2);
+    if str_index_of(loca, "\"line\":2") < 0 { fail("Alias loc: " + loca); }
+    println("PASS struct enum type");
     println("probe_definition PASSED");
 }

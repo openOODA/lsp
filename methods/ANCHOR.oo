@@ -20,3 +20,4 @@ import "lsp_hover.oo";
 import "lsp_inlay_hint.oo";
 import "lsp_text.oo";
 import "lsp_token.oo";
+import "lsp_check.oo";

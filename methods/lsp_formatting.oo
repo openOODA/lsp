@@ -1,18 +1,19 @@
 // # LSP Document Formatting & Symbols
 //
-// Logline: Trims trailing whitespace and extracts public function symbols for the documentSymbol method.
+// Logline: Trims trailing whitespace and extracts pub fn/struct/enum/type symbols for documentSymbol.
 //
 // Setup: Pure string manipulation functions without external capability requirements.
 //
 // Beats:
 //   1. Strip trailing whitespace per line for textDocument/formatting.
-//   2. Extract public function symbols for textDocument/documentSymbol.
+//   2. Extract pub fn (12), struct (23), enum (10), type (26) for documentSymbol.
 //   3. Handle LSP formatting response generation.
 //   4. Handle LSP document symbol response generation.
 
 import "lsp/wire/lsp_json_encode.oo";
 import "lsp/wire/lsp_jsonrpc.oo";
 import "lsp_text.oo";
+import "lsp/bridge/lsp_compiler_merge.oo";
 
 pub fn lsp_formatting_strip_trailing_ws(src: String) -> String {
     let n: Int = chars_len(src);
@@ -65,40 +66,48 @@ pub fn lsp_formatting_handle_formatting(id: String, uri: String, src: String) ->
     return lsp_jsonrpc_frame(lsp_jsonrpc_make_response(id, body));
 }
 
-pub fn lsp_formatting_extract_doc_symbols(uri: String, src: String) -> String {
-    let n: Int = chars_len(src);
-    let mut out: String = "";
+fn lsp_formatting_ws_col(line: String) -> Int {
+    let n: Int = chars_len(line);
     let mut i: Int = 0;
-    let mut line_num: Int = 0;
-    let mut col_num: Int = 0;
-    let esc_uri: String = lsp_json_escape(uri);
+    let mut col: Int = 0;
     while i < n {
-        let c: String = char_at(src, i);
-        if c == "\n" { line_num = line_num + 1; col_num = 0; i = i + 1; continue; }
-        if c == " " || c == "\t" { col_num = col_num + 1; i = i + 1; continue; }
-        if c == "p" {
-            if i + 6 < n && str_slice(src, i, i + 7) == "pub fn " {
-                let name_start: Int = i + 7;
-                let mut j: Int = name_start;
-                while j < n {
-                    let cc: String = char_at(src, j);
-                    let code: Int = byte_at(cc, 0);
-                    let is_letter: Bool = (code >= 65 && code <= 90) || (code >= 97 && code <= 122);
-                    let is_digit: Bool = code >= 48 && code <= 57;
-                    if !is_letter && !is_digit && cc != "_" { break; }
-                    j = j + 1;
-                }
-                if j > name_start {
-                    let name: String = str_slice(src, name_start, j);
-                    let name_esc: String = lsp_json_escape(name);
-                    let ln: String = line_num.to_string();
-                    let cn: String = col_num.to_string();
-                    if chars_len(out) > 0 { out = out + ","; }
-                    out = out + "{\"name\":\"" + name_esc + "\",\"kind\":" + lsp_formatting_symbol_kind_function() + ",\"location\":{\"uri\":\"" + esc_uri + "\",\"range\":{\"start\":{\"line\":" + ln + ",\"character\":" + cn + "},\"end\":{\"line\":" + ln + ",\"character\":" + cn + "}}}}";
-                }
-            }
+        let c: String = char_at(line, i);
+        if c != " " && c != "\t" { return col; }
+        col = col + lsp_text_utf16_width(c);
+        i = i + 1;
+    }
+    return col;
+}
+
+fn lsp_formatting_sym_json(uri: String, name: String, kind: String, line: Int, col: Int) -> String {
+    let name_esc: String = lsp_json_escape(name);
+    let ln: String = line.to_string();
+    let cn: String = col.to_string();
+    return "{\"name\":\"" + name_esc + "\",\"kind\":" + kind + ",\"location\":{\"uri\":\"" + uri + "\",\"range\":{\"start\":{\"line\":" + ln + ",\"character\":" + cn + "},\"end\":{\"line\":" + ln + ",\"character\":" + cn + "}}}}";
+}
+
+pub fn lsp_formatting_extract_doc_symbols(uri: String, src: String) -> String {
+    let lines: List[String] = lsp_text_lines(src);
+    let n: Int = list_len(lines);
+    let mut out: String = "";
+    let esc_uri: String = lsp_json_escape(uri);
+    let mut i: Int = 0;
+    while i < n {
+        let line: String = list_get(lines, i);
+        let col: Int = lsp_formatting_ws_col(line);
+        let fnm: String = lsp_compiler_pub_fn_name(line);
+        let sn: String = lsp_compiler_pub_kind_name(line, "pub struct ", "Struct");
+        let en: String = lsp_compiler_pub_kind_name(line, "pub enum ", "Enum");
+        let tn: String = lsp_compiler_pub_kind_name(line, "pub type ", "Type");
+        let mut one: String = "";
+        if chars_len(fnm) > 0 { one = lsp_formatting_sym_json(esc_uri, fnm, "12", i, col); }
+        else if chars_len(sn) > 0 { one = lsp_formatting_sym_json(esc_uri, sn, "23", i, col); }
+        else if chars_len(en) > 0 { one = lsp_formatting_sym_json(esc_uri, en, "10", i, col); }
+        else if chars_len(tn) > 0 { one = lsp_formatting_sym_json(esc_uri, tn, "26", i, col); }
+        if chars_len(one) > 0 {
+            if chars_len(out) > 0 { out = out + ","; }
+            out = out + one;
         }
-        col_num = col_num + 1;
         i = i + 1;
     }
     return "[" + out + "]";

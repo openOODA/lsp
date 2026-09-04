@@ -7,13 +7,14 @@
 // Beats:
 //   1. Extract textDocument.uri and text. No params-level uri/text.
 //   2. Reject text larger than 4MB. Do not truncate.
-//   3. Stamp session root and the single open document.
+//   3. Stamp session root and upsert/remove open documents.
 
 import "lsp/types/lsp_types.oo";
 import "lsp/wire/lsp_jsonrpc.oo";
 import "lsp/symbols/lsp_e_m_concat.oo";
 import "lsp/methods/lsp_text.oo";
 import "lsp_server_uri.oo";
+import "lsp_server_docs.oo";
 
 pub fn lsp_server_text_cap() -> Int { return lsp_em_cap_text(); }
 
@@ -62,8 +63,7 @@ pub fn lsp_server_extract_doc(params: String) -> LspDoc {
 
 pub fn lsp_server_doc_text(state: LspServerState, d: LspDoc) -> String {
     if chars_len(d.text) > 0 { return d.text; }
-    if d.uri == state.doc_uri { return state.doc_text; }
-    return "";
+    return lsp_docs_get(state.docs, d.uri);
 }
 
 pub fn lsp_server_trust_check(state: LspServerState, uri: String, id: String) -> String {
@@ -89,13 +89,13 @@ pub fn lsp_server_request_guard(state: LspServerState, uri: String, text: String
 }
 
 pub fn lsp_server_stamp(s: LspServerState, init: Bool, root: String) -> LspServerState {
-    return LspServerState { is_initialized: init, root_uri: root, oodar_root: s.oodar_root, doc_uri: s.doc_uri, doc_text: s.doc_text };
+    return LspServerState { is_initialized: init, root_uri: root, oodar_root: s.oodar_root, docs: s.docs };
 }
 
 pub fn lsp_server_stamp_doc(s: LspServerState, uri: String, text: String) -> LspServerState {
-    return LspServerState { is_initialized: s.is_initialized, root_uri: s.root_uri, oodar_root: s.oodar_root, doc_uri: uri, doc_text: text };
+    return LspServerState { is_initialized: s.is_initialized, root_uri: s.root_uri, oodar_root: s.oodar_root, docs: lsp_docs_put(s.docs, uri, text) };
 }
 
-pub fn lsp_server_clear_doc(s: LspServerState) -> LspServerState {
-    return LspServerState { is_initialized: s.is_initialized, root_uri: s.root_uri, oodar_root: s.oodar_root, doc_uri: "", doc_text: "" };
+pub fn lsp_server_clear_doc(s: LspServerState, uri: String) -> LspServerState {
+    return LspServerState { is_initialized: s.is_initialized, root_uri: s.root_uri, oodar_root: s.oodar_root, docs: lsp_docs_remove(s.docs, uri) };
 }
