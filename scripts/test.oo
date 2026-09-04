@@ -1,29 +1,79 @@
-// # Test LSP — Run Self-Tests
+// # Test LSP - Emit, Link, Run Hostile Probes
 //
-// Logline: Run the 8 probe drivers in ooda/lsp/qa/.
+// Logline: For each qa probe: emit-c with OODA_COMPILER, gcc with chs_rt, run the binary. Fail closed on any step.
 //
-// Setup: Requires oodac on PATH. Returns non-zero if any probe fails.
+// Setup: Requires OODA_COMPILER, OODA_FS_READDIR, OODA_FS_WRITEDIR. oodac `run` double-emits
+//        imported modules; emit-c plus gcc is the single-TU path that executes assertions.
 //
 // Beats:
-//   1. List the 8 probe drivers.
-//   2. Invoke oodac run on each.
-//   3. Aggregate pass/fail; return non-zero on any fail.
-
-import "std/process/sys.oo";
-import "std/fs/path.oo";
+//   1. Refuse missing compiler, repo root, write dir, or chs_rt.c.
+//   2. emit-c lsp/qa/<probe>.oo into the write dir.
+//   3. gcc -lm against oodac/runtime/chs_rt.c and run the binary.
 
 pub fn main(p: &ProcessCap, fs_r: &FsReadCap, env: &EnvCap, args: List[String]) -> Result[Int, String] {
+    let cr: Result[String, String] = env_get(env, "OODA_COMPILER");
+    if cr.is_err() { return Err("OODA_COMPILER required"); }
+    let bin: String = match cr { Ok(s) => s, Err(_) => "" };
+    if chars_len(bin) == 0 { return Err("OODA_COMPILER empty"); }
+    if str_index_of(bin, "..") >= 0 { return Err("OODA_COMPILER traversal"); }
+    if !path_exists(fs_r, bin) { return Err("OODA_COMPILER missing"); }
+
+    let rr: Result[String, String] = env_get(env, "OODA_FS_READDIR");
+    if rr.is_err() { return Err("OODA_FS_READDIR required"); }
+    let root: String = match rr { Ok(s) => s, Err(_) => "" };
+    if chars_len(root) == 0 { return Err("OODA_FS_READDIR empty"); }
+    if str_index_of(root, "..") >= 0 { return Err("OODA_FS_READDIR traversal"); }
+
+    let wr: Result[String, String] = env_get(env, "OODA_FS_WRITEDIR");
+    if wr.is_err() { return Err("OODA_FS_WRITEDIR required"); }
+    let wdir: String = match wr { Ok(s) => s, Err(_) => "" };
+    if chars_len(wdir) == 0 { return Err("OODA_FS_WRITEDIR empty"); }
+    if str_index_of(wdir, "..") >= 0 { return Err("OODA_FS_WRITEDIR traversal"); }
+
+    let rt: String = root + "/oodac/runtime";
+    let chs: String = rt + "/chs_rt.c";
+    if !path_exists(fs_r, chs) { return Err("missing " + chs); }
+
     let probes: List[String] = ["probe_initialize", "probe_completion", "probe_hover", "probe_definition", "probe_diagnostics", "probe_formatting", "probe_codeaction", "probe_double_run"];
-    let mut passed: Int = 0;
     let mut failed: Int = 0;
     let mut i: Int = 0;
     while i < list_len(probes) {
-        let p: String = list_get(probes, i);
-        println("  Running ooda/lsp/qa/" + p + ".oo");
-        passed = passed + 1;
+        let name: String = list_get(probes, i);
+        let rel: String = "lsp/qa/" + name + ".oo";
+        let full: String = root + "/" + rel;
+        if !path_exists(fs_r, full) { return Err("missing " + full); }
+        let cfile: String = wdir + "/" + name + ".c";
+        let binp: String = wdir + "/" + name;
+        println("  EMIT " + rel);
+        let em: String = "cd " + root + " && exec " + bin + " emit-c " + rel + " > " + cfile;
+        let er: Result[String, String] = sys_exec(p, "sh", "-c", em);
+        if er.is_err() {
+            let msg: String = match er { Ok(_) => "", Err(e) => e };
+            println("  FAIL emit " + name + " " + msg);
+            failed = failed + 1;
+            i = i + 1;
+            continue;
+        }
+        let gcc: String = "gcc -O0 -o " + binp + " " + cfile + " " + chs + " -I " + rt + " -lm";
+        let gr: Result[String, String] = sys_exec(p, "sh", "-c", gcc);
+        if gr.is_err() {
+            let msg: String = match gr { Ok(_) => "", Err(e) => e };
+            println("  FAIL gcc " + name + " " + msg);
+            failed = failed + 1;
+            i = i + 1;
+            continue;
+        }
+        let rr2: Result[String, String] = sys_exec(p, "sh", "-c", binp);
+        if rr2.is_err() {
+            let msg: String = match rr2 { Ok(_) => "", Err(e) => e };
+            println("  FAIL run " + name + " " + msg);
+            failed = failed + 1;
+        } else {
+            println("  PASS " + name);
+        }
         i = i + 1;
     }
-    println("Results: " + passed + " passed, " + failed + " failed");
-    if failed > 0 { return Err("probe failures: " + failed); }
+    println("Results: failed=" + failed.to_string());
+    if failed > 0 { return Err("probe failures: " + failed.to_string()); }
     return Ok(0);
 }

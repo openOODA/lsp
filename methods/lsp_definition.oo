@@ -1,18 +1,18 @@
-// # Sovereign LSP Go-To-Definition via Compiler Table
+// # Sovereign LSP Go-To-Definition
 //
-// Logline: Resolves symbol via CompilerReadCap Location (uri+line/col), builtin path as secondary.
+// Logline: Resolves a symbol to a Location: pub fn in the open file, or oodar grant file from the loaded cap table.
 //
-// Setup: Active path is compiler-fetched index; resolves via compiler uri+line/col. The oodar root is the configured `oodar_root` (defaults to the polyrepo convention `oodar`); all builtin paths are resolved relative to it. v0.6.2: paths moved from the legacy `ooda/runtime/chs_rt_*.c` to the canonical `oodar/<subdir>/<file>.c` (Gen 1 C host substrate extraction + std-aligned 6-subdir reorg + Floor break v2.0.0). v0.6.3: the hard-coded cap→file table in `lsp_definition_cap_path_table()` is now explicitly documented as the CACHED FALLBACK. The intended runtime path is `lsp_definition_load_cap_table(oodar_root)` which reads `${oodar_root}/cap_table.json` when the oodar repo ships it, and falls back to the cached table when the file is missing or unparseable. The JSON source is owned by oodar (item 22 of the v2.1.0 audit residuals, or a v2.2.0 follow-up); this lsp side of the change is doc-only in v0.6.3. See `lsp/docs/CAPABILITIES.oot` §2.4 and `lsp/docs/LSP_SETUP.oot` for the spec.
+// Setup: Cap paths come only from symbols/lsp_cap_table.oo rows. Empty rows yield null. No hard-coded table.
 //
 // Beats:
-//   1. Look up a symbol in the compiler-fetched index to confirm it is known.
-//   2. Resolve Location via compiler uri+line/col, builtin path table as secondary.
-//   3. Format a JSON Location response with uri, range, and line/column.
-//   4. Format a JSON null result envelope when the symbol cannot be resolved.
-//   5. v0.6.3 (planned): `lsp_definition_load_cap_table(oodar_root)` attempts `${oodar_root}/cap_table.json` first, then the hard-coded `lsp_definition_cap_path_table()` fallback. `lsp_definition_builtin_path` consults the loaded table, then the fallback.
+//   1. Format a JSON Location with uri, range, line, and column.
+//   2. Resolve a capability token through the loaded cap table + oodar_root.
+//   3. Resolve a user pub fn by line scan of the open document.
+//   4. Return a JSON-RPC result envelope, or null when unresolved.
 
 import "lsp/symbols/lsp_symbol_record.oo";
-import "lsp/bridge/lsp_compiler_merge.oo";
+import "lsp/symbols/lsp_cap_table.oo";
+import "lsp/wire/lsp_jsonrpc.oo";
 import "lsp_text.oo";
 
 pub fn lsp_definition_format_location(name: String, path: String, line: Int, col: Int) -> String {
@@ -24,125 +24,11 @@ pub fn lsp_definition_format_location(name: String, path: String, line: Int, col
     return "{\"uri\":\"" + p + "\",\"range\":{\"start\":{\"line\":" + sl + ",\"character\":" + sc + "},\"end\":{\"line\":" + el + ",\"character\":" + ec + "}}}";
 }
 
-/* Cap-to-oodar-file table. CACHED FALLBACK as of v0.6.3.
- *
- * All paths are RELATIVE to the oodar repo root. The default oodar
- * root is "oodar" (the polyrepo convention) and is overridable via
- * the lsp config (so the lsp/ repo does NOT hard-code the absolute
- * location of the oodar/ repo — that coupling would be a violation
- * of the polyrepo independence rule).
- *
- * Mapping derived from the v2.0.0 oodar layout:
- *   FsCap/FsReadCap/FsWriteCap → sec/cap/caps.c   (the OCap token system)
- *   SysCap/EnvCap              → fs/os/sys.c
- *   TimeCap/RandCap            → fs/os/time_rand.c
- *   ProcessCap                 → fs/os/sys.c
- *   AllocCap                   → core/mem/alloc.c
- *   ThreadCap                  → app/actor/thread.c
- *   NetCap/TcpCap/UdpCap/BindCap → fs/os/netfloor.c
- *   HttpCap                    → net/fetch.c
- *   GpuCap                     → hw/gpu/gpu.c
- *   UnsafeFFICap               → app/xlang/ffi.c
- *
- * TODO(v0.6.3+): Replace the hard-coded fallback with a runtime
- * read of `${oodar_root}/cap_table.json` (or the oodar ANCHOR.oo
- * Beats section if it gains a cap→file table) in a new
- * `lsp_definition_load_cap_table(oodar_root: String) -> List<String>`
- * function. `lsp_definition_builtin_path(name)` should consult the
- * loaded table first, then fall back to this static list. The oodar
- * side of the JSON source is a follow-up commit in oodar (item 22 of
- * the v2.1.0 audit residuals, or a v2.2.0 follow-up). See
- * `lsp/docs/CAPABILITIES.oot` §2.4 and the header docblock above.
- */
-pub fn lsp_definition_cap_path_table() -> List[String] {
-    let mut out: List[String] = list_new();
-    out = list_push(out, "FsCap|sec/cap/caps.c");
-    out = list_push(out, "FsReadCap|sec/cap/caps.c");
-    out = list_push(out, "FsWriteCap|sec/cap/caps.c");
-    out = list_push(out, "SysCap|fs/os/sys.c");
-    out = list_push(out, "EnvCap|fs/os/sys.c");
-    out = list_push(out, "TimeCap|fs/os/time_rand.c");
-    out = list_push(out, "RandCap|fs/os/time_rand.c");
-    out = list_push(out, "ProcessCap|fs/os/sys.c");
-    out = list_push(out, "AllocCap|core/mem/alloc.c");
-    out = list_push(out, "ThreadCap|app/actor/thread.c");
-    out = list_push(out, "NetCap|fs/os/netfloor.c");
-    out = list_push(out, "TcpCap|fs/os/netfloor.c");
-    out = list_push(out, "UdpCap|fs/os/netfloor.c");
-    out = list_push(out, "BindCap|fs/os/netfloor.c");
-    out = list_push(out, "HttpCap|net/fetch.c");
-    out = list_push(out, "GpuCap|hw/gpu/gpu.c");
-    out = list_push(out, "UnsafeFFICap|app/xlang/ffi.c");
-    return out;
-}
-
-/* Default oodar root (polyrepo convention). Override at runtime via
- * the lsp config (LSP_SETTINGS or initialize params) — see protocol.oot.
- */
-pub fn lsp_definition_oodar_root() -> String {
-    return "oodar";
-}
-
-pub fn lsp_definition_lookup_path(name: String, tbl: List[String]) -> String {
-    let n: Int = list_len(tbl);
-    let mut i: Int = 0;
-    while i < n {
-        let row: String = list_get(tbl, i);
-        let pipe: Int = str_index_of(row, "|");
-        if pipe > 0 {
-            let k: String = str_slice(row, 0, pipe);
-            if k == name { return str_slice(row, pipe + 1, chars_len(row)); }
-        }
-        i = i + 1;
-    }
-    return "";
-}
-
-pub fn lsp_definition_builtin_path(name: String) -> String {
-    let root: String = lsp_definition_oodar_root();
-    if str_starts_with(name, "&") { return root + "/sec/cap/caps.c"; }
-    let rel: String = lsp_definition_lookup_path(name, lsp_definition_cap_path_table());
+pub fn lsp_definition_builtin_path(name: String, rows: List[String], oodar_root: String) -> String {
+    if chars_len(oodar_root) == 0 { return ""; }
+    let rel: String = lsp_cap_table_lookup(rows, name);
     if chars_len(rel) == 0 { return ""; }
-    return root + "/" + rel;
-}
-
-pub fn lsp_definition_is_builtin(symbol_name: String) -> Bool {
-    return chars_len(lsp_definition_builtin_path(symbol_name)) > 0;
-}
-
-pub fn lsp_definition_resolve(idx: List[String], symbol_name: String) -> String {
-    let rec: String = lsp_index_lookup(idx, symbol_name);
-    if chars_len(rec) == 0 { return ""; }
-    let path: String = lsp_definition_builtin_path(symbol_name);
-    if chars_len(path) == 0 { return ""; }
-    return lsp_definition_format_location(symbol_name, path, 0, 0);
-}
-
-pub fn lsp_definition_response_json(id: String, location_json: String) -> String {
-    if chars_len(location_json) == 0 { return lsp_jsonrpc_make_response(id, "null"); }
-    return lsp_jsonrpc_make_response(id, location_json);
-}
-
-pub fn lsp_definition_resolve_compiler(
-  comp: &CompilerReadCap,
-  fs: &FsReadCap,
-  uri: String,
-  content: String,
-  symbol_name: String
-) -> String {
-    let idx: List[String] = lsp_compiler_fetch(comp, fs, uri, content);
-    let rec: String = lsp_index_lookup(idx, symbol_name);
-    if chars_len(rec) == 0 { return ""; }
-    let sig: String = lsp_index_signature(rec);
-    let is_user: Bool = str_index_of(sig, "pub fn " + symbol_name) >= 0;
-    if is_user {
-        let line: Int = lsp_definition_find_line(content, symbol_name);
-        let l: Int = if line >= 0 { line } else { 0 };
-        return lsp_definition_format_location(symbol_name, uri, l, 0);
-    }
-    let path: String = lsp_definition_builtin_path(symbol_name);
-    if chars_len(path) == 0 { return ""; }
-    return lsp_definition_format_location(symbol_name, path, 0, 0);
+    return oodar_root + "/" + rel;
 }
 
 pub fn lsp_definition_find_line(src: String, name: String) -> Int {
@@ -155,4 +41,28 @@ pub fn lsp_definition_find_line(src: String, name: String) -> Int {
         i = i + 1;
     }
     return 0 - 1;
+}
+
+pub fn lsp_definition_resolve_in_doc(
+    idx: List[String],
+    rows: List[String],
+    oodar_root: String,
+    name: String,
+    uri: String,
+    src: String
+) -> String {
+    let line: Int = lsp_definition_find_line(src, name);
+    if line >= 0 {
+        return lsp_definition_format_location(name, uri, line, 0);
+    }
+    let rec: String = lsp_index_lookup(idx, name);
+    if chars_len(rec) == 0 { return ""; }
+    let path: String = lsp_definition_builtin_path(name, rows, oodar_root);
+    if chars_len(path) == 0 { return ""; }
+    return lsp_definition_format_location(name, path, 0, 0);
+}
+
+pub fn lsp_definition_response_json(id: String, location_json: String) -> String {
+    if chars_len(location_json) == 0 { return lsp_jsonrpc_make_response(id, "null"); }
+    return lsp_jsonrpc_make_response(id, location_json);
 }

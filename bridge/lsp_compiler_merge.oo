@@ -1,4 +1,4 @@
-// # LSP Compiler Index Wire — Blue-Ocean Symbol Table
+// # LSP Compiler Index Wire - Blue-Ocean Symbol Table
 //
 // Logline: Fetch live LspModuleSymbolTable via CompilerReadCap and merge into index.
 //

@@ -1,153 +1,51 @@
-# openOODA Native LSP Engine — Editor Setup
+# openOODA Native LSP Engine - Editor Setup
 
-File: ooda/lsp/LSP_SETUP.oot
+File: lsp/docs/LSP_SETUP.oot
 
-**Path:** `ooda/lsp/`  •  **Pinned to:** `ooda` v0.211.0+  •  **Audit:** openOODA/audit/lsp_redteam_2026_09_02_5th_deepdive.oot  •  **Spec:** openOODA/rfcs/0006-lsp.oot
+Launch: `ooda lsp` over stdio, or `ooda lsp <request-file>` for one-shot tests.
+Optional flags: `--stdlib-root <dir>`, `--oodar-root <dir>`.
 
-The openOODA native LSP engine is a pure-`.oo` self-hosted language server.
-The editor (any LSP 3.17 client) launches `ooda lsp` over stdio (or
-`ooda lsp <req-file>` for a one-shot file-mode session), and the server
-speaks JSON-RPC 2.0 with `Content-Length` headers. No third-party LSP
-library is required.
+`--oodar-root` is required for go-to-definition on capability tokens.
+It must point at the oodar repo root. The server reads
+`${oodar_root}/sec/cap/cap_table.json`. If the flag is set and the file is
+missing, the process exits 1. If the flag is absent, builtin definition is null.
 
-## What the server provides (per RFC 0006)
+## Capabilities
 
-| Capability | Handler | Notes |
-|-----------|---------|-------|
-| `textDocumentSync` | `didOpen`, `didChange` | publishes E-M `publishDiagnostics` on both with up to 4 governance diagnostics: `W_GEN_LAYER`, `E-M Weight`, `E-M Drag`, `E-M Ps`, `E-M Pins`, `E_EM_SSO` (SSoT version drift). |
-| `completionProvider` | `textDocument/completion` | triggers on `.`, `&`, `:`; matches against the canonical 69-entry stdlib seed (18 caps + 20 keywords + 8 types + 23 functions) merged with the user module's compiler-fetched index. |
-| `hoverProvider` | `textDocument/hover` | Markdown Contents block: Academy 4-element header (Title/Logline/Setup/Beats, parsed from `textDocument.text`) prepended to the index signature + doc. `null` for unknown symbols. |
-| `definitionProvider` | `textDocument/definition` | Location with `<oodar_root>/<subdir>/<file>.c` URI for capability builtins (v0.6.2: oodar v2.0.0 layout; default root is the polyrepo convention `oodar`), compiler URI+line/col for user `pub fn`, `null` otherwise. **v0.6.3 (doc-only)**: the hard-coded `lsp_definition_cap_path_table()` is now explicitly the cached fallback; the planned runtime path is `lsp_definition_load_cap_table(oodar_root)` reading `${oodar_root}/cap_table.json` (oodar-owned, future commit). |
-| `documentSymbolProvider` | `textDocument/documentSymbol` | kind=12 (Function) symbols extracted by `pub fn ` scan. |
-| `documentFormattingProvider` | `textDocument/formatting` | single full-file TextEdit with normalized indentation. |
-| `codeActionProvider` | `textDocument/codeAction` | `E_CAP` → add &Cap parameter, `E_PARSE` → close brace, `E_EM_WEIGHT` → split file, `E_CAP_ATTENUATE` → narrow to &FsReadCap. |
-| `diagnosticProvider` (pull) | `textDocument/diagnostic` | LSP 3.16+ pull mode; returns `{items: [...]}` synchronously. |
-| `documentLinkProvider` | `textDocument/documentLink` | `&Cap` references resolved to oodac/ runtime source URIs. |
-| `inlayHintProvider` | `textDocument/inlayHint` | inferred literal type for `let x = <literal>`. |
-| `workspace/executeCommand` | `workspace/executeCommand` | `ooda.lsp.version`, `ooda.lsp.indexSize`, `ooda.lsp.echo` (unknown → -32601). |
-| `workspace.workspaceFolders` | (refresh) | stdlib index re-scanned at startup; no file-watcher needed. |
+See `CAPABILITIES.oot`. The server implements 17 JSON-RPC methods.
+Engine version: `lsp_facade_version()` (`2.12.0` at this writing).
 
-`workspace/didChangeWatchedFiles` is intentionally NOT advertised
-(slice D removed the no-op branch and the capability lie).
+## Diagnostics
 
-## How to launch
+On `didOpen` and `didChange` the server publishes three governance diagnostics:
 
-### stdio (the real editor case)
-```sh
-ooda lsp
-```
-The server drives a non-blocking chunk read via `oo_read_stdin_chunk(100ms)`
-(implemented in `oodar/fs/os/sys.c` since the v0.6.2 oodar v2.0.0 reorg; previously `ooda/runtime/chs_rt_sys.c`). The framing loop is in
-`ooda/lsp/lsp_stdio.oo::lsp_serve`. Each poll returns up to 4 KB; the buffer
-is parsed for complete Content-Length or raw-JSON frames; each frame is
-dispatched; a response is appended; the loop continues. Idle >30s ends the
-session.
+- `E_EM_WEIGHT` (warning) - source exceeds 256 lines
+- `E_EM_PINS` (info) - header contains Floor:/Thrust:/Patch:
+- `E_EM_PS` (error) - Ps gauge with W=0 or Ps<1
 
-### file (the one-shot case, used by smoke tests)
-```sh
-ooda lsp path/to/request.txt
-```
-The file is parsed the same way. The session terminates on `shutdown` or
-`exit`. Used by `ooda/scripts/lsp_session_smoke.oo` and
-`ooda/scripts/lsp_complete_smoke.oo`.
+These are not compiler errors. `didClose` clears them.
 
-### safety caps
-- Total input: 100 MB. Larger inputs are rejected with empty output.
-- Per-frame: 4 MB. Larger frames are skipped.
-- Session messages: 1,000,000 (safety ceiling, not a session limit).
+## Capabilities required
 
-## Workspace trust + init-before-use
-The server tracks the workspace root from the first `initialize` request's
-`params.rootUri`. Every subsequent text-bearing request is validated:
-1. The URI must be a prefix-equal prefix of the workspace root.
-2. The URI must not contain `..`, `/proc/`, `/dev/`, `/etc/`,
-   `file:///root`, or `file:///home`.
-3. The `textDocument.text` field is capped at 4 MB.
-4. The init-before-use guard rejects text-bearing requests that arrive
-   before `initialize` (ooda/lsp/lsp_server_dispatch.oo).
+- `&FsReadCap` - stdlib scan and cap_table.json load
+- `&EnvCap` - unused by the stdio loop today; reserved for explicit env grants
+- `&CompilerReadCap` - live `pub fn` harvest into the index
 
-## E-M diagnostics (governance meta)
-On `didOpen` and `didChange`, the server publishes a `publishDiagnostics`
-notification with up to 6 `severity=2` (Warning) or `severity=1` (Error)
-diagnostics:
-- `W_GEN_LAYER` (Warning) — Gen5/6/7 caller content includes Gen1 markers
-  (page_table, pml4, simd, etc.).
-- `E_EM_WEIGHT` (Warning) — source exceeds 256 lines (RULES §1.7).
-- `E_EM_PS` (Error) — live Ps gauge < 1 ((T-D)/W*V fail-closed on W=0).
-- `E_EM_PINS` (Info) — SSoT Floor:/Thrust:/Patch: must be 0, version lives in ooda.pkg.
-- `E_EM_SSO` (Error) — SSoT version drift between ooda/ooda.pkg and openOODA/ooda.pkg.
-- `E_CAP_ATTENUATE` (Hint) — broad &FsCap where &FsReadCap suffices, broad &SysCap narrow to &ProcessCap.
+No `&NetCap`. No ambient filesystem. `--oodar-root` and `--stdlib-root` are
+the only roots the server will read.
 
-On `textDocument/diagnostic` (pull), the same 6 are returned synchronously.
-These are governance meta, not real compile errors. Real `oodac` compile
-errors are a separate diagnostic stream (not in scope).
+## Proof
 
-## Capability requirements
-- `&FsReadCap` — for `lsp_stdlib_find_root` and `lsp_stdlib_scan`.
-- `&EnvCap` — for the env-var lookups.
-- `&ProcessCap` — only when launched via `cli/cmd_lsp.oo` (for `timeout`
-  wrapping); the in-process dispatcher does not require it.
-- `&CompilerReadCap` (15th OCap token, blue-ocean) — for `lsp_compile_module`,
-  the in-memory text-walker that turns user-declared `pub fn`/struct/enum
-  into an `LspModuleSymbolTable` that is merged into the canonical index.
-  This is what makes the LSP understand user code, not just stdlib.
+Run from the polyrepo root with `OODA_COMPILER` and `OODA_FS_READDIR` set:
 
-The LSP does NOT require `&NetCap`, `&SysCap`, `&AllocCap`, `&ThreadCap`,
-`&TimeCap`, `&RandCap`, `&GpuCap`, or `&UnsafeFFICap`. It does no network
-I/O, no `dlopen`, no shell-out, no `printf`/`cat` pipe. The wire emission
-is pure string concat into the response buffer.
+1. `oodac run lsp/qa/probe_initialize.oo`
+2. `oodac run lsp/qa/probe_completion.oo`
+3. `oodac run lsp/qa/probe_hover.oo`
+4. `oodac run lsp/qa/probe_definition.oo`
+5. `oodac run lsp/qa/probe_diagnostics.oo`
+6. `oodac run lsp/qa/probe_formatting.oo`
+7. `oodac run lsp/qa/probe_codeaction.oo`
+8. `oodac run lsp/qa/probe_double_run.oo`
 
-## 15 OCap tokens (SSoT)
-
-The 15 OCap tokens are listed in `openOODA/SECURITY.oot` and
-`openOODA/README.md`. The 15th is `&CompilerReadCap` (band 0x18, added
-2026-09-01). The LSP server is the only consumer in the standard tree.
-
-## Proof obligations (per RFC 0006)
-The LSP is "Active" when this doc is in place and the wire path is wired
-through Runtime B. The LSP is "Implemented" when the 6 proofs below pass
-twice in `env -i PATH=/usr/bin:/bin` clean shells with byte-identical
-output (RULES §1.9, WORKFLOW §3):
-1. `ooda/scripts/lsp_session_smoke.oo` — full session.
-2. `ooda/scripts/lsp_complete_smoke.oo` — initialize + completion.
-3. `ooda/scripts/lsp_redteam_fuzz.oo` — 6 adversarial cases.
-4. `ooda/scripts/std_qa/std_qa_lsp_engine.oo` — 11 in-memory tests.
-5. `ooda/scripts/std_qa/std_qa_lsp_engine_neg.oo` — 19 adversarial in-memory tests.
-6. `ooda/lsp_double_run_v2.oo` — in-process deterministic double-run proof
-   of `lsp_facade_version`, `lsp_definition_resolve`, `lsp_text_count_lines`.
-
-## File layout (28 .oo files in ooda/lsp/)
-
-- **Entry point:** `mod.oo` (FORMAT.oot §1.4 single tactical entry) +
-  `lsp_facade.oo` (canonical `lsp_facade_version` SSoT) + `lsp_stdio.oo` (stdio
-  loop) + `lsp_server_dispatch.oo` (12-method if/else dispatch).
-- **Type system:** `lsp_types_*.oo` (4 files: primitive, response, protocol,
-  symbol) + `lsp_symbol_*.oo` (4 files: codec, record, completion_codec,
-  canonical) + `lsp_text.oo` (canonical text utilities).
-- **Server subsystem:** `lsp_server_*.oo` (4 files: guards, capabilities,
-  handlers, dispatch) + `lsp_formatting.oo` (formatting & document symbols).
-- **LSP methods:** `lsp_hover.oo`, `lsp_definition.oo`,
-  `lsp_code_action.oo`, `lsp_diagnostics.oo`,
-  `lsp_extras.oo` (documentLink, inlayHint, executeCommand).
-- **Compiler bridge:** `lsp_compile.oo` (text-walker under CompilerReadCap) +
-  `lsp_compiler_merge.oo` (merges user symbols into canonical index).
-- **stdlib scan:** `lsp_stdlib.oo` (merged from lsp_stdlib_root.oo + lsp_stdlib_scan.oo in 7th deep-dive).
-- **Wire:** `lsp_jsonrpc.oo` (JSON-RPC 2.0 framer) + `lsp_json_encode.oo`
-  (string escape) + `lsp_rpc_methods.oo` (method classifier).
-- **E-M telemetry:** `lsp_maneuver.oo` (SSoT caps + diagnostic concat) +
-  `lsp_diagnostics.oo` (E-M diagnostic converters, lsp_diag_* prefix).
-
-## Open gaps (carried over from the 5th/6th deep-dive audit)
-1. The 6th cap-boundary file (R6b) is the remaining 4 `&FsReadCap` callers
-   outside the LSP scope. LSP itself is closed.
-2. R7 (env_or → env_required fail-closed) is multi-sprint: the `env_or`
-   function in 11 std/cli/ paths has a `fallback` parameter that violates
-   "no fallbacks"; full refactor is documented in
-   `openOODA/audit/legacy_supersede_env_or_2026_09_01.oot`.
-
-## Off-repo references
-This file previously claimed a bundled `vscode/extension.js` and a
-Neovim plugin. Those live in the marketing site
-`openOODA.github.io/tools/vscode`, NOT in this repo. There is no
-bundled client here; the operator is expected to wire their own
-editor to `ooda lsp` over stdio.
+`lsp/scripts/test.oo` execs all eight. A probe that prints PASS without an
+assertion is a defect.

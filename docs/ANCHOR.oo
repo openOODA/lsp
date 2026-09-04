@@ -1,14 +1,14 @@
-// # LSP Docs Index — Anchor for Agents
+// # LSP Docs Index - Anchor for Agents
 //
 // Logline: Index of the LSP documentation files.
 //
 // Setup: LSP_SETUP.oot is the editor-facing setup doc. protocol.oot and client_config.oot cover the wire protocol and client config. CAPABILITIES.oot is the SSoT for what the server advertises in `initialize`.
 //
 // Beats:
-//   1. LSP_SETUP.oot — how to launch the LSP server, capabilities, configuration.
-//   2. protocol.oot — the JSON-RPC 2.0 wire protocol details.
-//   3. client_config.oot — how to configure LSP clients (editors, settings).
-//   4. CAPABILITIES.oot — the server's capability declaration: what is and is not advertised, and why.
+//   1. LSP_SETUP.oot - how to launch the LSP server, capabilities, configuration.
+//   2. protocol.oot - the JSON-RPC 2.0 wire protocol details.
+//   3. client_config.oot - how to configure LSP clients (editors, settings).
+//   4. CAPABILITIES.oot - the server's capability declaration: what is and is not advertised, and why.
 
 import "LSP_SETUP.oot";
 import "protocol.oot";

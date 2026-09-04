@@ -1,0 +1,10 @@
+// # LSP GitHub Metadata
+//
+// Logline: Front door for .github/. Holds workflows only.
+//
+// Setup: Structural. No product code.
+//
+// Beats:
+//   1. workflows/ holds ci.yml which calls the governance auto-release workflow.
+
+import "workflows/ANCHOR.oo";

@@ -1,6 +1,6 @@
 // # LSP Canonical Symbol Index Seed
 //
-// Logline: Builds the canonical stdlib symbol index that the LSP server ships at startup. The seed encodes the 17 OCap tokens, the 19 openOODA keywords, the 7 primitive types, and the 22 built-in functions — all knowledge required for autocomplete to be useful on a brand-new .oo file.
+// Logline: Builds the canonical stdlib symbol index that the LSP server ships at startup. The seed encodes NORTHSTAR capability tokens, keywords, primitive types, and built-in functions.
 //
 // Setup: Imports lsp_symbol_record.oo. No capabilities required. The seed is pure data; the CompilerReadCap merge (in lsp_compile.oo + lsp_compiler_merge.oo) layers user symbols on top at runtime.
 //
@@ -20,20 +20,23 @@ pub fn lsp_index_build_canonical() -> List[String] {
     idx = lsp_index_seed_capability(idx, "ProcessCap", "Spawn child processes and await exit status.");
     idx = lsp_index_seed_capability(idx, "FsReadCap", "Read files and inspect directory contents.");
     idx = lsp_index_seed_capability(idx, "FsWriteCap", "Write files inside OODA_FS_WRITEDIR sandbox.");
-    idx = lsp_index_seed_capability(idx, "FsCap", "Legacy broad filesystem capability.");
+    idx = lsp_index_seed_capability(idx, "FsCap", "Filesystem path validation and directory iteration.");
     idx = lsp_index_seed_capability(idx, "EnvCap", "Read OODA_ and OO_ environment variables.");
     idx = lsp_index_seed_capability(idx, "TimeCap", "Wall clock and monotonic timer access.");
     idx = lsp_index_seed_capability(idx, "RandCap", "Cryptographic random number generator.");
     idx = lsp_index_seed_capability(idx, "AllocCap", "Memory allocator and arena management.");
     idx = lsp_index_seed_capability(idx, "ThreadCap", "Spawn threads, lock mutexes, and pass channels.");
-    idx = lsp_index_seed_capability(idx, "SysCap", "Legacy broad operating system capability.");
-    idx = lsp_index_seed_capability(idx, "NetCap", "Legacy broad network capability.");
-    idx = lsp_index_seed_capability(idx, "HttpCap", "HTTP/1.0 GET client.");
+    idx = lsp_index_seed_capability(idx, "SysCap", "Raw operating-system syscall shims.");
+    idx = lsp_index_seed_capability(idx, "NetCap", "Network capability; subsumes TcpCap and UdpCap.");
     idx = lsp_index_seed_capability(idx, "TcpCap", "TCP socket connect, read, write, and close.");
     idx = lsp_index_seed_capability(idx, "UdpCap", "UDP bind and receive.");
-    idx = lsp_index_seed_capability(idx, "BindCap", "TCP listening socket bind.");
+    idx = lsp_index_seed_capability(idx, "BindCap", "Listening socket bind.");
     idx = lsp_index_seed_capability(idx, "GpuCap", "GPU kernel dispatch.");
-    idx = lsp_index_seed_capability(idx, "UnsafeFFICap", "Direct calls into external C dynamic libraries.");
+    idx = lsp_index_seed_capability(idx, "FfiCap", "Direct calls into external C dynamic libraries.");
+    idx = lsp_index_seed_capability(idx, "CompilerReadCap", "In-memory compiler symbol table for the open document.");
+    idx = lsp_index_seed_capability(idx, "ArenaCap", "Linear arena checkpoint and rollback.");
+    idx = lsp_index_seed_capability(idx, "MetricsCap", "Process metrics counters.");
+    idx = lsp_index_seed_capability(idx, "SignCap", "Capability-RPC sign and verify.");
     idx = lsp_index_seed_keyword(idx, "fn", "Declare a function with typed parameters.");
     idx = lsp_index_seed_keyword(idx, "pub", "Mark a declaration with public module visibility.");
     idx = lsp_index_seed_keyword(idx, "let", "Bind an immutable variable within lexical scope.");

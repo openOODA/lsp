@@ -1,12 +1,14 @@
 // # LSP Server Capabilities Declaration
 //
-// Logline: Declares the LSP server capabilities (the JSON the server advertises in response to `initialize`).
+// Logline: Returns the capabilities object advertised in initialize. Only implemented methods appear.
 //
-// Setup: Pure constant. No cap, no I/O, no framing. The `initialize` and `shutdown` lifecycle handlers live in lsp_server_handlers.oo, where they belong.
+// Setup: Pure constant. serverInfo is assembled in the initialize handler from lsp_facade_version().
 //
 // Beats:
-//   1. Return the static capabilities JSON (12 method families + workspaceFolders).
+//   1. Advertise full-document sync with openClose (didOpen and didClose are dispatched).
+//   2. Advertise completion without resolveProvider (completionItem/resolve is not implemented).
+//   3. Do not advertise workspaceFolders (no folder handler exists).
 
-pub fn lsp_server_capabilities_json() -> String {
-    return "{\"capabilities\":{\"textDocumentSync\":{\"openClose\":true,\"change\":1},\"completionProvider\":{\"resolveProvider\":true,\"triggerCharacters\":[\".\",\"&\",\":\"]},\"hoverProvider\":true,\"definitionProvider\":true,\"documentSymbolProvider\":true,\"documentFormattingProvider\":true,\"codeActionProvider\":true,\"documentLinkProvider\":{\"resolveProvider\":false},\"inlayHintProvider\":true,\"diagnosticProvider\":{\"interFileDependencies\":false,\"workspaceDiagnostics\":false},\"executeCommandProvider\":{\"commands\":[\"ooda.lsp.version\",\"ooda.lsp.indexSize\",\"ooda.lsp.echo\"]},\"workspace\":{\"workspaceFolders\":{\"supported\":true}}}}";
+pub fn lsp_server_capabilities_object() -> String {
+    return "{\"textDocumentSync\":{\"openClose\":true,\"change\":1},\"completionProvider\":{\"resolveProvider\":false,\"triggerCharacters\":[\".\",\"&\",\":\"]},\"hoverProvider\":true,\"definitionProvider\":true,\"documentSymbolProvider\":true,\"documentFormattingProvider\":true,\"codeActionProvider\":true,\"documentLinkProvider\":{\"resolveProvider\":false},\"inlayHintProvider\":true,\"diagnosticProvider\":{\"interFileDependencies\":false,\"workspaceDiagnostics\":false},\"executeCommandProvider\":{\"commands\":[\"ooda.lsp.version\",\"ooda.lsp.indexSize\",\"ooda.lsp.echo\"]}}";
 }

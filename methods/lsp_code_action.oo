@@ -1,16 +1,17 @@
-// # LSP Code Action — Live Cap Attenuation
+// # LSP Code Action - Live Cap Attenuation
 //
-// Logline: Generates quick-fix transforms for the three live E-M diagnostics: E_EM_WEIGHT (>256-line source), E_EM_PS (Ps<1), E_EM_DRAG (token_burn).
+// Logline: Generates quick-fix actions for the three live E-M diagnostics: E_EM_WEIGHT, E_EM_PS, E_EM_PINS.
 //
-// Setup: Maps the three live E_EM_* codes to OCap-narrow edits. No broad caps, no fallbacks.
+// Setup: Maps only the codes that lsp_server_extract_diags emits. Unknown codes yield an empty list.
 //
 // Beats:
-//   1. Resolve live E_EM_WEIGHT / E_EM_PS / E_EM_DRAG to severity-matched edits.
-//   2. Offer OCap-narrow attenuation &FsCap->&FsReadCap and 256-cap split-file suggestions.
-//   3. Serialize CodeAction to JSON-RPC 2.0 with 256-line capping.
+//   1. Parse the first diagnostic object out of context.diagnostics.
+//   2. Resolve E_EM_WEIGHT, E_EM_PS, and E_EM_PINS to a quickfix action.
+//   3. Serialize the action list to JSON.
 
-import "lsp/types/lsp_types.oo";
+import "lsp/types/lsp_payload.oo";
 import "lsp_text.oo";
+import "lsp/wire/lsp_jsonrpc.oo";
 
 fn lsp_code_action_first_array_object(arr: String) -> String {
     let n: Int = chars_len(arr);
@@ -77,15 +78,15 @@ pub fn lsp_code_action_resolve(diag: &LspDiagnostic) -> List[LspCodeAction] {
 
     if code == "E_EM_WEIGHT" {
         let title: String = "E-M: Split file to enforce 256 cap ((T-D)/W)*V";
-        let edit: String = "// split: W=lines+AST exceeds 256 — extract module";
+        let edit: String = "// split: W=lines+AST exceeds 256 - extract module";
         actions = list_push(actions, lsp_action_simple_new(title, "quickfix", edit, sl, sc, el, ec));
     } else if code == "E_EM_PS" {
         let title: String = "E-M: Reduce D_alloc/D_search to raise Ps=((T-D)/W)*V";
-        let edit: String = "// reduce D_alloc/D_search — use arena, outline";
+        let edit: String = "// reduce D_alloc/D_search - use arena, outline";
         actions = list_push(actions, lsp_action_simple_new(title, "quickfix", edit, sl, sc, el, ec));
-    } else if code == "E_EM_DRAG" {
-        let title: String = "E-M: Attenuate drag live";
-        let edit: String = "// attenuate D: heap->arena, search->index";
+    } else if code == "E_EM_PINS" {
+        let title: String = "E-M: Remove Floor/Thrust/Patch pins from the header";
+        let edit: String = "";
         actions = list_push(actions, lsp_action_simple_new(title, "quickfix", edit, sl, sc, el, ec));
     }
 

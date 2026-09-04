@@ -11,6 +11,8 @@
 //   4. Handle LSP document symbol response generation.
 
 import "lsp/wire/lsp_json_encode.oo";
+import "lsp/wire/lsp_jsonrpc.oo";
+import "lsp_text.oo";
 
 pub fn lsp_formatting_strip_trailing_ws(src: String) -> String {
     let n: Int = chars_len(src);
@@ -42,8 +44,20 @@ pub fn lsp_formatting_strip_trailing_ws(src: String) -> String {
     return out;
 }
 
+pub fn lsp_formatting_expand_tabs(src: String) -> String {
+    let n: Int = chars_len(src);
+    let mut out: String = "";
+    let mut i: Int = 0;
+    while i < n {
+        let c: String = char_at(src, i);
+        if c == "\t" { out = out + "    "; } else { out = out + c; }
+        i = i + 1;
+    }
+    return out;
+}
+
 pub fn lsp_formatting_handle_formatting(id: String, uri: String, src: String) -> String {
-    let normalized: String = lsp_formatting_strip_trailing_ws(src);
+    let normalized: String = lsp_formatting_expand_tabs(lsp_formatting_strip_trailing_ws(src));
     let esc: String = lsp_jsonrpc_escape(normalized);
     let end_line: Int = lsp_text_count_lines(src);
     let end_line_s: String = end_line.to_string();

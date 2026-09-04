@@ -12,7 +12,7 @@
 //   5. Declare LspModuleSymbolTable (per-URI aggregate) and lsp_module_empty constructor.
 //   6. Provide structural constructor functions for the 4 leaf types.
 
-// §6 Compiler-integration types — gated by &CompilerReadCap (RFC 0006).
+// §6 Compiler-integration types - gated by &CompilerReadCap (RFC 0006).
 // Minimal narrow: no shell-out, no NetCap, in-memory only.
 type LspFunction = struct { name: String, line: Int, col: Int };
 type LspStruct = struct { name: String, line: Int, col: Int };
@@ -38,4 +38,20 @@ pub fn lsp_enum_new(name: String, line: Int, col: Int) -> LspEnum {
 
 pub fn lsp_cap_use_new(tok: String, line: Int, col: Int, ev: String) -> LspCapabilityUse {
     return LspCapabilityUse { cap_token: tok, line: line, col: col, evidence: ev };
+}
+
+pub fn lsp_module_with_function(t: LspModuleSymbolTable, f: LspFunction) -> LspModuleSymbolTable {
+    return LspModuleSymbolTable { uri: t.uri, functions: list_push(t.functions, f), structs: t.structs, enums: t.enums, capabilities: t.capabilities };
+}
+
+pub fn lsp_module_with_capability(t: LspModuleSymbolTable, c: LspCapabilityUse) -> LspModuleSymbolTable {
+    return LspModuleSymbolTable { uri: t.uri, functions: t.functions, structs: t.structs, enums: t.enums, capabilities: list_push(t.capabilities, c) };
+}
+
+pub fn lsp_module_with_struct(t: LspModuleSymbolTable, s: LspStruct) -> LspModuleSymbolTable {
+    return LspModuleSymbolTable { uri: t.uri, functions: t.functions, structs: list_push(t.structs, s), enums: t.enums, capabilities: t.capabilities };
+}
+
+pub fn lsp_module_with_enum(t: LspModuleSymbolTable, e: LspEnum) -> LspModuleSymbolTable {
+    return LspModuleSymbolTable { uri: t.uri, functions: t.functions, structs: t.structs, enums: list_push(t.enums, e), capabilities: t.capabilities };
 }

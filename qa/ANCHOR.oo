@@ -1,18 +1,18 @@
-// # LSP QA Index — Anchor for Agents
+// # LSP QA Index - Anchor for Agents
 //
 // Logline: Index of the 8 self-test probe drivers that ship with ooda/lsp/.
 //
 // Setup: Each probe driver is a hostile test for one LSP method or behavior. If a driver fails, ooda/lsp/ fails to release.
 //
 // Beats:
-//   1. probe_initialize.oo — server lifecycle, capabilities, session state init.
-//   2. probe_completion.oo — textDocument/completion returns valid items.
-//   3. probe_hover.oo — textDocument/hover renders the canonical symbol with Academy header.
-//   4. probe_definition.oo — textDocument/definition resolves URI+line+col.
-//   5. probe_diagnostics.oo — E-M gauge readings round-trip through Diagnostic JSON.
-//   6. probe_formatting.oo — textDocument/formatting produces non-empty edits.
-//   7. probe_codeaction.oo — textDocument/codeAction for the 3 live E-M diagnostics.
-//   8. probe_double_run.oo — byte-identical determinism across 2 fresh runs.
+//   1. probe_initialize.oo - server lifecycle, capabilities, session state init.
+//   2. probe_completion.oo - textDocument/completion returns valid items.
+//   3. probe_hover.oo - textDocument/hover renders the canonical symbol with Academy header.
+//   4. probe_definition.oo - textDocument/definition resolves URI+line+col.
+//   5. probe_diagnostics.oo - E-M gauge readings round-trip through Diagnostic JSON.
+//   6. probe_formatting.oo - textDocument/formatting produces non-empty edits.
+//   7. probe_codeaction.oo - textDocument/codeAction for the 3 live E-M diagnostics.
+//   8. probe_double_run.oo - byte-identical determinism across 2 calls.
 
 import "probe_initialize.oo";
 import "probe_completion.oo";

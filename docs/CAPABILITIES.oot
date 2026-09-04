@@ -1,28 +1,20 @@
 # LSP Server Capabilities
 
-File: openOODA/lsp/docs/CAPABILITIES.oot
+File: lsp/docs/CAPABILITIES.oot
 
-The openOODA native LSP engine advertises a fixed, minimal set of
-capabilities in the `initialize` response. This doc is the
-authoritative spec for that declaration. The single source of truth
-in the source tree is `openOODA/lsp/server/lsp_server_capabilities.oo`,
-which returns one constant JSON string. The doc duplicates that
-string, explains every entry, and lists what is intentionally
-NOT advertised and why.
+The initialize result is assembled in `server/lsp_server_handlers.oo`.
+The capabilities object is `lsp_server_capabilities_object()`.
+`serverInfo.version` is `lsp_facade_version()` in `server/lsp_version.oo`.
+There is no VERSION file.
 
-## 1. The capability JSON
-
-The `initialize` response body is:
+## 1. Advertised capabilities
 
 ```json
 {
   "capabilities": {
-    "textDocumentSync": {
-      "openClose": true,
-      "change": 1
-    },
+    "textDocumentSync": { "openClose": true, "change": 1 },
     "completionProvider": {
-      "resolveProvider": true,
+      "resolveProvider": false,
       "triggerCharacters": [".", "&", ":"]
     },
     "hoverProvider": true,
@@ -30,188 +22,42 @@ The `initialize` response body is:
     "documentSymbolProvider": true,
     "documentFormattingProvider": true,
     "codeActionProvider": true,
-    "documentLinkProvider": {
-      "resolveProvider": false
-    },
+    "documentLinkProvider": { "resolveProvider": false },
     "inlayHintProvider": true,
     "diagnosticProvider": {
       "interFileDependencies": false,
       "workspaceDiagnostics": false
     },
     "executeCommandProvider": {
-      "commands": [
-        "ooda.lsp.version",
-        "ooda.lsp.indexSize",
-        "ooda.lsp.echo"
-      ]
-    },
-    "workspace": {
-      "workspaceFolders": {
-        "supported": true
-      }
+      "commands": ["ooda.lsp.version", "ooda.lsp.indexSize", "ooda.lsp.echo"]
     }
-  }
+  },
+  "serverInfo": { "name": "openooda-lsp", "version": "<lsp_facade_version>" }
 }
 ```
 
-`serverInfo` is set to `{ "name": "openooda-lsp", "version": "0.5.0" }`
-where `0.5.0` comes from the `lsp=` line in `VERSION`. The engine
-version returned by `ooda.lsp.version` is a separate value
-(`lsp_facade_version()` in `lsp_version.oo`) and is the
-double-run-proof SSoT.
+`change: 1` is full document sync. Incremental sync is not implemented.
+`completionItem/resolve` is not implemented, so `resolveProvider` is false.
+`workspaceFolders` is not advertised. The server uses one `rootUri`.
 
-## 2. Capability-by-capability rationale
+## 2. Method notes
 
-### 2.1 `textDocumentSync` (kind: full, change: 1)
+- `textDocument/didClose` is dispatched. It publishes `diagnostics: []` for that URI.
+- `textDocument/definition` resolves `pub fn` in the open file, then capability
+  tokens through the loaded oodar cap table. Empty table yields null for builtins.
+- Cap grant files come from `${oodar_root}/sec/cap/cap_table.json` via `--oodar-root`.
+  If `--oodar-root` is set and the file is missing, the process exits 1.
+- Live diagnostics: `E_EM_WEIGHT`, `E_EM_PINS`, `E_EM_PS`. No other codes are emitted.
+- Code actions exist only for those three codes.
 
-- `openClose: true` — the server wants `didOpen` so it can compute
-  the governance diagnostics and emit `publishDiagnostics`.
-- `change: 1` — full sync. The client sends the full text on every
-  `didChange`. The server does not implement incremental sync (LSP
-  3.17 `change: 2`).
-- **Note**: `textDocument/didClose` is NOT in the dispatcher
-  (lsp_server_dispatch.oo). The `openClose: true` flag is therefore
-  over-advertised today. A `didClose` will be rejected with
-  `-32601 Method not found`. The 0.5.0 server expects the client to
-  ignore this and not surface it as an error.
+## 3. Not advertised
 
-### 2.2 `completionProvider` (resolveProvider: true, trigger: . & :)
+`workspace/symbol`, `textDocument/rename`, `textDocument/references`,
+`textDocument/signatureHelp`, range formatting, semantic tokens,
+`workspace/didChangeWatchedFiles`, `workspace/diagnostic`.
+Each is absent because the handler does not exist.
 
-- `triggerCharacters` are `.`, `&`, `:`. `.` is the namespace
-  member access, `&` is the OCap capability token, `:` is the type
-  annotation.
-- `resolveProvider: true` advertises that the server accepts
-  `completionItem/resolve` to fill in `documentation`. The 0.5.0
-  server returns the static detail on the initial call and does not
-  distinguish a resolve pass; the flag is honest but minimal.
+## 4. Version
 
-### 2.3 `hoverProvider: true`
-
-- Hover returns a markdown Contents block: the Academy 4-element
-  header (Title, Logline, Setup, Beats) parsed from the source text
-  prepended to the canonical symbol's signature and doc. `null` for
-  unknown symbols.
-
-### 2.4 `definitionProvider: true`
-
-- Definition returns a `Location` for capability builtins (URI is
-  `<oodar_root>/<subdir>/<file>.c` per the v2.0.0 oodar layout; default
-  oodar root is the polyrepo convention `oodar`, overridable in the
-  lsp config) and for user `pub fn` (URI + line + col from the
-  compiler index). `null` otherwise. The mapping table lives in
-  `lsp_definition_cap_path_table()` in
-  `lsp/methods/lsp_definition.oo`.
-- **v0.6.3 (doc-only)**: the hard-coded table in
-  `lsp_definition_cap_path_table()` is now explicitly the **cached
-  fallback**. The intended runtime path is a new
-  `lsp_definition_load_cap_table(oodar_root: String) -> List<String>`
-  that reads `${oodar_root}/cap_table.json` when the oodar repo
-  ships it, falling back to the hard-coded table on missing file or
-  parse error. `lsp_definition_builtin_path(name)` will consult the
-  loaded table first, then the fallback. The JSON source is owned
-  by oodar (item 22 of the v2.1.0 audit residuals, or a v2.2.0
-  follow-up); the lsp side of the change is doc-only in v0.6.3 — no
-  behavior change. Coupling principle: the lsp must be as independent
-  of oodar as possible; the cap→file table is a derived view of an
-  oodar-owned file, not a hand-maintained lsp-side table.
-
-### 2.5 `documentSymbolProvider: true`
-
-- DocumentSymbol returns `kind=12` (Function) entries extracted by a
-  `pub fn ` scan. No class, interface, or namespace kinds. No
-  hierarchical nesting. The server is single-file today and does not
-  model the module tree.
-
-### 2.6 `documentFormattingProvider: true`
-
-- Formatting returns a single full-file `TextEdit` with normalized
-  indentation: tabs to 4 spaces, trailing whitespace trimmed. The
-  formatter is a single pass; it does not implement an LSP
-  `DocumentRangeFormattingProvider` and does not honor
-  `DocumentFormattingOptions`.
-
-### 2.7 `codeActionProvider: true`
-
-- CodeAction returns up to 4 fixes keyed off the diagnostic code:
-  `E_CAP`, `E_PARSE`, `E_EM_WEIGHT`, `E_CAP_ATTENUATE`. The server
-  does not advertise a `codeActionKinds` array; all actions are of
-  kind `quickfix`.
-
-### 2.8 `documentLinkProvider` (resolveProvider: false)
-
-- DocumentLink scans for `&Cap` references and resolves each to an
-  oodac/ runtime source URI. The server does not implement
-  `documentLink/resolve`; the targets are returned directly. Hence
-  `resolveProvider: false`.
-
-### 2.9 `inlayHintProvider: true`
-
-- InlayHint scans for `let x = <literal>` and emits a hint with the
-  inferred literal type: `String`, `Int`, `Bool`. The hint is emitted
-  with `kind: 1` (Type). The server does not honor
-  `InlayHintOptions.resolveProvider`.
-
-### 2.10 `diagnosticProvider` (interFileDependencies: false, workspaceDiagnostics: false)
-
-- Pull mode (LSP 3.16+) is supported via `textDocument/diagnostic`.
-  The response is `{ items: [...] }` synchronous.
-- `interFileDependencies: false` because the 6 governance
-  diagnostics are local to the single file.
-- `workspaceDiagnostics: false` because there is no
-  `workspace/diagnostic` handler in the dispatcher.
-
-### 2.11 `executeCommandProvider`
-
-- 3 commands: `ooda.lsp.version`, `ooda.lsp.indexSize`,
-  `ooda.lsp.echo`. See `protocol.oot` §7.1 for request and response
-  shapes.
-
-### 2.12 `workspace.workspaceFolders.supported: true`
-
-- The server uses a single root from `initialize.params.rootUri`. The
-  `workspaceFolders` capability is advertised for clients that
-  require the flag, but the server does not implement
-  `workspace/workspaceFolders` or `workspace/didChangeWorkspaceFolders`.
-
-## 3. What is NOT supported
-
-The following standard LSP 3.17 methods are intentionally NOT
-advertised. Each entry has a one-line rationale.
-
-| Method | Status | Rationale |
-|--------|--------|-----------|
-| `workspace/didChangeWatchedFiles` | Not advertised | The stdlib index is rescanned at startup. Slice D removed the no-op handler and the capability lie. |
-| `workspace/symbol` | Not advertised | No workspace-wide search; the index is file-scoped. |
-| `workspace/diagnostic` | Not advertised | Governance diagnostics are file-local (`interFileDependencies: false`). |
-| `textDocument/didClose` | Dispatcher missing | Over-advertised via `textDocumentSync.openClose`; clients should ignore the mismatch. |
-| `textDocument/references` | Not advertised | No cross-file reference index; the compiler index is single-file. |
-| `textDocument/rename` | Not advertised | No rename-aware symbol table; refactor is out of scope. |
-| `textDocument/signatureHelp` | Not advertised | The `.oo` syntax does not need paren-completion; cap + type sigs are inline. |
-| `textDocument/rangeFormatting` | Not advertised | The formatter is full-file only. |
-| `textDocument/onTypeFormatting` | Not advertised | Trigger characters already drive completion. |
-| `textDocument/documentHighlight` | Not advertised | No semantics for "this binding is used here". |
-| `textDocument/foldingRange` | Not advertised | Editor-side. |
-| `textDocument/selectionRange` | Not advertised | Editor-side. |
-| `textDocument/semanticTokens` | Not advertised | The 6 governance diagnostics are not token streams. |
-| `textDocument/moniker` | Not advertised | No module name resolution; `ANCHOR.oo` paths are the closest equivalent and are not exposed over LSP. |
-| `textDocument/typeDefinition` | Not advertised | `pub fn` is the only top-level decl with a definition URI; types do not have one. |
-| `textDocument/implementation` | Not advertised | No interfaces in `.oo`. |
-| `textDocument/prepareTypeHierarchy` | Not advertised | No type hierarchy. |
-| `textDocument/colorProvider` | Not advertised | No semantic color values. |
-| `textDocument/prepareCallHierarchy` | Not advertised | The call graph is not built. |
-
-## 4. SSoT: where the JSON lives
-
-The capability JSON is one constant string in
-`openOODA/lsp/server/lsp_server_capabilities.oo`. It is not assembled
-from per-capability fields; any change to a capability's shape
-must be made in that file. The `lsp_server_handle_initialize` in
-`lsp_server_handlers.oo` reads the constant and frames the
-`initialize` response.
-
-The `version` in `serverInfo` is the `lsp=` line in `VERSION`. The
-`ooda.lsp.version` executeCommand result is the
-`lsp_facade_version()` constant in `lsp_version.oo`. The two
-versions are intentionally separate: `serverInfo.version` is the
-package version (driven by the release script), `ooda.lsp.version`
-is the engine version (driven by the double-run proof).
+One engine string: `lsp_facade_version()`. GitHub release tags are a separate
+auto-release identity (RFC-0006). Do not add a VERSION file.

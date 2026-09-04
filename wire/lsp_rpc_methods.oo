@@ -6,8 +6,8 @@
 //
 // Beats:
 //   1. lsp_rpc_methods_is_lifecycle: initialize, initialized, shutdown, exit.
-//   2. lsp_rpc_methods_is_document: textDocument/* methods (11 known).
-//   3. lsp_rpc_methods_is_known: any of the 13 dispatched methods.
+//   2. lsp_rpc_methods_is_document: textDocument/* methods (12 known, including didClose).
+//   3. lsp_rpc_methods_is_known: any of the 17 dispatched methods.
 
 pub fn lsp_rpc_methods_is_lifecycle(method: String) -> Bool {
     if method == "initialize" { return true; }
@@ -20,6 +20,7 @@ pub fn lsp_rpc_methods_is_lifecycle(method: String) -> Bool {
 pub fn lsp_rpc_methods_is_document(method: String) -> Bool {
     if method == "textDocument/didOpen" { return true; }
     if method == "textDocument/didChange" { return true; }
+    if method == "textDocument/didClose" { return true; }
     if method == "textDocument/completion" { return true; }
     if method == "textDocument/hover" { return true; }
     if method == "textDocument/definition" { return true; }

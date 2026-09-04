@@ -1,16 +1,17 @@
 // # LSP Canonical Symbol Index
 //
-// Logline: In-memory symbol records, stdlib scan, symbol codec, E-M telemetry concat.
+// Logline: In-memory symbol records, stdlib scan, symbol codec, E-M concat, and oodar cap table.
 //
-// Setup: Pure data layer. Methods read; bridge writes (compiler integration).
+// Setup: Data layer. Methods read. Bridge writes user symbols. Cap table is loaded from oodar.
 //
 // Beats:
-//   1. 5 files implementing the symbols layer.
-//   2. All files follow the 4-element Academy header and the 256-line cap.
-//   3. Imports go to siblings in this subdir; cross-subdir imports use the new lsp/<subdir>/<file> path.
+//   1. lsp_cap_table.oo parses oodar sec/cap/cap_table.json. Missing file is Err.
+//   2. Canonical seed holds language tokens. Grant file paths are not in the seed.
+//   3. Cross-subdir imports use the lsp/<subdir>/<file> path.
 
 import "lsp_e_m_concat.oo";
 import "lsp_stdlib.oo";
 import "lsp_symbol_canonical.oo";
 import "lsp_symbol_codec.oo";
 import "lsp_symbol_record.oo";
+import "lsp_cap_table.oo";

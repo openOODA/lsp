@@ -1,16 +1,34 @@
-// # LSP Formatting — LSP Self-Test Probe
+// # LSP Formatting - Hostile Probe
 //
-// Logline: Hostile test for textDocument/formatting.
+// Logline: Proves trailing whitespace is stripped, tabs become 4 spaces, and the handler returns a TextEdit.
 //
-// Setup: Pure compute. Imports the relevant LSP files. Returns Result[Int, String]; Ok(0) on pass.
+// Setup: Pure string transforms. No filesystem.
 //
 // Beats:
-//   1. Set up and run: format a sample document
-//   2. Assert: edits array is non-empty
+//   1. Trailing spaces and tabs on a line are removed.
+//   2. A tab character becomes four spaces.
+//   3. The formatting handler returns a non-empty newText edit.
 
-import "../methods/lsp_formatting.oo";
+import "lsp/methods/lsp_formatting.oo";
 
-pub fn main(p: &ProcessCap, fs_r: &FsReadCap, env: &EnvCap, args: List[String]) -> Result[Int, String] {
-    println("probe: LSP Formatting");
-    return Ok(0);
+fn fail(msg: String) {
+    println("FAIL " + msg);
+    process_exit(1);
+}
+
+pub fn main() {
+    let stripped: String = lsp_formatting_strip_trailing_ws("abc  \nxyz\t\n");
+    if stripped != "abc\nxyz\n" { fail("strip: [" + stripped + "]"); }
+    println("PASS strip trailing");
+
+    let tabs: String = lsp_formatting_expand_tabs("a\tb");
+    if tabs != "a    b" { fail("tabs: [" + tabs + "]"); }
+    println("PASS expand tabs");
+
+    let mid: String = lsp_formatting_expand_tabs(lsp_formatting_strip_trailing_ws("a\tb  \n"));
+    if mid != "a    b\n" { fail("format combo: [" + mid + "]"); }
+    let framed: String = lsp_formatting_handle_formatting("1", "file:///tmp/a.oo", "a\tb  \n");
+    if str_index_of(framed, "newText") < 0 { fail("handler missing newText: " + framed); }
+    println("PASS formatting handler");
+    println("probe_formatting PASSED");
 }

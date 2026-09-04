@@ -1,4 +1,4 @@
-// # Native LSP Standard Library — Single Canonical Root Scanner
+// # Native LSP Standard Library - Single Canonical Root Scanner
 //
 // Logline: Scans the stdlib .oo source tree at the explicit root and pushes pub fn / pub type declarations into the symbol index. No env-var discovery, no binary locator, no CWD fallback.
 //
@@ -21,7 +21,10 @@ pub fn lsp_stdlib_try_dir(fs: &FsReadCap, path: String) -> Bool {
 }
 
 pub fn lsp_stdlib_find_root(fs: &FsReadCap, explicit_root: String) -> String {
+    if chars_len(explicit_root) == 0 { return ""; }
     if lsp_stdlib_try_dir(fs, explicit_root) { return explicit_root; }
+    println("ERR\tlsp\tstdlib root missing: " + explicit_root);
+    process_exit(1);
     return "";
 }
 
@@ -112,9 +115,7 @@ pub fn lsp_stdlib_collect_file(fs: &FsReadCap, file_path: String, idx: List[Stri
 
 pub fn lsp_stdlib_collect_package(fs: &FsReadCap, pkg_path: String, idx: List[String]) -> List[String] {
     let entries: List[String] = oo_fs_read_dir(fs, pkg_path);
-    let total: Int = list_len(entries);
-    let cap: Int = 50;
-    let n: Int = if total > cap { cap } else { total };
+    let n: Int = list_len(entries);
     let mut i: Int = 0;
     let mut out: List[String] = idx;
     while i < n {

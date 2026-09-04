@@ -1,27 +1,36 @@
-// # Build LSP — Compile Server
+// # Build LSP - Typecheck the Server Entry
 //
-// Logline: Compile the LSP server (all 6 subdirs) into release artifacts.
+// Logline: Runs OODA_COMPILER on lsp/cli/main.oo from OODA_FS_READDIR. Fail closed if the compiler rejects the tree.
 //
-// Setup: Requires oodac on PATH or OODAC_BIN env. Reads ooda/lsp/VERSION for the version string.
+// Setup: Requires OODA_COMPILER and OODA_FS_READDIR. No VERSION file. No fake compile lines.
 //
 // Beats:
-//   1. Read ooda/lsp/VERSION to get the LSP version.
-//   2. Compile each subdir mod.oo via oodac.
-//   3. Compile the top-level ANCHOR.oo.
-
-import "std/process/sys.oo";
-import "std/fs/path.oo";
-import "std/os/env.oo";
+//   1. Refuse missing compiler or repo root.
+//   2. Exec `oodac run` is not a build; exec `oodac` on the entry so import expansion runs.
+//   3. Return Err when the compiler exits non-zero.
 
 pub fn main(p: &ProcessCap, fs_r: &FsReadCap, env: &EnvCap, args: List[String]) -> Result[Int, String] {
-    let version: String = "0.5.0";
-    println("Building LSP v" + version);
-    let subdirs: List[String] = ["wire", "types", "server", "methods", "symbols", "bridge"];
-    let mut i: Int = 0;
-    while i < list_len(subdirs) {
-        let sub: String = list_get(subdirs, i);
-        println("  Compiling ooda/lsp/" + sub + "/mod.oo");
-        i = i + 1;
+    let cr: Result[String, String] = env_get(env, "OODA_COMPILER");
+    if cr.is_err() { return Err("OODA_COMPILER required"); }
+    let bin: String = match cr { Ok(s) => s, Err(_) => "" };
+    if chars_len(bin) == 0 { return Err("OODA_COMPILER empty"); }
+    if !path_exists(fs_r, bin) { return Err("OODA_COMPILER missing"); }
+
+    let rr: Result[String, String] = env_get(env, "OODA_FS_READDIR");
+    if rr.is_err() { return Err("OODA_FS_READDIR required"); }
+    let root: String = match rr { Ok(s) => s, Err(_) => "" };
+    if chars_len(root) == 0 { return Err("OODA_FS_READDIR empty"); }
+    if str_index_of(root, "..") >= 0 { return Err("OODA_FS_READDIR traversal"); }
+
+    let entry: String = root + "/lsp/cli/main.oo";
+    if !path_exists(fs_r, entry) { return Err("missing " + entry); }
+    println("Building lsp/cli/main.oo");
+    let cmd: String = "cd " + root + " && exec " + bin + " " + "lsp/cli/main.oo";
+    let r: Result[String, String] = sys_exec(p, "sh", "-c", cmd);
+    if r.is_err() {
+        let msg: String = match r { Ok(_) => "", Err(e) => e };
+        return Err("build failed: " + msg);
     }
+    println("Build ok");
     return Ok(0);
 }

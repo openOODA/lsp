@@ -1,26 +1,31 @@
-// # LSP Request Dispatcher and In-Process Message Processor
+// # LSP Request Dispatcher
 //
-// Logline: Routes JSON-RPC method names to per-method handlers, enforces the init-before-use guard, evolves per-session state, and is the single canonical in-process entry point for tests.
+// Logline: Routes JSON-RPC method names to handlers, enforces init-before-use, and threads session state.
 //
-// Setup: Imports the protocol types, the rpc-method classifier, the text utilities, the JSON-RPC framer, the guards + handlers, plus formatting, extras, and code-action. This is the Layer-3 dispatcher — the only file that knows the full 16-method routing table (initialize, shutdown, exit, initialized, didOpen, didChange, completion, hover, definition, formatting, documentSymbol, codeAction, diagnostic, documentLink, inlayHint, executeCommand).
+// Setup: 17 methods: 4 lifecycle, 12 document (including didClose), 1 workspace. Unknown names get -32601.
 //
 // Beats:
-//   1. lsp_server_dispatch_request — the 16-method if/else chain that routes method name to handler.
-//   2. lsp_server_process_message — extracts method/id/params, evolves state, returns (response, new_state) so the stdio loop can thread state across requests.
+//   1. Reject textDocument methods before initialize with -32602.
+//   2. Drop oversized text and untrusted URIs. Do not truncate.
+//   3. Route didClose to clear diagnostics.
 
 import "lsp/types/lsp_types.oo";
+import "lsp/types/lsp_payload.oo";
+import "lsp/methods/lsp_diagnostics.oo";
 import "lsp/wire/lsp_rpc_methods.oo";
 import "lsp/wire/lsp_jsonrpc.oo";
 import "lsp/methods/lsp_text.oo";
 import "lsp_server_guards.oo";
 import "lsp_server_handlers.oo";
 import "lsp/methods/lsp_formatting.oo";
-import "lsp/methods/lsp_methods_extra.oo";
+import "lsp/methods/lsp_document_link.oo";
+import "lsp/methods/lsp_inlay_hint.oo";
+import "lsp/methods/lsp_execute_command.oo";
 import "lsp/methods/lsp_code_action.oo";
 
-pub fn lsp_server_dispatch_request(state: LspServerState, idx: List[String], method: String, id: String, params: String) -> String {
+pub fn lsp_server_dispatch_request(state: LspServerState, idx: List[String], rows: List[String], method: String, id: String, params: String) -> String {
     if !state.is_initialized && lsp_rpc_methods_is_document(method) {
-        if method == "textDocument/didOpen" || method == "textDocument/didChange" { return ""; }
+        if method == "textDocument/didOpen" || method == "textDocument/didChange" || method == "textDocument/didClose" { return ""; }
         return lsp_jsonrpc_frame(lsp_jsonrpc_make_error(id, 0 - 32602, "Server not initialized: " + method));
     }
     if method == "initialize" {
@@ -34,13 +39,22 @@ pub fn lsp_server_dispatch_request(state: LspServerState, idx: List[String], met
     if method == "initialized" { return ""; }
     if method == "textDocument/didOpen" {
         let d: LspDoc = lsp_server_extract_doc(params);
+        if !d.has_doc { return ""; }
+        if lsp_server_text_too_large(d.text) { return ""; }
         if !lsp_server_uri_acceptable(d.uri, state.root_uri) { return ""; }
         return lsp_server_handle_did_open(d.uri, d.text);
     }
     if method == "textDocument/didChange" {
         let d: LspDoc = lsp_server_extract_doc(params);
+        if !d.has_doc { return ""; }
+        if lsp_server_text_too_large(d.text) { return ""; }
         if !lsp_server_uri_acceptable(d.uri, state.root_uri) { return ""; }
         return lsp_server_handle_did_change(d.uri, d.text);
+    }
+    if method == "textDocument/didClose" {
+        let d: LspDoc = lsp_server_extract_doc(params);
+        if !lsp_server_uri_acceptable(d.uri, state.root_uri) { return ""; }
+        return lsp_server_handle_did_close(d.uri);
     }
     if method == "textDocument/completion" {
         let d: LspDoc = lsp_server_extract_doc(params);
@@ -62,12 +76,15 @@ pub fn lsp_server_dispatch_request(state: LspServerState, idx: List[String], met
         let d: LspDoc = lsp_server_extract_doc(params);
         let err: String = lsp_server_trust_check(state, d.uri, id);
         if chars_len(err) > 0 { return err; }
+        if lsp_server_text_too_large(d.text) {
+            return lsp_jsonrpc_frame(lsp_jsonrpc_make_error(id, 0 - 32602, "text exceeds 4MB"));
+        }
         let pos: String = lsp_jsonrpc_extract_object(params, "position");
         let line: Int = if chars_len(pos) > 0 { lsp_jsonrpc_extract_int(pos, "line") } else { 0 };
         let col: Int = if chars_len(pos) > 0 { lsp_jsonrpc_extract_int(pos, "character") } else { 0 };
         let mut sym: String = lsp_jsonrpc_extract_string(params, "symbol");
         if chars_len(sym) == 0 { sym = lsp_text_completion_prefix(d.text, line, col); }
-        return lsp_server_handle_definition(id, idx, sym, d.uri);
+        return lsp_server_handle_definition(id, idx, rows, sym, d.uri, d.text, state.oodar_root);
     }
     if method == "textDocument/formatting" {
         let d: LspDoc = lsp_server_extract_doc(params);
@@ -96,21 +113,21 @@ pub fn lsp_server_dispatch_request(state: LspServerState, idx: List[String], met
     }
     if method == "textDocument/documentLink" {
         let d: LspDoc = lsp_server_extract_doc(params);
-        return lsp_extras_handle_document_link(id, d.text);
+        return lsp_document_link_handle(id, d.text, rows, state.oodar_root);
     }
     if method == "textDocument/inlayHint" {
         let d: LspDoc = lsp_server_extract_doc(params);
-        return lsp_extras_handle_inlay_hint(id, d.text);
+        return lsp_inlay_hint_handle(id, d.text);
     }
     if method == "workspace/executeCommand" {
         let command: String = lsp_jsonrpc_extract_string(params, "command");
         let args: String = lsp_jsonrpc_extract_object(params, "arguments");
-        return lsp_extras_handle_execute_command(id, idx, command, args);
+        return lsp_execute_command_handle(id, idx, command, args);
     }
     return lsp_jsonrpc_frame(lsp_jsonrpc_make_error(id, 0 - 32601, "Method not found: " + method));
 }
 
-pub fn lsp_server_process_message(state: LspServerState, raw_body: String, idx: List[String]) -> LspProcessResult {
+pub fn lsp_server_process_message(state: LspServerState, raw_body: String, idx: List[String], rows: List[String]) -> LspProcessResult {
     let method: String = lsp_jsonrpc_extract_method(raw_body);
     let id: String = lsp_jsonrpc_extract_id(raw_body);
     let params: String = lsp_jsonrpc_extract_params(raw_body);
@@ -121,6 +138,6 @@ pub fn lsp_server_process_message(state: LspServerState, raw_body: String, idx: 
         else { next = lsp_server_stamp(next, true, next.root_uri); }
     }
     if method == "shutdown" { next = lsp_server_stamp(next, next.is_initialized, next.root_uri); }
-    let resp: String = lsp_server_dispatch_request(next, idx, method, id, params);
+    let resp: String = lsp_server_dispatch_request(next, idx, rows, method, id, params);
     return lsp_process_result_new(resp, next);
 }

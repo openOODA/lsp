@@ -1,23 +1,77 @@
-// # Verify LSP — Assert Version and Surface
+// # Verify LSP - Line Cap and ANCHOR Surface
 //
-// Logline: Parse ooda/lsp/VERSION, assert the api_surface field matches the 6-subdir count.
+// Logline: Walks each product dir, requires ANCHOR.oo, and fails closed on any .oo/.oot over 256 lines.
 //
-// Setup: Pure check. Fails closed if VERSION's api_surface count does not match the actual subdirs.
+// Setup: Requires OODA_FS_READDIR. No VERSION file. No extras file.
 //
 // Beats:
-//   1. Parse ooda/lsp/VERSION for lsp= and api_surface= fields.
-//   2. Count the actual subdirs in ooda/lsp/.
-//   3. Compare; fail closed on mismatch.
+//   1. Require ANCHOR.oo in each product directory.
+//   2. Count newlines in every .oo and .oot in those dirs.
+//   3. Refuse VERSION and the deleted lsp_methods_extra.oo.
 
-import "std/fs/path.oo";
-
-pub fn main(p: &ProcessCap, fs_r: &FsReadCap, args: List[String]) -> Result[Int, String] {
-    let declared: Int = 6;
-    let actual: Int = 6;
-    println("Declared api_surface: " + declared);
-    println("Actual subdir count:  " + actual);
-    if declared != actual {
-        return Err("api_surface drift: declared " + declared + " but found " + actual);
+pub fn lsp_verify_line_count(src: String) -> Int {
+    let n: Int = chars_len(src);
+    if n == 0 { return 0; }
+    let mut count: Int = 1;
+    let mut i: Int = 0;
+    while i < n {
+        if char_at(src, i) == "\n" { count = count + 1; }
+        i = i + 1;
     }
+    return count;
+}
+
+pub fn lsp_verify_file(fs: &FsReadCap, path: String) -> Result[Int, String] {
+    if !path_exists(fs, path) { return Err("missing " + path); }
+    let rr: Result[String, String] = read_file(fs, path);
+    if !rr.is_ok() { return Err("unreadable " + path); }
+    let src: String = match rr { Ok(s) => s, Err(m) => m };
+    let n: Int = lsp_verify_line_count(src);
+    if n > 256 { return Err("over 256 lines: " + path + " n=" + n.to_string()); }
+    return Ok(n);
+}
+
+pub fn lsp_verify_dir(fs: &FsReadCap, dir: String) -> Result[Int, String] {
+    let entries: List[String] = oo_fs_read_dir(fs, dir);
+    let n: Int = list_len(entries);
+    let mut i: Int = 0;
+    let mut files: Int = 0;
+    while i < n {
+        let name: String = list_get(entries, i);
+        let is_oo: Bool = str_ends_with(name, ".oo") || str_ends_with(name, ".oot");
+        if is_oo {
+            let vr: Result[Int, String] = lsp_verify_file(fs, dir + "/" + name);
+            if vr.is_err() { return vr; }
+            files = files + 1;
+        }
+        i = i + 1;
+    }
+    return Ok(files);
+}
+
+pub fn main(p: &ProcessCap, fs_r: &FsReadCap, env: &EnvCap, args: List[String]) -> Result[Int, String] {
+    let rr: Result[String, String] = env_get(env, "OODA_FS_READDIR");
+    if rr.is_err() { return Err("OODA_FS_READDIR required"); }
+    let root: String = match rr { Ok(s) => s, Err(_) => "" };
+    if chars_len(root) == 0 { return Err("OODA_FS_READDIR empty"); }
+    let base: String = root + "/lsp";
+
+    let dirs: List[String] = ["", "wire", "types", "server", "methods", "symbols", "bridge", "cli", "qa", "scripts", "docs", "examples"];
+    let mut i: Int = 0;
+    let mut total: Int = 0;
+    while i < list_len(dirs) {
+        let d: String = list_get(dirs, i);
+        let dir: String = if chars_len(d) == 0 { base } else { base + "/" + d };
+        let anchor: String = dir + "/ANCHOR.oo";
+        if !path_exists(fs_r, anchor) { return Err("missing ANCHOR.oo in " + dir); }
+        let vr: Result[Int, String] = lsp_verify_dir(fs_r, dir);
+        if vr.is_err() { return vr; }
+        let n: Int = match vr { Ok(k) => k, Err(_) => 0 };
+        total = total + n;
+        i = i + 1;
+    }
+    if path_exists(fs_r, base + "/VERSION") { return Err("VERSION file is banned"); }
+    if path_exists(fs_r, base + "/methods/lsp_methods_extra.oo") { return Err("dead extras file still present"); }
+    println("verify ok files=" + total.to_string());
     return Ok(0);
 }

@@ -1,16 +1,40 @@
-// # LSP CodeAction — LSP Self-Test Probe
+// # LSP CodeAction - Hostile Probe
 //
-// Logline: Hostile test for textDocument/codeAction.
+// Logline: Proves E_EM_WEIGHT, E_EM_PS, and E_EM_PINS yield quickfixes, and an unknown code yields none.
 //
-// Setup: Pure compute. Imports the relevant LSP files. Returns Result[Int, String]; Ok(0) on pass.
+// Setup: Direct resolve. No filesystem.
 //
 // Beats:
-//   1. Set up and run: trigger the 3 live E-M diagnostics
-//   2. Assert: codeAction array is non-empty
+//   1. Each live diagnostic code returns one quickfix.
+//   2. An unknown code returns an empty list.
+//   3. JSON serialization is non-empty only when an action exists.
 
-import "../methods/lsp_code_action.oo";
+import "lsp/types/lsp_payload.oo";
+import "lsp/methods/lsp_code_action.oo";
 
-pub fn main(p: &ProcessCap, fs_r: &FsReadCap, env: &EnvCap, args: List[String]) -> Result[Int, String] {
-    println("probe: LSP CodeAction");
-    return Ok(0);
+fn fail(msg: String) {
+    println("FAIL " + msg);
+    process_exit(1);
+}
+
+pub fn main() {
+    let uri: String = "file:///tmp/a.oo";
+    let d1: LspDiagnostic = lsp_diagnostic_new(0, 0, 0, 80, 2, "E_EM_WEIGHT", "w", "em");
+    let j1: String = lsp_code_actions_to_json(lsp_code_action_resolve(&d1), uri);
+    if str_index_of(j1, "quickfix") < 0 { fail("WEIGHT json: " + j1); }
+    let d2: LspDiagnostic = lsp_diagnostic_new(0, 0, 0, 80, 1, "E_EM_PS", "ps", "em");
+    let j2: String = lsp_code_actions_to_json(lsp_code_action_resolve(&d2), uri);
+    if str_index_of(j2, "quickfix") < 0 { fail("PS json: " + j2); }
+    let d3: LspDiagnostic = lsp_diagnostic_new(0, 0, 0, 80, 3, "E_EM_PINS", "pins", "em");
+    let j3: String = lsp_code_actions_to_json(lsp_code_action_resolve(&d3), uri);
+    if str_index_of(j3, "quickfix") < 0 { fail("PINS json: " + j3); }
+    let d4: LspDiagnostic = lsp_diagnostic_new(0, 0, 0, 80, 1, "E_EM_DRAG", "dead", "em");
+    let j4: String = lsp_code_actions_to_json(lsp_code_action_resolve(&d4), uri);
+    if j4 != "[]" { fail("DRAG must be empty: " + j4); }
+    let d5: LspDiagnostic = lsp_diagnostic_new(0, 0, 0, 80, 1, "E_CAP", "no", "em");
+    let j5: String = lsp_code_actions_to_json(lsp_code_action_resolve(&d5), uri);
+    if j5 != "[]" { fail("E_CAP must be empty: " + j5); }
+    println("PASS live codes only");
+    println("PASS json");
+    println("probe_codeaction PASSED");
 }

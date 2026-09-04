@@ -1,0 +1,8 @@
+// # LSP CI Workflows
+//
+// Logline: Auto-release on push to main. Version is the git tag, not a VERSION file.
+//
+// Setup: Structural. ci.yml is YAML consumed by GitHub Actions.
+//
+// Beats:
+//   1. ci.yml calls openOODA/openOODA auto-release.yml on push to main.

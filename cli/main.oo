@@ -1,4 +1,4 @@
-// # LSP Main — Package Entry Point
+// # LSP Main - Package Entry Point
 //
 // Logline: Parse argv under the lsp binary and invoke the stdio JSON-RPC server. This is the standalone entry.
 //

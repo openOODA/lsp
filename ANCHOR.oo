@@ -1,16 +1,15 @@
-// # LSP Subsystem — Anchor for Agents
+// # LSP Subsystem - Anchor for Agents
 //
-// Logline: Front door for the lsp/ directory. Re-exports the 6 functional subdirs plus the cli/ command interface.
+// Logline: Front door for the lsp/ directory. Six functional layers plus cli, qa, scripts, docs, examples.
 //
-// Setup: Pure structural file. Imports register the 6 subdir ANCHOR.oo files plus cli/, qa/, scripts/, docs/, examples/.
+// Setup: Pure structural file. No VERSION file. Engine version is lsp_facade_version() in server/lsp_version.oo.
 //
 // Beats:
-//   1. The 6 subdirs are: wire, types, server, methods, symbols, bridge.
-//   2. cli/ has the standalone entry point: parses argv, runs the stdio JSON-RPC loop.
-//   3. Each subdir has its own ANCHOR.oo front door.
-//   4. qa/ has 8 self-test probe drivers; scripts/ has build, test, verify, release.
-//   5. docs/ has LSP_SETUP.oot, protocol.oot, and client_config.oot; examples/ has 3 sample JSON-RPC pairs.
-//   6. VERSION declares lsp=0.6.3 with ooda compat range and api_surface=7. v0.6.3 is a doc-only release: documents the planned `lsp_definition_load_cap_table(oodar_root)` design that sources the cap→file mapping from `${oodar_root}/cap_table.json` (oodar-owned, future commit) and falls back to the hard-coded table; no behavior change.
+//   1. wire, types, server, methods, symbols, bridge are the six functional dirs.
+//   2. cli/ is the stdio JSON-RPC entry. Pass --oodar-root to load oodar cap_table.json.
+//   3. qa/ has 8 hostile probes. scripts/ build, test, and verify actually exec OODA_COMPILER.
+//   4. Cap grant files come from ${oodar_root}/sec/cap/cap_table.json. No hard-coded table.
+//   5. To propose a change, keep every file <= 256 lines and fail closed. No fallbacks.
 
 import "wire/ANCHOR.oo";
 import "types/ANCHOR.oo";

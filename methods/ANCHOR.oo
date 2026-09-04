@@ -1,19 +1,21 @@
 // # LSP Method Implementations
 //
-// Logline: The 8 user-facing LSP methods: hover, completion, definition, formatting, codeAction, diagnostics, extras, plus text utilities.
+// Logline: User-facing LSP methods: hover, completion, definition, formatting, codeAction, diagnostics, documentLink, inlayHint, executeCommand, text.
 //
-// Setup: Pure business logic. Each method reads from symbols/ and emits wire/types payloads via server/.
+// Setup: Business logic. Definition and documentLink read the loaded cap table. No extras file.
 //
 // Beats:
-//   1. 8 files implementing the methods layer.
+//   1. One file per method family. Names match the LSP method.
 //   2. All files follow the 4-element Academy header and the 256-line cap.
-//   3. Imports go to siblings in this subdir; cross-subdir imports use the new lsp/<subdir>/<file> path.
+//   3. Cross-subdir imports use the lsp/<subdir>/<file> path.
 
 import "lsp_code_action.oo";
 import "lsp_completion_codec.oo";
 import "lsp_definition.oo";
 import "lsp_diagnostics.oo";
-import "lsp_methods_extra.oo";
+import "lsp_document_link.oo";
+import "lsp_execute_command.oo";
 import "lsp_formatting.oo";
 import "lsp_hover.oo";
+import "lsp_inlay_hint.oo";
 import "lsp_text.oo";

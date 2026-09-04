@@ -1,13 +1,13 @@
-// # LSP Examples Index — Anchor for Agents
+// # LSP Examples Index - Anchor for Agents
 //
 // Logline: Index of the 3 sample JSON-RPC request files for the LSP server.
 //
 // Setup: Each example is a minimal but realistic JSON-RPC request that exercises one LSP method.
 //
 // Beats:
-//   1. initialize_request.oot — the lifecycle start.
-//   2. completion_request.oot — textDocument/completion.
-//   3. hover_request.oot — textDocument/hover.
+//   1. initialize_request.oot - the lifecycle start.
+//   2. completion_request.oot - textDocument/completion.
+//   3. hover_request.oot - textDocument/hover.
 
 import "initialize_request.oot";
 import "completion_request.oot";

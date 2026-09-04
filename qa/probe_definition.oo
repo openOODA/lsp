@@ -1,16 +1,54 @@
-// # LSP Definition — LSP Self-Test Probe
+// # LSP Definition - Hostile Probe
 //
-// Logline: Hostile test for textDocument/definition.
+// Logline: Proves cap_table parse, fail-closed empty JSON, user pub fn location, and reserved caps with no file.
 //
-// Setup: Pure compute. Imports the relevant LSP files. Returns Result[Int, String]; Ok(0) on pass.
+// Setup: In-memory fixture JSON. Does not read oodar. No hard-coded path table.
 //
 // Beats:
-//   1. Set up and run: build a definition request
-//   2. Assert: Location has URI+line+col
+//   1. Parse a two-cap fixture: FsReadCap maps to fs/os/fs.c.
+//   2. Reserved AudioCap has an empty grant file.
+//   3. Empty JSON is Err. User pub fn resolves to the document URI.
 
-import "../methods/lsp_definition.oo";
+import "lsp/symbols/lsp_cap_table.oo";
+import "lsp/symbols/lsp_symbol_canonical.oo";
+import "lsp/methods/lsp_definition.oo";
 
-pub fn main(p: &ProcessCap, fs_r: &FsReadCap, env: &EnvCap, args: List[String]) -> Result[Int, String] {
-    println("probe: LSP Definition");
-    return Ok(0);
+fn fail(msg: String) {
+    println("FAIL " + msg);
+    process_exit(1);
+}
+
+pub fn main() {
+    let empty: Result[List[String], String] = lsp_cap_table_parse("");
+    if empty.is_ok() { fail("empty JSON must Err"); }
+    println("PASS empty JSON Err");
+
+    let fixture: String = "{\"caps\":[{\"name\":\"FSREAD\",\"grantee\":\"fs/os/fs.c (open with O_RDONLY)\",\"require\":\"oo_cap_require_fs_read\",\"implemented\":true},{\"name\":\"AUDIO\",\"grantee\":\"(reserved for app/audio/)\",\"require\":\"(none)\",\"implemented\":false}]}";
+    let parsed: Result[List[String], String] = lsp_cap_table_parse(fixture);
+    if parsed.is_err() { fail("fixture must parse"); }
+    let rows: List[String] = match parsed { Ok(r) => r, Err(_) => lsp_cap_table_empty() };
+    let p1: String = lsp_cap_table_lookup(rows, "FsReadCap");
+    if p1 != "fs/os/fs.c" { fail("FsReadCap path: " + p1); }
+    let p2: String = lsp_cap_table_lookup(rows, "&FsReadCap");
+    if p2 != "fs/os/fs.c" { fail("& strip failed: " + p2); }
+    let p3: String = lsp_cap_table_lookup(rows, "AudioCap");
+    if chars_len(p3) != 0 { fail("reserved cap must have empty path: " + p3); }
+    let p4: String = lsp_cap_table_lookup(rows, "NetCap");
+    if chars_len(p4) != 0 { fail("missing cap must be empty"); }
+    println("PASS cap table parse");
+
+    let builtin: String = lsp_definition_builtin_path("FsReadCap", rows, "oodar");
+    if builtin != "oodar/fs/os/fs.c" { fail("builtin path: " + builtin); }
+    let nobuiltin: String = lsp_definition_builtin_path("FsReadCap", rows, "");
+    if chars_len(nobuiltin) != 0 { fail("empty oodar_root must yield empty path"); }
+    println("PASS builtin path requires oodar_root");
+
+    let idx: List[String] = lsp_index_build_canonical();
+    let src: String = "pub fn hello() -> String { return \"hi\"; }\n";
+    let loc: String = lsp_definition_resolve_in_doc(idx, rows, "oodar", "hello", "file:///tmp/a.oo", src);
+    if str_index_of(loc, "file:///tmp/a.oo") < 0 { fail("user fn location: " + loc); }
+    let miss: String = lsp_definition_resolve_in_doc(idx, rows, "oodar", "nope", "file:///tmp/a.oo", src);
+    if chars_len(miss) != 0 { fail("unknown symbol must be empty"); }
+    println("PASS user definition");
+    println("probe_definition PASSED");
 }

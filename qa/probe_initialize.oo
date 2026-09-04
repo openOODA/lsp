@@ -1,16 +1,31 @@
-// # LSP Initialize — LSP Self-Test Probe
+// # LSP Initialize - Hostile Probe
 //
-// Logline: Hostile test for the initialize request/response.
+// Logline: Proves the advertised capabilities object and engine version. URI guards are in probe_diagnostics.
 //
-// Setup: Pure compute. Imports the relevant LSP files. Returns Result[Int, String]; Ok(0) on pass.
+// Setup: Imports only capabilities and version. No session structs.
 //
 // Beats:
-//   1. Set up and run: fresh LspServerState, send initialize
-//   2. Assert: init returns capabilities matching LSP_SETUP.oot
+//   1. capabilities include hover, openClose, and false resolveProvider.
+//   2. capabilities omit workspaceFolders.
+//   3. lsp_facade_version is non-empty and equals 2.12.0.
 
-import "../server/lsp_server_dispatch.oo";
+import "lsp/server/lsp_server_capabilities.oo";
+import "lsp/server/lsp_version.oo";
 
-pub fn main(p: &ProcessCap, fs_r: &FsReadCap, env: &EnvCap, args: List[String]) -> Result[Int, String] {
-    println("probe: LSP Initialize");
-    return Ok(0);
+fn fail(msg: String) {
+    println("FAIL " + msg);
+    process_exit(1);
+}
+
+pub fn main() {
+    let caps: String = lsp_server_capabilities_object();
+    if str_index_of(caps, "hoverProvider") < 0 { fail("missing hoverProvider"); }
+    if str_index_of(caps, "\"openClose\":true") < 0 { fail("missing openClose"); }
+    if str_index_of(caps, "workspaceFolders") >= 0 { fail("workspaceFolders must not be advertised"); }
+    if str_index_of(caps, "\"resolveProvider\":true") >= 0 { fail("resolveProvider must be false"); }
+    if str_index_of(caps, "didChangeWatchedFiles") >= 0 { fail("watched files must not be advertised"); }
+    let ver: String = lsp_facade_version();
+    if ver != "2.12.0" { fail("version drift: " + ver); }
+    println("PASS initialize capabilities v=" + ver);
+    println("probe_initialize PASSED");
 }

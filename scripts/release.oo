@@ -1,21 +1,38 @@
-// # Release LSP — Build, Test, Verify, Tarball
+// # Release LSP - Build, Test, Verify
 //
-// Logline: Compose build + test + verify; produce lsp-<version>.tar.gz.
+// Logline: Runs build, test, and verify in order. Git tags are created by auto-release on push to main.
 //
-// Setup: Invokes the other 3 scripts in sequence. Fails closed if any step fails.
+// Setup: Requires OODA_COMPILER and OODA_FS_READDIR. No tarball. No VERSION bump.
 //
 // Beats:
-//   1. Invoke scripts/build.oo.
-//   2. Invoke scripts/test.oo.
-//   3. Invoke scripts/verify.oo.
-//   4. Tarball the result into lsp-<version>.tar.gz.
-
-import "std/process/sys.oo";
+//   1. Run scripts/build.oo.
+//   2. Run scripts/test.oo.
+//   3. Run scripts/verify.oo.
+//   4. Fail closed on the first Err.
 
 pub fn main(p: &ProcessCap, fs_r: &FsReadCap, env: &EnvCap, args: List[String]) -> Result[Int, String] {
-    println("Release: step 1/4 build");
-    println("Release: step 2/4 test");
-    println("Release: step 3/4 verify");
-    println("Release: step 4/4 tarball -> lsp-0.5.0.tar.gz");
+    let cr: Result[String, String] = env_get(env, "OODA_COMPILER");
+    if cr.is_err() { return Err("OODA_COMPILER required"); }
+    let bin: String = match cr { Ok(s) => s, Err(_) => "" };
+    let rr: Result[String, String] = env_get(env, "OODA_FS_READDIR");
+    if rr.is_err() { return Err("OODA_FS_READDIR required"); }
+    let root: String = match rr { Ok(s) => s, Err(_) => "" };
+    if chars_len(root) == 0 { return Err("OODA_FS_READDIR empty"); }
+
+    let steps: List[String] = ["build", "test", "verify"];
+    let mut i: Int = 0;
+    while i < list_len(steps) {
+        let step: String = list_get(steps, i);
+        let rel: String = "lsp/scripts/" + step + ".oo";
+        println("Release step " + step);
+        let cmd: String = "cd " + root + " && exec " + bin + " run " + rel;
+        let r: Result[String, String] = sys_exec(p, "sh", "-c", cmd);
+        if r.is_err() {
+            let msg: String = match r { Ok(_) => "", Err(e) => e };
+            return Err("release " + step + " failed: " + msg);
+        }
+        i = i + 1;
+    }
+    println("Release checks passed. Tag is created by auto-release on push to main.");
     return Ok(0);
 }

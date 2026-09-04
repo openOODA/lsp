@@ -1,6 +1,6 @@
 # Sample LSP Initialize Request
 
-File: ooda/lsp/examples/initialize_request.oot
+File: lsp/examples/initialize_request.oot
 
 ## Request
 
@@ -12,40 +12,14 @@ File: ooda/lsp/examples/initialize_request.oot
   "params": {
     "processId": 12345,
     "rootUri": "file:///home/user/project",
-    "capabilities": {
-      "textDocument": {
-        "synchronization": {
-          "didSave": true
-        }
-      }
-    }
+    "capabilities": {}
   }
 }
 ```
 
-## Expected Response (abbreviated)
+## Expected response (shape)
 
-```json
-{
-  "jsonrpc": "2.0",
-  "id": 1,
-  "result": {
-    "capabilities": {
-      "textDocumentSync": 1,
-      "completionProvider": {"triggerCharacters": [".", "&", ":"]},
-      "hoverProvider": true,
-      "definitionProvider": true,
-      "documentSymbolProvider": true,
-      "documentFormattingProvider": true,
-      "codeActionProvider": true,
-      "diagnosticProvider": {"interFileDependencies": false}
-    },
-    "serverInfo": {
-      "name": "openooda-lsp",
-      "version": "0.5.0"
-    }
-  }
-}
-```
-
-The full capability list is in `LSP_SETUP.oot`.
+`result.capabilities` matches `CAPABILITIES.oot`.
+`result.serverInfo.name` is `openooda-lsp`.
+`result.serverInfo.version` is `lsp_facade_version()`.
+`workspaceFolders` is absent. `completionProvider.resolveProvider` is false.

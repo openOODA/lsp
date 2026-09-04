@@ -1,28 +1,25 @@
 // # LSP Per-Method Handlers
 //
-// Logline: Per-LSP-method business logic. Each handler is a self-contained function that takes the parsed request and returns a framed JSON-RPC response. The dispatch table in lsp_server_dispatch.oo routes method names to these handlers.
+// Logline: Per-method handlers that take parsed request fields and return a framed JSON-RPC body.
 //
-// Setup: Imports hover, definition, diagnostics, code-action, extras, stdlib, maneuver, text, jsonrpc, capabilities plus the symbol/response types. E-M telemetry diagnostics are emitted on document open/change. Lifecycle handlers (initialize, shutdown) live here too — they share the handler abstraction. This is the "fat" handler layer — most of the real LSP work happens here.
+// Setup: Lifecycle, document diagnostics, completion, hover, definition, and index refresh.
 //
 // Beats:
-//   1. initialize / shutdown — lifecycle handlers (return capabilities JSON / null).
-//   2. completion — filter the index by prefix, return LSP completion items.
-//   3. hover — return the symbol's documentation if known.
-//   4. definition — resolve go-to-definition for a symbol.
-//   5. didOpen / didChange — emit E-M telemetry diagnostics on the open document.
-//   6. diagnostic (pull mode) — return diagnostics as a response rather than a notification.
-//   7. refresh — rebuild the stdlib index from disk.
+//   1. initialize returns capabilities plus serverInfo.version from lsp_facade_version().
+//   2. didOpen and didChange publish the three live E-M diagnostics.
+//   3. definition uses the open document and the loaded cap table.
+//   4. didClose lives in methods/lsp_diagnostics.oo with the other diagnostic emitters.
 
+import "lsp/types/lsp_types.oo";
 import "lsp/symbols/lsp_symbol_record.oo";
 import "lsp/methods/lsp_completion_codec.oo";
 import "lsp/methods/lsp_hover.oo";
 import "lsp/methods/lsp_definition.oo";
 import "lsp/methods/lsp_diagnostics.oo";
-import "lsp/methods/lsp_text.oo";
 import "lsp/wire/lsp_jsonrpc.oo";
-import "lsp/symbols/lsp_e_m_concat.oo";
 import "lsp/symbols/lsp_stdlib.oo";
 import "lsp_server_capabilities.oo";
+import "lsp_version.oo";
 
 pub fn lsp_server_handle_completion(id: String, idx: List[String], prefix: String) -> String {
     let recs: List[String] = lsp_index_prefix(idx, prefix);
@@ -35,26 +32,10 @@ pub fn lsp_server_handle_hover(id: String, idx: List[String], sym: String, line:
     return lsp_jsonrpc_frame(hov);
 }
 
-pub fn lsp_server_handle_definition(id: String, idx: List[String], sym: String, uri: String) -> String {
-    let loc: String = lsp_definition_resolve(idx, sym);
+pub fn lsp_server_handle_definition(id: String, idx: List[String], rows: List[String], sym: String, uri: String, src: String, oodar_root: String) -> String {
+    let loc: String = lsp_definition_resolve_in_doc(idx, rows, oodar_root, sym, uri, src);
     let resp: String = lsp_definition_response_json(id, loc);
     return lsp_jsonrpc_frame(resp);
-}
-
-
-pub fn lsp_server_extract_diags(uri: String, src: String) -> String {
-    let em_line: Int = lsp_text_count_lines(src);
-    let em_w: String = lsp_diag_weight_to_diagnostic(em_line);
-    let em_pins: String = lsp_diag_pins_to_diagnostic(src);
-    let ps_diag: String = lsp_diag_ps_to_diagnostic(lsp_diag_t_default(), lsp_diag_d_default(), em_line, lsp_diag_v_default());
-    return lsp_maneuver_concat_diags("", em_w, em_pins, ps_diag);
-}
-
-pub fn lsp_server_emit_diagnostics(uri: String, src: String) -> String {
-    let diags: String = lsp_server_extract_diags(uri, src);
-    let esc_uri: String = lsp_jsonrpc_escape(uri);
-    let body: String = "{\"uri\":\"" + esc_uri + "\",\"diagnostics\":[" + diags + "]}";
-    return lsp_jsonrpc_frame(lsp_jsonrpc_make_notification("textDocument/publishDiagnostics", body));
 }
 
 pub fn lsp_server_handle_did_open(uri: String, src: String) -> String { return lsp_server_emit_diagnostics(uri, src); }
@@ -72,8 +53,10 @@ pub fn lsp_server_refresh_index(fs: &FsReadCap, r: String) -> List[String] {
 }
 
 pub fn lsp_server_handle_initialize(id: String) -> String {
-    let caps: String = lsp_server_capabilities_json();
-    return lsp_jsonrpc_frame(lsp_jsonrpc_make_response(id, caps));
+    let caps: String = lsp_server_capabilities_object();
+    let ver: String = lsp_facade_version();
+    let body: String = "{\"capabilities\":" + caps + ",\"serverInfo\":{\"name\":\"openooda-lsp\",\"version\":\"" + ver + "\"}}";
+    return lsp_jsonrpc_frame(lsp_jsonrpc_make_response(id, body));
 }
 
 pub fn lsp_server_handle_shutdown(id: String) -> String {

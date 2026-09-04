@@ -1,6 +1,6 @@
 # Sample LSP Hover Request
 
-File: ooda/lsp/examples/hover_request.oot
+File: lsp/examples/hover_request.oot
 
 ## Request
 
@@ -10,25 +10,17 @@ File: ooda/lsp/examples/hover_request.oot
   "id": 3,
   "method": "textDocument/hover",
   "params": {
-    "textDocument": {"uri": "file:///home/user/project/main.oo"},
-    "position": {"line": 7, "character": 5}
+    "textDocument": {
+      "uri": "file:///home/user/project/main.oo",
+      "text": "pub fn hello() -> String { return \"hi\"; }"
+    },
+    "position": { "line": 0, "character": 8 }
   }
 }
 ```
 
-## Expected Response (abbreviated)
+## Expected response (shape)
 
-```json
-{
-  "jsonrpc": "2.0",
-  "id": 3,
-  "result": {
-    "contents": {
-      "kind": "markdown",
-      "value": "## pub fn divide\n\nLogline: ...\n\nSetup: ...\n\nBeats:\n1. ...\n\n```ooda\npub fn divide(a: Float, b: Float) -> Float\n```"
-    }
-  }
-}
-```
-
-The hover content prepends the Academy 4-element header (parsed from the source file) to the canonical symbol's signature and doc.
+Known symbol: `contents.kind` is `markdown`.
+Unknown symbol: `result` is `null`.
+Academy header is prepended only when it appears in the source before `pub fn`.

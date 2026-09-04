@@ -90,13 +90,26 @@ pub fn lsp_hover_strip_header_token(s: String) -> String {
 }
 
 pub fn lsp_hover_parse_academy(src: String) -> List[String] {
-    return lsp_hover_parse_academy_in_range(src, 0, lsp_text_count_lines(src) + 1);
+    let n: Int = lsp_text_count_lines(src);
+    return lsp_hover_parse_academy_in_range(src, n, n + 1);
 }
 
-pub fn lsp_hover_title(parsed: List[String]) -> String { return list_get(parsed, 0); }
-pub fn lsp_hover_logline(parsed: List[String]) -> String { return list_get(parsed, 1); }
-pub fn lsp_hover_setup(parsed: List[String]) -> String { return list_get(parsed, 2); }
-pub fn lsp_hover_beats(parsed: List[String]) -> String { return list_get(parsed, 3); }
+pub fn lsp_hover_title(parsed: List[String]) -> String {
+    if list_len(parsed) < 1 { return ""; }
+    return list_get(parsed, 0);
+}
+pub fn lsp_hover_logline(parsed: List[String]) -> String {
+    if list_len(parsed) < 2 { return ""; }
+    return list_get(parsed, 1);
+}
+pub fn lsp_hover_setup(parsed: List[String]) -> String {
+    if list_len(parsed) < 3 { return ""; }
+    return list_get(parsed, 2);
+}
+pub fn lsp_hover_beats(parsed: List[String]) -> String {
+    if list_len(parsed) < 4 { return ""; }
+    return list_get(parsed, 3);
+}
 
 pub fn lsp_hover_format_markdown(parsed: List[String]) -> String {
     let title: String = lsp_hover_title(parsed);
@@ -132,8 +145,7 @@ pub fn lsp_hover_from_index(idx: List[String], name: String, id: String, line: I
     if chars_len(src) > 0 {
         let pub_line: Int = lsp_hover_find_pub_fn_line(src, name);
         let mut parsed: List[String] = list_new();
-        if pub_line >= 0 { parsed = lsp_hover_parse_academy_in_range(src, 0, pub_line); }
-        if list_len(parsed) == 0 || chars_len(list_get(parsed, 0)) == 0 { parsed = lsp_hover_parse_academy_in_range(src, 0, 32); }
+        if pub_line >= 0 { parsed = lsp_hover_parse_academy_in_range(src, pub_line, pub_line); }
         let academy_md: String = lsp_hover_format_markdown(parsed);
         if chars_len(academy_md) > 0 { full_md = academy_md + idx_md; }
     }

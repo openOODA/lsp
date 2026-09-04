@@ -1,6 +1,6 @@
 # Sample LSP Completion Request
 
-File: ooda/lsp/examples/completion_request.oot
+File: lsp/examples/completion_request.oot
 
 ## Request
 
@@ -10,26 +10,29 @@ File: ooda/lsp/examples/completion_request.oot
   "id": 2,
   "method": "textDocument/completion",
   "params": {
-    "textDocument": {"uri": "file:///home/user/project/main.oo"},
-    "position": {"line": 4, "character": 8},
-    "context": {"triggerKind": 2}
+    "textDocument": {
+      "uri": "file:///home/user/project/main.oo",
+      "text": "let x: Fs"
+    },
+    "position": { "line": 0, "character": 9 }
   }
 }
 ```
 
-## Expected Response (abbreviated)
+## Expected response (shape)
 
 ```json
 {
   "jsonrpc": "2.0",
   "id": 2,
-  "result": [
-    {"label": "&FsReadCap", "kind": 21, "detail": "File system read capability"},
-    {"label": "&FsWriteCap", "kind": 21, "detail": "File system write capability"},
-    {"label": "fn", "kind": 14, "detail": "Function keyword"},
-    {"label": "let", "kind": 14, "detail": "Let binding keyword"}
-  ]
+  "result": {
+    "isIncomplete": false,
+    "items": [
+      { "label": "FsReadCap", "kind": 25 }
+    ]
+  }
 }
 ```
 
-Completion items are sorted by kind, then alphabetically. The 18 capability tokens, 20 keywords, 8 types, and 23 functions are in the canonical stdlib seed.
+Items come from the canonical seed plus any compiler-merged user symbols.
+`HttpCap` and `UnsafeFFICap` are not in the seed.

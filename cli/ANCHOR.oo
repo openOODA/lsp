@@ -1,12 +1,13 @@
-// # LSP CLI Command Interface — Anchor for Agents
+// # LSP CLI Command Interface - Anchor for Agents
 //
-// Logline: Front door for the lsp command surface. Re-exports the standalone entry point that wires the LSP engine to stdio JSON-RPC.
+// Logline: Front door for the lsp command surface. Wires the engine to stdio JSON-RPC.
 //
-// Setup: The lsp binary is one command: serve LSP over stdio (or one-shot file mode). The dispatch is just argv parsing, then the stdio loop runs until shutdown/exit/EOF.
+// Setup: One command: serve over stdio, or one-shot file mode. --oodar-root loads cap_table.json.
 //
 // Beats:
-//   1. cmd_lsp.oo parses --stdio, --file <path>, and --stdlib-root <dir> from argv.
-//   2. main.oo is the package's binary entry: parse argv, call run_ooda_lsp, return Result<Int, String>.
-//   3. run_ooda_lsp delegates to wire/lsp_stdio.oo::lsp_serve (stdio) or ::lsp_serve_buffer (file mode).
+//   1. cmd_lsp.oo parses --stdio, --stdlib-root, --oodar-root, and a positional request file.
+//   2. main.oo is the binary entry: parse argv, call run_ooda_lsp.
+//   3. Missing --oodar-root leaves cap rows empty. Set --oodar-root and a missing file exits 1.
 
 import "cmd_lsp.oo";
+import "main.oo";

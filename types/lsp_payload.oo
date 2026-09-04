@@ -1,0 +1,42 @@
+// # LSP Diagnostic and CodeAction Payloads
+//
+// Logline: Defines LspDiagnostic and LspCodeAction records used by diagnostics and codeAction methods.
+//
+// Setup: Pure records. No I/O. Separate from session/frame types so method probes do not emit LspFrame.
+//
+// Beats:
+//   1. Declare LspDiagnostic and LspCodeAction.
+//   2. Provide constructors and CodeAction field accessors.
+
+type LspDiagnostic = struct {
+    start_line: Int,
+    start_col: Int,
+    end_line: Int,
+    end_col: Int,
+    severity: Int,
+    code: String,
+    message: String,
+    source: String
+};
+
+type LspCodeAction = struct {
+    title: String,
+    kind: String,
+    edit: String,
+    start_line: Int,
+    start_col: Int,
+    end_line: Int,
+    end_col: Int
+};
+
+pub fn lsp_diagnostic_new(sl: Int, sc: Int, el: Int, ec: Int, sev: Int, code: String, msg: String, src: String) -> LspDiagnostic {
+    return LspDiagnostic { start_line: sl, start_col: sc, end_line: el, end_col: ec, severity: sev, code: code, message: msg, source: src };
+}
+
+pub fn lsp_action_simple_new(title: String, kind: String, edit: String, start_line: Int, start_col: Int, end_line: Int, end_col: Int) -> LspCodeAction {
+    return LspCodeAction { title: title, kind: kind, edit: edit, start_line: start_line, start_col: start_col, end_line: end_line, end_col: end_col };
+}
+
+pub fn lsp_code_action_title(a: &LspCodeAction) -> String { return a.title; }
+pub fn lsp_code_action_kind(a: &LspCodeAction) -> String { return a.kind; }
+pub fn lsp_code_action_edit(a: &LspCodeAction) -> String { return a.edit; }

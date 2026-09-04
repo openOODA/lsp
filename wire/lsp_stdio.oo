@@ -15,11 +15,12 @@ import "lsp/types/lsp_types.oo";
 import "lsp_jsonrpc.oo";
 import "lsp/server/lsp_server_dispatch.oo";
 import "lsp/symbols/lsp_e_m_concat.oo";
+import "lsp/symbols/lsp_cap_table.oo";
 import "lsp/methods/lsp_text.oo";
 
-pub fn lsp_input_cap_bytes() -> Int { return lsp_maneuver_cap_input(); }
-pub fn lsp_safety_max_msgs() -> Int { return lsp_maneuver_cap_msgs(); }
-pub fn lsp_max_frame_bytes() -> Int { return lsp_maneuver_cap_text(); }
+pub fn lsp_input_cap_bytes() -> Int { return lsp_em_cap_input(); }
+pub fn lsp_safety_max_msgs() -> Int { return lsp_em_cap_msgs(); }
+pub fn lsp_max_frame_bytes() -> Int { return lsp_em_cap_text(); }
 pub fn lsp_stdin_poll_ms() -> Int { return 100; }
 pub fn lsp_stdin_idle_iters() -> Int { return 300; }
 
@@ -72,10 +73,22 @@ pub fn lsp_jsonrpc_take_message(buf: String) -> LspFrame {
     return lsp_take_json_object(tail);
 }
 
-pub fn lsp_serve_buffer(fs: &FsReadCap, env: &EnvCap, explicit_root: String, raw: String) -> String {
+pub fn lsp_serve_load_caps(fs: &FsReadCap, oodar_root: String) -> List[String] {
+    if chars_len(oodar_root) == 0 { return lsp_cap_table_empty(); }
+    let loaded: Result[List[String], String] = lsp_cap_table_load(fs, oodar_root);
+    if loaded.is_err() {
+        let msg: String = match loaded { Ok(_) => "", Err(e) => e };
+        println("ERR\tlsp\t" + msg);
+        process_exit(1);
+    }
+    return match loaded { Ok(rows) => rows, Err(_) => lsp_cap_table_empty() };
+}
+
+pub fn lsp_serve_buffer(fs: &FsReadCap, env: &EnvCap, explicit_root: String, oodar_root: String, raw: String) -> String {
     if bytes_len(raw) > lsp_input_cap_bytes() { return ""; }
     let idx: List[String] = lsp_server_refresh_index(fs, explicit_root);
-    let mut state: LspServerState = lsp_server_state_new();
+    let rows: List[String] = lsp_serve_load_caps(fs, oodar_root);
+    let mut state: LspServerState = lsp_server_state_with_oodar(lsp_server_state_new(), oodar_root);
     let mut buf: String = raw;
     let mut out: String = "";
     let mut n: Int = 0;
@@ -89,7 +102,7 @@ pub fn lsp_serve_buffer(fs: &FsReadCap, env: &EnvCap, explicit_root: String, raw
         let f_body: String = lsp_frame_body(&fr);
         if chars_len(f_body) == 0 { continue; }
         if bytes_len(f_body) > fcap { continue; }
-        let r: LspProcessResult = lsp_server_process_message(state, f_body, idx);
+        let r: LspProcessResult = lsp_server_process_message(state, f_body, idx, rows);
         state = r.new_state;
         if chars_len(r.response) > 0 { out = out + r.response; }
         let method: String = lsp_jsonrpc_extract_method(f_body);
@@ -98,9 +111,10 @@ pub fn lsp_serve_buffer(fs: &FsReadCap, env: &EnvCap, explicit_root: String, raw
     return out;
 }
 
-pub fn lsp_serve(fs: &FsReadCap, env: &EnvCap, explicit_root: String) {
+pub fn lsp_serve(fs: &FsReadCap, env: &EnvCap, explicit_root: String, oodar_root: String) {
     let idx: List[String] = lsp_server_refresh_index(fs, explicit_root);
-    let mut state: LspServerState = lsp_server_state_new();
+    let rows: List[String] = lsp_serve_load_caps(fs, oodar_root);
+    let mut state: LspServerState = lsp_server_state_with_oodar(lsp_server_state_new(), oodar_root);
     let mut buf: String = "";
     let mut total_bytes: Int = 0;
     let mut msgs: Int = 0;
@@ -117,7 +131,7 @@ pub fn lsp_serve(fs: &FsReadCap, env: &EnvCap, explicit_root: String) {
             buf = lsp_frame_rest(&fr);
             let f_body: String = lsp_frame_body(&fr);
             if chars_len(f_body) > 0 && bytes_len(f_body) <= cap_frame {
-                let r: LspProcessResult = lsp_server_process_message(state, f_body, idx);
+                let r: LspProcessResult = lsp_server_process_message(state, f_body, idx, rows);
                 state = r.new_state;
                 if chars_len(r.response) > 0 { out = out + r.response; }
                 let method: String = lsp_jsonrpc_extract_method(f_body);

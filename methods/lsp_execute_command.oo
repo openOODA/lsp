@@ -1,0 +1,30 @@
+// # LSP workspace/executeCommand
+//
+// Logline: Dispatches ooda.lsp.version, ooda.lsp.indexSize, and ooda.lsp.echo. Unknown commands return -32601.
+//
+// Setup: Version is lsp_facade_version() only. No VERSION file.
+//
+// Beats:
+//   1. ooda.lsp.version returns the engine version string.
+//   2. ooda.lsp.indexSize returns the in-memory index length.
+//   3. ooda.lsp.echo returns the arguments blob.
+//   4. Any other command is Method not found.
+
+import "lsp/server/lsp_version.oo";
+import "lsp/wire/lsp_jsonrpc.oo";
+
+pub fn lsp_execute_command_handle(id: String, idx: List[String], command: String, args_json: String) -> String {
+    if command == "ooda.lsp.version" {
+        return lsp_jsonrpc_frame(lsp_jsonrpc_make_response(id, "\"" + lsp_facade_version() + "\""));
+    }
+    if command == "ooda.lsp.indexSize" {
+        return lsp_jsonrpc_frame(lsp_jsonrpc_make_response(id, list_len(idx).to_string()));
+    }
+    if command == "ooda.lsp.echo" {
+        if chars_len(args_json) == 0 {
+            return lsp_jsonrpc_frame(lsp_jsonrpc_make_response(id, "[]"));
+        }
+        return lsp_jsonrpc_frame(lsp_jsonrpc_make_response(id, args_json));
+    }
+    return lsp_jsonrpc_frame(lsp_jsonrpc_make_error(id, 0 - 32601, "Unknown command: " + command));
+}

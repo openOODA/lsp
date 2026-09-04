@@ -1,4 +1,4 @@
-// # Native LSP Diagnostic Publisher — Live E-M Diagnostic Converters
+// # Native LSP Diagnostic Publisher - Live E-M Diagnostic Converters
 //
 // Logline: Transforms E-M gauge readings (W, Ps, SSoT pins) into LSP 3.17 Diagnostic JSON for the textDocument/publishDiagnostics push.
 //
@@ -9,8 +9,11 @@
 //   2. Serialize a single LspDiagnostic into LSP 3.17 JSON.
 //   3. Build the E-M weight, Ps, and SSoT-pins diagnostic converters used by lsp_server_extract_diags.
 
-import "lsp/types/lsp_types.oo";
+import "lsp/types/lsp_payload.oo";
 import "lsp/wire/lsp_json_encode.oo";
+import "lsp/wire/lsp_jsonrpc.oo";
+import "lsp/symbols/lsp_e_m_concat.oo";
+import "lsp_text.oo";
 
 pub fn lsp_diag_severity_error() -> Int { return 1; }
 pub fn lsp_diag_severity_warning() -> Int { return 2; }
@@ -59,3 +62,24 @@ pub fn lsp_diag_weight_to_diagnostic(line_count: Int) -> String { let msg: Strin
 pub fn lsp_diag_pins_to_diagnostic(content: String) -> String { let msg: String = lsp_diag_pins_drift_msg(content); if chars_len(msg) == 0 { return ""; } return lsp_diag_build("E_EM_PINS", msg, lsp_diag_severity_info()); }
 
 pub fn lsp_diag_ps_to_diagnostic(t: Int, d: Int, w: Int, v: Int) -> String { let msg: String = lsp_diag_ps_gauge_msg(t, d, w, v); if chars_len(msg) == 0 { return ""; } return lsp_diag_build("E_EM_PS", msg, lsp_diag_severity_error()); }
+
+pub fn lsp_server_extract_diags(uri: String, src: String) -> String {
+    let em_line: Int = lsp_text_count_lines(src);
+    let em_w: String = lsp_diag_weight_to_diagnostic(em_line);
+    let em_pins: String = lsp_diag_pins_to_diagnostic(src);
+    let ps_diag: String = lsp_diag_ps_to_diagnostic(lsp_diag_t_default(), lsp_diag_d_default(), em_line, lsp_diag_v_default());
+    return lsp_em_concat_diags("", em_w, em_pins, ps_diag);
+}
+
+pub fn lsp_server_emit_diagnostics(uri: String, src: String) -> String {
+    let diags: String = lsp_server_extract_diags(uri, src);
+    let esc_uri: String = lsp_jsonrpc_escape(uri);
+    let body: String = "{\"uri\":\"" + esc_uri + "\",\"diagnostics\":[" + diags + "]}";
+    return lsp_jsonrpc_frame(lsp_jsonrpc_make_notification("textDocument/publishDiagnostics", body));
+}
+
+pub fn lsp_server_handle_did_close(uri: String) -> String {
+    let esc_uri: String = lsp_jsonrpc_escape(uri);
+    let body: String = "{\"uri\":\"" + esc_uri + "\",\"diagnostics\":[]}";
+    return lsp_jsonrpc_frame(lsp_jsonrpc_make_notification("textDocument/publishDiagnostics", body));
+}
