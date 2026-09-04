@@ -34,17 +34,17 @@ Denied URI path prefixes: `/proc`, `/dev`, `/etc`, `/root`.
 
 ## 4. Document methods
 
-- `didOpen` / `didChange`: merge user symbols under CompilerReadCap, then publish the three E-M diagnostics
+- `didOpen` / `didChange`: merge pub fn/struct/enum/type under CompilerReadCap, then publish WEIGHT and PINS
 - `didClose`: publish `diagnostics: []`
 - `completion`: `{isIncomplete:false, items:[...]}` from the index
 - `hover`: markdown contents or `null`
 - `definition`: Location or `null`. Cap tokens need `--oodar-root`.
 - `documentSymbol`: `kind=12` for `pub fn`
 - `formatting`: one full-file TextEdit (tabs to 4 spaces, trailing ws stripped)
-- `codeAction`: quickfix for `E_EM_WEIGHT`, `E_EM_PS`, `E_EM_PINS`
+- `codeAction`: quickfix for `E_EM_PINS` only (delete the pin line)
 - `diagnostic`: `{items:[...]}` pull mode
 - `documentLink`: `&Cap` to oodar grant files when the cap table is loaded
-- `inlayHint`: `let x = <literal>` type hints
+- `inlayHint`: `let` / `let mut` literal type hints only. Bare assignment is silent.
 
 ## 5. Workspace
 

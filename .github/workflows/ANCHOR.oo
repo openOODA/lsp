@@ -1,8 +1,9 @@
 // # LSP CI Workflows
 //
-// Logline: Auto-release on push to main. Version is the git tag, not a VERSION file.
+// Logline: Hostile probes then auto-release on push to main. Version is the git tag, not a VERSION file.
 //
 // Setup: Structural. ci.yml is YAML consumed by GitHub Actions.
 //
 // Beats:
-//   1. ci.yml calls openOODA/openOODA auto-release.yml on push to main.
+//   1. probes checks out openOODA/lsp and openOODA/oodac, require the oodac binary, emit-c+gcc+run.
+//   2. auto-release runs only after probes pass.

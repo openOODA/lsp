@@ -5,5 +5,62 @@ on:
     branches: [main]
 
 jobs:
+  probes:
+    runs-on: ubuntu-latest
+    steps:
+      - name: checkout lsp
+        uses: actions/checkout@v4
+        with:
+          path: lsp
+      - name: checkout oodac
+        uses: actions/checkout@v4
+        with:
+          repository: openOODA/oodac
+          path: oodac
+      - name: gcc
+        run: sudo apt-get update && sudo apt-get install -y gcc
+      - name: require compiler
+        run: |
+          test -x oodac/bin/oodac || { echo "missing oodac/bin/oodac"; exit 1; }
+          test -x oodac/bin/oodac_bin.core || { echo "missing oodac/bin/oodac_bin.core"; exit 1; }
+          test -f oodac/runtime/chs_rt.c || { echo "missing oodac/runtime/chs_rt.c"; exit 1; }
+      - name: emit-c gcc run probes
+        working-directory: ${{ github.workspace }}
+        env:
+          OODA_FS_READDIR: ${{ github.workspace }}
+          OODA_FS_WRITEDIR: ${{ runner.temp }}/lsp-probes
+          OODA_COMPILER: ${{ github.workspace }}/oodac/bin/oodac
+        run: |
+          set -euo pipefail
+          mkdir -p "$OODA_FS_WRITEDIR"
+          probes="probe_initialize probe_completion probe_hover probe_definition probe_diagnostics probe_formatting probe_codeaction probe_double_run probe_token probe_uri probe_bridge probe_session probe_document_link probe_inlay probe_document_symbol probe_execute_command probe_json_smuggle probe_utf16 probe_struct_merge"
+          rt="$OODA_FS_READDIR/oodac/runtime"
+          failed=0
+          for name in $probes; do
+            rel="lsp/qa/${name}.oo"
+            cfile="$OODA_FS_WRITEDIR/${name}.c"
+            binp="$OODA_FS_WRITEDIR/${name}"
+            echo "  EMIT $rel"
+            if ! "$OODA_COMPILER" emit-c "$rel" > "$cfile"; then
+              echo "  FAIL emit $name"
+              failed=$((failed + 1))
+              continue
+            fi
+            if ! gcc -O0 -o "$binp" "$cfile" "$rt/chs_rt.c" -I "$rt" -lm; then
+              echo "  FAIL gcc $name"
+              failed=$((failed + 1))
+              continue
+            fi
+            if ! "$binp"; then
+              echo "  FAIL run $name"
+              failed=$((failed + 1))
+              continue
+            fi
+            echo "  PASS $name"
+          done
+          echo "Results: failed=$failed"
+          test "$failed" -eq 0
+
   auto-release:
+    needs: probes
     uses: openOODA/openOODA/.github/workflows/auto-release.yml@v1.0.14

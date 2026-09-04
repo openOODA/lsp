@@ -24,11 +24,11 @@ pub fn lsp_document_link_find(src: String, rows: List[String], oodar_root: Strin
         if c == "&" {
             let start_col: Int = col;
             let mut j: Int = i + 1;
-            let mut j_col: Int = col;
+            let mut j_col: Int = col + lsp_text_utf16_width(c);
             while j < n {
                 if !lsp_text_is_ident_char(char_at(src, j)) { break; }
+                j_col = j_col + lsp_text_utf16_width(char_at(src, j));
                 j = j + 1;
-                j_col = j_col + 1;
             }
             if j > i + 1 {
                 let name: String = str_slice(src, i + 1, j);
@@ -43,7 +43,7 @@ pub fn lsp_document_link_find(src: String, rows: List[String], oodar_root: Strin
                 continue;
             }
         }
-        if c == "\n" { line = line + 1; col = 0; } else { col = col + 1; }
+        if c == "\n" { line = line + 1; col = 0; } else { col = col + lsp_text_utf16_width(c); }
         i = i + 1;
     }
     return "[" + out + "]";

@@ -9,6 +9,8 @@
 //   2. Count newlines in every .oo and .oot in those dirs.
 //   3. Refuse VERSION and the deleted lsp_methods_extra.oo.
 
+import "lsp_script_path.oo";
+
 pub fn lsp_verify_line_count(src: String) -> Int {
     let n: Int = chars_len(src);
     if n == 0 { return 0; }
@@ -49,11 +51,11 @@ pub fn lsp_verify_dir(fs: &FsReadCap, dir: String) -> Result[Int, String] {
     return Ok(files);
 }
 
-pub fn main(p: &ProcessCap, fs_r: &FsReadCap, env: &EnvCap, args: List[String]) -> Result[Int, String] {
+pub fn main(fs_r: &FsReadCap, env: &EnvCap, args: List[String]) -> Result[Int, String] {
     let rr: Result[String, String] = env_get(env, "OODA_FS_READDIR");
     if rr.is_err() { return Err("OODA_FS_READDIR required"); }
     let root: String = match rr { Ok(s) => s, Err(_) => "" };
-    if chars_len(root) == 0 { return Err("OODA_FS_READDIR empty"); }
+    if !lsp_script_path_ok(root) { return Err("OODA_FS_READDIR path refused"); }
     let base: String = root + "/lsp";
 
     let dirs: List[String] = ["", "wire", "types", "server", "methods", "symbols", "bridge", "cli", "qa", "scripts", "docs", "examples"];

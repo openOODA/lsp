@@ -1,13 +1,13 @@
 // # LSP CodeAction - Hostile Probe
 //
-// Logline: Proves E_EM_WEIGHT, E_EM_PS, and E_EM_PINS yield quickfixes, and an unknown code yields none.
+// Logline: Proves only E_EM_PINS yields a delete quickfix. WEIGHT, PS, and unknown codes yield none.
 //
 // Setup: Direct resolve. No filesystem.
 //
 // Beats:
-//   1. Each live diagnostic code returns one quickfix.
-//   2. An unknown code returns an empty list.
-//   3. JSON serialization is non-empty only when an action exists.
+//   1. E_EM_PINS returns one quickfix whose newText is empty.
+//   2. E_EM_WEIGHT and E_EM_PS return an empty list.
+//   3. An unknown code returns an empty list.
 
 import "lsp/types/lsp_payload.oo";
 import "lsp/methods/lsp_code_action.oo";
@@ -21,20 +21,20 @@ pub fn main() {
     let uri: String = "file:///tmp/a.oo";
     let d1: LspDiagnostic = lsp_diagnostic_new(0, 0, 0, 80, 2, "E_EM_WEIGHT", "w", "em");
     let j1: String = lsp_code_actions_to_json(lsp_code_action_resolve(&d1), uri);
-    if str_index_of(j1, "quickfix") < 0 { fail("WEIGHT json: " + j1); }
+    if j1 != "[]" { fail("WEIGHT must be empty: " + j1); }
     let d2: LspDiagnostic = lsp_diagnostic_new(0, 0, 0, 80, 1, "E_EM_PS", "ps", "em");
     let j2: String = lsp_code_actions_to_json(lsp_code_action_resolve(&d2), uri);
-    if str_index_of(j2, "quickfix") < 0 { fail("PS json: " + j2); }
-    let d3: LspDiagnostic = lsp_diagnostic_new(0, 0, 0, 80, 3, "E_EM_PINS", "pins", "em");
+    if j2 != "[]" { fail("PS must be empty: " + j2); }
+    let d3: LspDiagnostic = lsp_diagnostic_new(2, 0, 2, 12, 3, "E_EM_PINS", "pins", "em");
     let j3: String = lsp_code_actions_to_json(lsp_code_action_resolve(&d3), uri);
     if str_index_of(j3, "quickfix") < 0 { fail("PINS json: " + j3); }
+    if str_index_of(j3, "\"newText\":\"\"") < 0 { fail("PINS must delete: " + j3); }
     let d4: LspDiagnostic = lsp_diagnostic_new(0, 0, 0, 80, 1, "E_EM_DRAG", "dead", "em");
     let j4: String = lsp_code_actions_to_json(lsp_code_action_resolve(&d4), uri);
     if j4 != "[]" { fail("DRAG must be empty: " + j4); }
     let d5: LspDiagnostic = lsp_diagnostic_new(0, 0, 0, 80, 1, "E_CAP", "no", "em");
     let j5: String = lsp_code_actions_to_json(lsp_code_action_resolve(&d5), uri);
     if j5 != "[]" { fail("E_CAP must be empty: " + j5); }
-    println("PASS live codes only");
-    println("PASS json");
+    println("PASS pins delete only");
     println("probe_codeaction PASSED");
 }

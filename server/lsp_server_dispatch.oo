@@ -157,7 +157,9 @@ pub fn lsp_server_process_message(state: LspServerState, raw_body: String, idx: 
     if method == "textDocument/didOpen" || method == "textDocument/didChange" {
         let d: LspDoc = lsp_server_extract_doc(params);
         if d.has_doc && !lsp_server_text_too_large(d.text) && lsp_server_uri_acceptable(d.uri, next.root_uri) {
-            next = lsp_server_stamp_doc(next, d.uri, d.text);
+            if method == "textDocument/didOpen" || chars_len(d.text) > 0 {
+                next = lsp_server_stamp_doc(next, d.uri, d.text);
+            }
         }
     }
     if method == "textDocument/didClose" {

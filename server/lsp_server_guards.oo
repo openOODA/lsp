@@ -12,6 +12,7 @@
 import "lsp/types/lsp_types.oo";
 import "lsp/wire/lsp_jsonrpc.oo";
 import "lsp/symbols/lsp_e_m_concat.oo";
+import "lsp/methods/lsp_text.oo";
 import "lsp_server_uri.oo";
 
 pub fn lsp_server_text_cap() -> Int { return lsp_em_cap_text(); }
@@ -20,11 +21,42 @@ pub fn lsp_server_text_too_large(text: String) -> Bool {
     return bytes_len(text) > lsp_server_text_cap();
 }
 
+fn lsp_server_first_object(arr: String) -> String {
+    let n: Int = chars_len(arr);
+    let mut i: Int = lsp_text_skip_ws(arr, 0);
+    if i < n && char_at(arr, i) == "[" { i = i + 1; }
+    i = lsp_text_skip_ws(arr, i);
+    if i >= n || char_at(arr, i) != "{" { return ""; }
+    let start: Int = i;
+    let mut depth: Int = 0;
+    let mut in_str: Bool = false;
+    let mut esc: Bool = false;
+    while i < n {
+        let c: String = char_at(arr, i);
+        if in_str {
+            if esc { esc = false; }
+            else if c == "\\" { esc = true; }
+            else if c == "\"" { in_str = false; }
+        } else if c == "\"" { in_str = true; }
+        else if c == "{" { depth = depth + 1; }
+        else if c == "}" {
+            depth = depth - 1;
+            if depth == 0 { return str_slice(arr, start, i + 1); }
+        }
+        i = i + 1;
+    }
+    return "";
+}
+
 pub fn lsp_server_extract_doc(params: String) -> LspDoc {
     let td: String = lsp_jsonrpc_extract_object(params, "textDocument");
     if chars_len(td) == 0 { return lsp_doc_new("", "", false); }
     let uri: String = lsp_jsonrpc_extract_string(td, "uri");
-    let raw: String = lsp_jsonrpc_extract_string(td, "text");
+    let mut raw: String = lsp_jsonrpc_extract_string(td, "text");
+    if chars_len(raw) == 0 {
+        let ch: String = lsp_jsonrpc_extract_object(params, "contentChanges");
+        raw = lsp_jsonrpc_extract_string(lsp_server_first_object(ch), "text");
+    }
     return lsp_doc_new(uri, raw, true);
 }
 

@@ -1,0 +1,25 @@
+// # LSP Script Path Guard
+//
+// Logline: Refuse path strings that can inject a shell or escape the granted roots.
+//
+// Setup: Pure predicate. Scripts call this before sys_exec argv and write_file.
+//
+// Beats:
+//   1. Empty paths fail.
+//   2. A `..` substring fails.
+//   3. `; $ ` | & ( )` and whitespace fail.
+
+pub fn lsp_script_path_ok(p: String) -> Bool {
+    if chars_len(p) == 0 { return false; }
+    if str_index_of(p, "..") >= 0 { return false; }
+    let n: Int = chars_len(p);
+    let mut i: Int = 0;
+    while i < n {
+        let c: String = char_at(p, i);
+        if c == ";" || c == "$" || c == "`" || c == "|" || c == "&" { return false; }
+        if c == "(" || c == ")" { return false; }
+        if c == " " || c == "\n" || c == "\r" || c == "\t" { return false; }
+        i = i + 1;
+    }
+    return true;
+}

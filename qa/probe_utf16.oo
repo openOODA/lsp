@@ -1,0 +1,35 @@
+// # LSP UTF-16 Columns - Hostile Probe
+//
+// Logline: Proves supplementary-plane scalars have UTF-16 width 2 and prefix uses that column.
+//
+// Setup: Pure lsp_text. No filesystem.
+//
+// Beats:
+//   1. ASCII width is 1. Empty width is 0.
+//   2. A 4-byte UTF-8 scalar has width 2.
+//   3. completion_prefix at the UTF-16 column after that scalar is the following ident.
+
+import "lsp/methods/lsp_text.oo";
+
+fn fail(msg: String) {
+    println("FAIL " + msg);
+    process_exit(1);
+}
+
+pub fn main() {
+    if lsp_text_utf16_width("") != 0 { fail("empty width"); }
+    if lsp_text_utf16_width("A") != 1 { fail("ascii width"); }
+    let line: String = "a😀b";
+    if chars_len(line) != 3 { fail("scalar len: " + chars_len(line).to_string()); }
+    if lsp_text_utf16_width(char_at(line, 1)) != 2 { fail("emoji width"); }
+    if lsp_text_utf16_to_char(line, 0) != 0 { fail("col0"); }
+    if lsp_text_utf16_to_char(line, 1) != 1 { fail("col1"); }
+    if lsp_text_utf16_to_char(line, 3) != 2 { fail("col3"); }
+    println("PASS widths");
+
+    let src: String = "a😀foo\n";
+    if lsp_text_completion_prefix(src, 0, 3) != "foo" { fail("prefix at 3: " + lsp_text_completion_prefix(src, 0, 3)); }
+    if lsp_text_completion_prefix(src, 0, 5) != "foo" { fail("prefix at 5: " + lsp_text_completion_prefix(src, 0, 5)); }
+    println("PASS prefix");
+    println("probe_utf16 PASSED");
+}

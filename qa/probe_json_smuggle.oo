@@ -1,0 +1,31 @@
+// # LSP JSON Key Scan - Hostile Probe
+//
+// Logline: Proves extract_method does not take a string value that looks like the method key.
+//
+// Setup: Pure jsonrpc extract. No filesystem.
+//
+// Beats:
+//   1. `"id":"method"` does not steal the method field.
+//   2. A params string value `"method"` does not steal the method field.
+//   3. extract_id keeps the string id `method`.
+
+import "lsp/wire/lsp_jsonrpc.oo";
+
+fn fail(msg: String) {
+    println("FAIL " + msg);
+    process_exit(1);
+}
+
+pub fn main() {
+    let j1: String = "{\"jsonrpc\":\"2.0\",\"id\":\"method\",\"method\":\"initialize\"}";
+    if lsp_jsonrpc_extract_method(j1) != "initialize" { fail("id value smuggle: " + lsp_jsonrpc_extract_method(j1)); }
+    if lsp_jsonrpc_extract_id(j1) != "\"method\"" { fail("id: " + lsp_jsonrpc_extract_id(j1)); }
+    println("PASS id value");
+
+    let j2: String = "{\"note\":\"method\",\"method\":\"hover\",\"params\":{}}";
+    if lsp_jsonrpc_extract_method(j2) != "hover" { fail("note value smuggle: " + lsp_jsonrpc_extract_method(j2)); }
+    if !lsp_jsonrpc_has_id("{\"id\":7,\"method\":\"x\"}") { fail("has_id missing"); }
+    if lsp_jsonrpc_has_id("{\"method\":\"x\"}") { fail("has_id false positive"); }
+    println("PASS note value");
+    println("probe_json_smuggle PASSED");
+}

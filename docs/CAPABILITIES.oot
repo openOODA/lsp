@@ -47,10 +47,10 @@ There is no VERSION file.
   tokens through the loaded oodar cap table. Empty table yields null for builtins.
 - Cap grant files come from `${oodar_root}/sec/cap/cap_table.json` via `--oodar-root`.
   If `--oodar-root` is set and the file is missing, the process exits 1.
-- Live diagnostics: `E_EM_WEIGHT`, `E_EM_PINS`, `E_EM_PS`. No other codes are emitted.
-- Code actions exist only for those three codes.
-- `workspace/executeCommand` `ooda.lsp.tokenCount` estimates LLM tokens for
-  `arguments.text` using `std/app/agent/token`. Hover appends a file token footer.
+- Live diagnostics from extract: `E_EM_WEIGHT`, `E_EM_PINS`. `E_EM_PS` is not emitted.
+- Code action: `E_EM_PINS` deletes the pin line (`newText` empty). WEIGHT and PS have none.
+- `workspace/executeCommand` `ooda.lsp.tokenCount` estimates tokens for
+  `arguments.text` as chars/4 (`estimator: char-heuristic`). Hover appends a file token footer.
 
 ## 3. Not advertised
 

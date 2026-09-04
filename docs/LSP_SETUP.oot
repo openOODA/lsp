@@ -17,21 +17,19 @@ Engine version: `lsp_facade_version()` (`2.12.0` at this writing).
 
 ## Diagnostics
 
-On `didOpen` and `didChange` the server merges `pub fn` symbols from the
-open document into the completion index (`&CompilerReadCap`), then
-publishes three governance diagnostics:
+On `didOpen` and `didChange` the server merges `pub fn`, `pub struct`,
+`pub enum`, and `pub type` names from the open document into the
+completion index (`&CompilerReadCap`), then publishes two diagnostics:
 
 - `E_EM_WEIGHT` (warning) - source exceeds 256 lines
-- `E_EM_PINS` (info) - header contains Floor:/Thrust:/Patch:
-- `E_EM_PS` (error) - Ps gauge with W=0 or Ps<1
+- `E_EM_PINS` (info) - header contains `// Floor:` / `// Thrust:` / `// Patch:`
 
-These are not compiler errors. `didClose` clears them.
+These are not compiler errors. `didClose` clears them. `E_EM_PS` is not emitted.
 
 ## Capabilities required
 
 - `&FsReadCap` - stdlib scan and cap_table.json load
-- `&EnvCap` - unused by the stdio loop today; reserved for explicit env grants
-- `&CompilerReadCap` - live `pub fn` harvest into the index
+- `&CompilerReadCap` - live pub fn/struct/enum/type harvest into the index
 
 No `&NetCap`. No ambient filesystem. `--oodar-root` and `--stdlib-root` are
 the only roots the server will read.
@@ -40,6 +38,6 @@ the only roots the server will read.
 
 From the polyrepo root set `OODA_COMPILER`, `OODA_FS_READDIR`, and
 `OODA_FS_WRITEDIR`. Then `oodac run lsp/scripts/test.oo`. That script
-emit-c + gcc + runs all 12 qa probes. `oodac run` on a multi-file
-probe is not the execution path (duplicate TUs). A probe that prints
-PASS without an assertion is a defect.
+emit-c + gcc + runs all 19 qa probes via argv (no `sh -c`). `oodac run`
+on a multi-file probe is not the execution path (duplicate TUs). A probe
+that prints PASS without an assertion is a defect.

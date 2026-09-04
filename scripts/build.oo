@@ -1,32 +1,32 @@
 // # Build LSP - Typecheck the Server Entry
 //
-// Logline: Runs OODA_COMPILER on lsp/cli/main.oo from OODA_FS_READDIR. Fail closed if the compiler rejects the tree.
+// Logline: Runs OODA_COMPILER check on lsp/cli/main.oo from OODA_FS_READDIR. Fail closed if the compiler rejects the tree.
 //
-// Setup: Requires OODA_COMPILER and OODA_FS_READDIR. No VERSION file. No fake compile lines.
+// Setup: Requires OODA_COMPILER and OODA_FS_READDIR. No VERSION file. No fake compile lines. CWD is the polyrepo root.
 //
 // Beats:
-//   1. Refuse missing compiler or repo root.
-//   2. Exec `oodac run` is not a build; exec `oodac` on the entry so import expansion runs.
+//   1. Refuse missing compiler, repo root, or injectable paths.
+//   2. Exec argv `oodac check lsp/cli/main.oo`. No shell.
 //   3. Return Err when the compiler exits non-zero.
+
+import "lsp_script_path.oo";
 
 pub fn main(p: &ProcessCap, fs_r: &FsReadCap, env: &EnvCap, args: List[String]) -> Result[Int, String] {
     let cr: Result[String, String] = env_get(env, "OODA_COMPILER");
     if cr.is_err() { return Err("OODA_COMPILER required"); }
     let bin: String = match cr { Ok(s) => s, Err(_) => "" };
-    if chars_len(bin) == 0 { return Err("OODA_COMPILER empty"); }
+    if !lsp_script_path_ok(bin) { return Err("OODA_COMPILER path refused"); }
     if !path_exists(fs_r, bin) { return Err("OODA_COMPILER missing"); }
 
     let rr: Result[String, String] = env_get(env, "OODA_FS_READDIR");
     if rr.is_err() { return Err("OODA_FS_READDIR required"); }
     let root: String = match rr { Ok(s) => s, Err(_) => "" };
-    if chars_len(root) == 0 { return Err("OODA_FS_READDIR empty"); }
-    if str_index_of(root, "..") >= 0 { return Err("OODA_FS_READDIR traversal"); }
+    if !lsp_script_path_ok(root) { return Err("OODA_FS_READDIR path refused"); }
 
     let entry: String = root + "/lsp/cli/main.oo";
     if !path_exists(fs_r, entry) { return Err("missing " + entry); }
     println("Building lsp/cli/main.oo");
-    let cmd: String = "cd " + root + " && exec " + bin + " " + "lsp/cli/main.oo";
-    let r: Result[String, String] = sys_exec(p, "sh", "-c", cmd);
+    let r: Result[String, String] = sys_exec(p, bin, "check", "lsp/cli/main.oo");
     if r.is_err() {
         let msg: String = match r { Ok(_) => "", Err(e) => e };
         return Err("build failed: " + msg);

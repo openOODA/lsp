@@ -11,12 +11,19 @@
 //   4. probe_definition.oo - cap table parse and user pub fn location.
 //   5. probe_diagnostics.oo - E-M diagnostics and didClose clear.
 //   6. probe_formatting.oo - trailing ws strip and tab expand.
-//   7. probe_codeaction.oo - live E-M codes only.
+//   7. probe_codeaction.oo - PINS delete only.
 //   8. probe_double_run.oo - bit-identical determinism.
 //   9. probe_token.oo - file token count.
 //   10. probe_uri.oo - traversal, deny list, workspace prefix.
 //   11. probe_bridge.oo - CompilerReadCap merge of a user pub fn.
-//   12. probe_session.oo - stdio buffer session through didClose.
+//   12. probe_session.oo - in-process session through didClose.
+//   13. probe_document_link.oo - &Cap links from cap rows.
+//   14. probe_inlay.oo - let-only literal type hints.
+//   15. probe_document_symbol.oo - pub fn symbols.
+//   16. probe_execute_command.oo - version, indexSize, tokenCount, unknown.
+//   17. probe_json_smuggle.oo - string-aware JSON method extract.
+//   18. probe_utf16.oo - UTF-16 columns and prefix.
+//   19. probe_struct_merge.oo - struct/enum/type merge.
 
 import "probe_initialize.oo";
 import "probe_completion.oo";
@@ -30,3 +37,10 @@ import "probe_token.oo";
 import "probe_uri.oo";
 import "probe_bridge.oo";
 import "probe_session.oo";
+import "probe_document_link.oo";
+import "probe_inlay.oo";
+import "probe_document_symbol.oo";
+import "probe_execute_command.oo";
+import "probe_json_smuggle.oo";
+import "probe_utf16.oo";
+import "probe_struct_merge.oo";

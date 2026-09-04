@@ -1,13 +1,13 @@
 // # LSP Code Action - Live Cap Attenuation
 //
-// Logline: Generates quick-fix actions for the three live E-M diagnostics: E_EM_WEIGHT, E_EM_PS, E_EM_PINS.
+// Logline: Generates a quick-fix only for E_EM_PINS: delete the Floor/Thrust/Patch line.
 //
-// Setup: Maps only the codes that lsp_server_extract_diags emits. Unknown codes yield an empty list.
+// Setup: Maps only the code that has an honest edit. WEIGHT and PS have no edit that fixes them.
 //
 // Beats:
 //   1. Parse the first diagnostic object out of context.diagnostics.
-//   2. Resolve E_EM_WEIGHT, E_EM_PS, and E_EM_PINS to a quickfix action.
-//   3. Serialize the action list to JSON.
+//   2. Resolve E_EM_PINS to a quickfix whose newText is empty (delete the range).
+//   3. Serialize the action list to JSON. Unknown codes yield [].
 
 import "lsp/types/lsp_payload.oo";
 import "lsp_text.oo";
@@ -76,18 +76,9 @@ pub fn lsp_code_action_resolve(diag: &LspDiagnostic) -> List[LspCodeAction] {
     let el: Int = diag.end_line;
     let ec: Int = diag.end_col;
 
-    if code == "E_EM_WEIGHT" {
-        let title: String = "E-M: Split file to enforce 256 cap ((T-D)/W)*V";
-        let edit: String = "// split: W=lines+AST exceeds 256 - extract module";
-        actions = list_push(actions, lsp_action_simple_new(title, "quickfix", edit, sl, sc, el, ec));
-    } else if code == "E_EM_PS" {
-        let title: String = "E-M: Reduce D_alloc/D_search to raise Ps=((T-D)/W)*V";
-        let edit: String = "// reduce D_alloc/D_search - use arena, outline";
-        actions = list_push(actions, lsp_action_simple_new(title, "quickfix", edit, sl, sc, el, ec));
-    } else if code == "E_EM_PINS" {
+    if code == "E_EM_PINS" {
         let title: String = "E-M: Remove Floor/Thrust/Patch pins from the header";
-        let edit: String = "";
-        actions = list_push(actions, lsp_action_simple_new(title, "quickfix", edit, sl, sc, el, ec));
+        actions = list_push(actions, lsp_action_simple_new(title, "quickfix", "", sl, sc, el, ec));
     }
 
     return actions;

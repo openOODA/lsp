@@ -6,7 +6,7 @@
 //
 // Beats:
 //   1. initialize returns capabilities plus serverInfo.version from lsp_facade_version().
-//   2. didOpen and didChange publish the three live E-M diagnostics.
+//   2. didOpen and didChange publish E_EM_WEIGHT and E_EM_PINS.
 //   3. definition uses the open document and the loaded cap table.
 //   4. didClose lives in methods/lsp_diagnostics.oo with the other diagnostic emitters.
 

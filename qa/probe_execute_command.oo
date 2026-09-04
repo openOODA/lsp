@@ -1,0 +1,37 @@
+// # LSP executeCommand - Hostile Probe
+//
+// Logline: Proves version, indexSize, tokenCount, and unknown-command -32601.
+//
+// Setup: In-process handle. No filesystem.
+//
+// Beats:
+//   1. ooda.lsp.version returns 2.12.0.
+//   2. ooda.lsp.indexSize returns the list length.
+//   3. ooda.lsp.tokenCount uses chars/4. Unknown commands are -32601.
+
+import "lsp/methods/lsp_execute_command.oo";
+import "lsp/symbols/lsp_symbol_record.oo";
+
+fn fail(msg: String) {
+    println("FAIL " + msg);
+    process_exit(1);
+}
+
+pub fn main() {
+    let idx: List[String] = lsp_index_new();
+    let v: String = lsp_execute_command_handle("1", idx, "ooda.lsp.version", "[]");
+    if str_index_of(v, "2.12.0") < 0 { fail("version: " + v); }
+    println("PASS version");
+
+    let one: List[String] = lsp_index_add(idx, "n", "Function", "fn", "d");
+    let s: String = lsp_execute_command_handle("2", one, "ooda.lsp.indexSize", "[]");
+    if str_index_of(s, "\"result\":1") < 0 { fail("indexSize: " + s); }
+    println("PASS indexSize");
+
+    let t: String = lsp_execute_command_handle("3", idx, "ooda.lsp.tokenCount", "{\"text\":\"abcd\"}");
+    if str_index_of(t, "\"tokens\":1") < 0 { fail("tokenCount: " + t); }
+    let bad: String = lsp_execute_command_handle("4", idx, "ooda.lsp.nope", "[]");
+    if str_index_of(bad, "-32601") < 0 { fail("unknown: " + bad); }
+    println("PASS token and unknown");
+    println("probe_execute_command PASSED");
+}

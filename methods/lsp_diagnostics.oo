@@ -7,7 +7,7 @@
 // Beats:
 //   1. Map 4 LSP severity levels (error=1, warning=2, info=3, hint=4).
 //   2. Serialize a single LspDiagnostic into LSP 3.17 JSON.
-//   3. Build the E-M weight, Ps, and SSoT-pins diagnostic converters used by lsp_server_extract_diags.
+//   3. extract_diags emits E_EM_WEIGHT and E_EM_PINS only. The Ps converter exists and is not wired.
 
 import "lsp/types/lsp_payload.oo";
 import "lsp/wire/lsp_json_encode.oo";

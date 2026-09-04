@@ -6,7 +6,7 @@
 //
 // Beats:
 //   1. Build the stdlib index once. Merge from that base on each open/change.
-//   2. Write each framed response as it is produced. File mode concatenates.
+//   2. Write each framed response with oo_print_str as it is produced. File mode concatenates.
 //   3. Oversize frames with an id get -32602. Poll until EOF, shutdown, or exit.
 
 import "lsp/types/lsp_types.oo";
@@ -160,12 +160,12 @@ pub fn lsp_serve(fs: &FsReadCap, c: &CompilerReadCap, explicit_root: String, ood
             if chars_len(f_body) > 0 {
                 if bytes_len(f_body) > cap_frame {
                     let ov: String = lsp_serve_oversize(f_body);
-                    if chars_len(ov) > 0 { print(ov); }
+                    if chars_len(ov) > 0 { oo_print_str(ov); }
                 } else {
                     idx = lsp_serve_maybe_merge(c, state, base, idx, f_body);
                     let r: LspProcessResult = lsp_server_process_message(state, f_body, idx, rows);
                     state = r.new_state;
-                    if chars_len(r.response) > 0 { print(r.response); }
+                    if chars_len(r.response) > 0 { oo_print_str(r.response); }
                     let method: String = lsp_jsonrpc_extract_method(f_body);
                     if method == "shutdown" || method == "exit" { return; }
                 }

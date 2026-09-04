@@ -1,76 +1,81 @@
 // # Test LSP - Emit, Link, Run Hostile Probes
 //
-// Logline: For each qa probe: emit-c with OODA_COMPILER, gcc with chs_rt, run the binary. Fail closed on any step.
+// Logline: For each qa probe: emit-c with OODA_COMPILER argv, write C via FsWriteCap, gcc argv, run argv. Fail closed.
 //
-// Setup: Requires OODA_COMPILER, OODA_FS_READDIR, OODA_FS_WRITEDIR. oodac `run` double-emits
-//        imported modules; emit-c plus gcc is the single-TU path that executes assertions.
+// Setup: Requires OODA_COMPILER, OODA_FS_READDIR, OODA_FS_WRITEDIR. CWD is the polyrepo root.
+//        oodac `run` double-emits imported modules; emit-c plus gcc is the single-TU path.
 //
 // Beats:
-//   1. Refuse missing compiler, repo root, write dir, or chs_rt.c.
-//   2. emit-c lsp/qa/<probe>.oo into the write dir.
+//   1. Refuse missing compiler, roots, chs_rt.c, or injectable paths.
+//   2. Capture emit-c stdout and write_file the .c. No shell redirect.
 //   3. gcc -lm against oodac/runtime/chs_rt.c and run the binary.
 
-pub fn main(p: &ProcessCap, fs_r: &FsReadCap, env: &EnvCap, args: List[String]) -> Result[Int, String] {
+import "lsp_script_path.oo";
+
+fn lsp_test_run_one(p: &ProcessCap, fs_r: &FsReadCap, fw: &FsWriteCap, bin: String, root: String, wdir: String, chs: String, rt: String, name: String) -> Bool {
+    let rel: String = "lsp/qa/" + name + ".oo";
+    let full: String = root + "/" + rel;
+    if !lsp_script_path_ok(rel) { println("  FAIL path " + rel); return false; }
+    if !path_exists(fs_r, full) { println("  FAIL missing " + full); return false; }
+    let cfile: String = wdir + "/" + name + ".c";
+    let binp: String = wdir + "/" + name;
+    if !lsp_script_path_ok(cfile) { println("  FAIL c path"); return false; }
+    if !lsp_script_path_ok(binp) { println("  FAIL bin path"); return false; }
+    println("  EMIT " + rel);
+    let em: Result[String, String] = sys_exec(p, bin, "emit-c", rel);
+    if em.is_err() {
+        let msg: String = match em { Ok(_) => "", Err(e) => e };
+        println("  FAIL emit " + name + " " + msg);
+        return false;
+    }
+    let csrc: String = match em { Ok(s) => s, Err(_) => "" };
+    if chars_len(csrc) == 0 { println("  FAIL emit empty " + name); return false; }
+    let wr: Result[Void, String] = write_file(fw, cfile, csrc);
+    if wr.is_err() { println("  FAIL write " + name); return false; }
+    let gr: Result[String, String] = sys_exec(p, "gcc", "-O0", "-o", binp, cfile, chs, "-I", rt, "-lm");
+    if gr.is_err() {
+        let msg: String = match gr { Ok(_) => "", Err(e) => e };
+        println("  FAIL gcc " + name + " " + msg);
+        return false;
+    }
+    let rr2: Result[String, String] = sys_exec(p, binp);
+    if rr2.is_err() {
+        let msg: String = match rr2 { Ok(_) => "", Err(e) => e };
+        println("  FAIL run " + name + " " + msg);
+        return false;
+    }
+    println("  PASS " + name);
+    return true;
+}
+
+pub fn main(p: &ProcessCap, fs_r: &FsReadCap, fw: &FsWriteCap, env: &EnvCap, args: List[String]) -> Result[Int, String] {
     let cr: Result[String, String] = env_get(env, "OODA_COMPILER");
     if cr.is_err() { return Err("OODA_COMPILER required"); }
     let bin: String = match cr { Ok(s) => s, Err(_) => "" };
-    if chars_len(bin) == 0 { return Err("OODA_COMPILER empty"); }
-    if str_index_of(bin, "..") >= 0 { return Err("OODA_COMPILER traversal"); }
+    if !lsp_script_path_ok(bin) { return Err("OODA_COMPILER path refused"); }
     if !path_exists(fs_r, bin) { return Err("OODA_COMPILER missing"); }
 
     let rr: Result[String, String] = env_get(env, "OODA_FS_READDIR");
     if rr.is_err() { return Err("OODA_FS_READDIR required"); }
     let root: String = match rr { Ok(s) => s, Err(_) => "" };
-    if chars_len(root) == 0 { return Err("OODA_FS_READDIR empty"); }
-    if str_index_of(root, "..") >= 0 { return Err("OODA_FS_READDIR traversal"); }
+    if !lsp_script_path_ok(root) { return Err("OODA_FS_READDIR path refused"); }
 
     let wr: Result[String, String] = env_get(env, "OODA_FS_WRITEDIR");
     if wr.is_err() { return Err("OODA_FS_WRITEDIR required"); }
     let wdir: String = match wr { Ok(s) => s, Err(_) => "" };
-    if chars_len(wdir) == 0 { return Err("OODA_FS_WRITEDIR empty"); }
-    if str_index_of(wdir, "..") >= 0 { return Err("OODA_FS_WRITEDIR traversal"); }
+    if !lsp_script_path_ok(wdir) { return Err("OODA_FS_WRITEDIR path refused"); }
 
     let rt: String = root + "/oodac/runtime";
     let chs: String = rt + "/chs_rt.c";
+    if !lsp_script_path_ok(chs) { return Err("chs_rt path refused"); }
     if !path_exists(fs_r, chs) { return Err("missing " + chs); }
 
-    let probes: List[String] = ["probe_initialize", "probe_completion", "probe_hover", "probe_definition", "probe_diagnostics", "probe_formatting", "probe_codeaction", "probe_double_run", "probe_token", "probe_uri", "probe_bridge", "probe_session"];
+    let probes: List[String] = ["probe_initialize", "probe_completion", "probe_hover", "probe_definition", "probe_diagnostics", "probe_formatting", "probe_codeaction", "probe_double_run", "probe_token", "probe_uri", "probe_bridge", "probe_session", "probe_document_link", "probe_inlay", "probe_document_symbol", "probe_execute_command", "probe_json_smuggle", "probe_utf16", "probe_struct_merge"];
     let mut failed: Int = 0;
     let mut i: Int = 0;
     while i < list_len(probes) {
         let name: String = list_get(probes, i);
-        let rel: String = "lsp/qa/" + name + ".oo";
-        let full: String = root + "/" + rel;
-        if !path_exists(fs_r, full) { return Err("missing " + full); }
-        let cfile: String = wdir + "/" + name + ".c";
-        let binp: String = wdir + "/" + name;
-        println("  EMIT " + rel);
-        let em: String = "cd " + root + " && exec " + bin + " emit-c " + rel + " > " + cfile;
-        let er: Result[String, String] = sys_exec(p, "sh", "-c", em);
-        if er.is_err() {
-            let msg: String = match er { Ok(_) => "", Err(e) => e };
-            println("  FAIL emit " + name + " " + msg);
-            failed = failed + 1;
-            i = i + 1;
-            continue;
-        }
-        let gcc: String = "gcc -O0 -o " + binp + " " + cfile + " " + chs + " -I " + rt + " -lm";
-        let gr: Result[String, String] = sys_exec(p, "sh", "-c", gcc);
-        if gr.is_err() {
-            let msg: String = match gr { Ok(_) => "", Err(e) => e };
-            println("  FAIL gcc " + name + " " + msg);
-            failed = failed + 1;
-            i = i + 1;
-            continue;
-        }
-        let rr2: Result[String, String] = sys_exec(p, "sh", "-c", binp);
-        if rr2.is_err() {
-            let msg: String = match rr2 { Ok(_) => "", Err(e) => e };
-            println("  FAIL run " + name + " " + msg);
-            failed = failed + 1;
-        } else {
-            println("  PASS " + name);
-        }
+        if !lsp_test_run_one(p, fs_r, fw, bin, root, wdir, chs, rt, name) { failed = failed + 1; }
         i = i + 1;
     }
     println("Results: failed=" + failed.to_string());

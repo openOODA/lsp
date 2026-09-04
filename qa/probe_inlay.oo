@@ -1,0 +1,35 @@
+// # LSP InlayHint - Hostile Probe
+//
+// Logline: Proves type hints fire only for `let` / `let mut` literals, not bare assignment or `==`.
+//
+// Setup: Pure text scan. No filesystem.
+//
+// Beats:
+//   1. `let x = 1` and `let mut y = "a"` emit Int and String.
+//   2. `x = 1` and `if x == 1` emit no hint.
+//   3. `let z = true` emits Bool.
+
+import "lsp/methods/lsp_inlay_hint.oo";
+
+fn fail(msg: String) {
+    println("FAIL " + msg);
+    process_exit(1);
+}
+
+pub fn main() {
+    let a: String = lsp_inlay_hint_find("let x = 1\n");
+    if str_index_of(a, "Int") < 0 { fail("let int: " + a); }
+    let b: String = lsp_inlay_hint_find("let mut y = \"a\"\n");
+    if str_index_of(b, "String") < 0 { fail("let mut string: " + b); }
+    let c: String = lsp_inlay_hint_find("let z = true\n");
+    if str_index_of(c, "Bool") < 0 { fail("let bool: " + c); }
+    println("PASS let literals");
+
+    let d: String = lsp_inlay_hint_find("x = 1\n");
+    if str_index_of(d, "Int") >= 0 { fail("assign must be empty: " + d); }
+    let e: String = lsp_inlay_hint_find("if x == 1 {\n");
+    if str_index_of(e, "Int") >= 0 { fail("eq must be empty: " + e); }
+    if d != "[]" { fail("assign json: " + d); }
+    println("PASS non-let");
+    println("probe_inlay PASSED");
+}

@@ -5,6 +5,6 @@
 // Setup: Structural. No product code.
 //
 // Beats:
-//   1. workflows/ holds ci.yml which calls the governance auto-release workflow.
+//   1. workflows/ holds ci.yml: probes job then auto-release on push to main.
 
 import "workflows/ANCHOR.oo";

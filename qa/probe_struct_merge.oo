@@ -1,0 +1,44 @@
+// # LSP Struct/Enum Merge - Hostile Probe
+//
+// Logline: Proves CompilerReadCap merge adds pub struct, pub enum, pub type, and pub fn names.
+//
+// Setup: Requires &CompilerReadCap. Does not import the dispatcher.
+//
+// Beats:
+//   1. Widget/Kind/Alias/tool are present after merge.
+//   2. Kinds are Struct, Enum, Type, Function.
+//   3. A commented pub struct is not added.
+
+import "lsp/bridge/lsp_compiler_merge.oo";
+import "lsp/symbols/lsp_symbol_canonical.oo";
+import "lsp/symbols/lsp_symbol_record.oo";
+
+fn fail(msg: String) {
+    println("FAIL " + msg);
+    process_exit(1);
+}
+
+pub fn main(c: &CompilerReadCap) {
+    let seed: List[String] = lsp_index_build_canonical();
+    let src: String = "pub struct Widget {}\npub enum Kind {}\npub type Alias = Int\npub fn tool() {}\n";
+    let merged: List[String] = lsp_compiler_merge_table(c, seed, "file:///tmp/ws/a.oo", src);
+    let w: String = lsp_index_lookup(merged, "Widget");
+    if chars_len(w) == 0 { fail("Widget missing"); }
+    if lsp_index_kind(w) != "Struct" { fail("Widget kind: " + lsp_index_kind(w)); }
+    let k: String = lsp_index_lookup(merged, "Kind");
+    if chars_len(k) == 0 { fail("Kind missing"); }
+    if lsp_index_kind(k) != "Enum" { fail("Kind kind: " + lsp_index_kind(k)); }
+    let a: String = lsp_index_lookup(merged, "Alias");
+    if chars_len(a) == 0 { fail("Alias missing"); }
+    if lsp_index_kind(a) != "Type" { fail("Alias kind: " + lsp_index_kind(a)); }
+    let t: String = lsp_index_lookup(merged, "tool");
+    if chars_len(t) == 0 { fail("tool missing"); }
+    if lsp_index_kind(t) != "Function" { fail("tool kind: " + lsp_index_kind(t)); }
+    println("PASS merge kinds");
+
+    let cmt: String = "// pub struct Decoy {}\n";
+    let skip: List[String] = lsp_compiler_merge_table(c, seed, "file:///tmp/ws/a.oo", cmt);
+    if chars_len(lsp_index_lookup(skip, "Decoy")) != 0 { fail("commented struct must not merge"); }
+    println("PASS comment decoy");
+    println("probe_struct_merge PASSED");
+}

@@ -1,13 +1,13 @@
 // # LSP Compiler Index Merge
 //
-// Logline: Under CompilerReadCap, add pub fn names from one document into the symbol index.
+// Logline: Under CompilerReadCap, add pub fn, pub struct, pub enum, and pub type names from one document.
 //
 // Setup: Requires &CompilerReadCap. Uses lsp_text line split. Empty text returns the index unchanged.
 //
 // Beats:
 //   1. Split the document into lines.
-//   2. Take identifiers after a leading pub fn .
-//   3. Append missing names as Function records.
+//   2. Take identifiers after a leading pub fn / struct / enum / type.
+//   3. Append missing names as Function, Struct, Enum, or Type records.
 
 import "lsp/methods/lsp_text.oo";
 import "lsp/symbols/lsp_symbol_record.oo";
@@ -66,6 +66,8 @@ pub fn lsp_compiler_merge_table(c: &CompilerReadCap, idx: List[String], uri: Str
         out = lsp_compiler_merge_one(out, sn, "Struct", "pub struct " + sn, uri);
         let tn: String = lsp_compiler_pub_kind_name(line, "pub type ", "Type");
         out = lsp_compiler_merge_one(out, tn, "Type", "pub type " + tn, uri);
+        let en: String = lsp_compiler_pub_kind_name(line, "pub enum ", "Enum");
+        out = lsp_compiler_merge_one(out, en, "Enum", "pub enum " + en, uri);
         i = i + 1;
     }
     return out;

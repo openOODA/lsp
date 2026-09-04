@@ -1,13 +1,13 @@
 // # LSP Diagnostics - Hostile Probe
 //
-// Logline: Proves E_EM_WEIGHT, E_EM_PINS, and E_EM_PS emit, and a short clean file emits none of those codes.
+// Logline: Proves extract emits E_EM_WEIGHT and E_EM_PINS only. The Ps converter is not wired.
 //
 // Setup: Pure converters. No filesystem.
 //
 // Beats:
 //   1. 300 lines emit E_EM_WEIGHT. 3 lines do not.
 //   2. A Floor: header pin emits E_EM_PINS.
-//   3. W=0 emits E_EM_PS. A clean short file has an empty diagnostic concat.
+//   3. extract_diags never includes E_EM_PS. The W=0 converter still names that code.
 
 import "lsp/methods/lsp_diagnostics.oo";
 
@@ -46,6 +46,11 @@ pub fn main() {
     let clean: String = lsp_server_extract_diags("file:///tmp/a.oo", "pub fn x() {}\n");
     if str_index_of(clean, "E_EM_WEIGHT") >= 0 { fail("clean file weight: " + clean); }
     if str_index_of(clean, "E_EM_PINS") >= 0 { fail("clean file pins: " + clean); }
+    if str_index_of(clean, "E_EM_PS") >= 0 { fail("clean file must not emit PS"); }
+    let heavy_src: String = many_lines(300);
+    let extracted: String = lsp_server_extract_diags("file:///tmp/a.oo", heavy_src);
+    if str_index_of(extracted, "E_EM_WEIGHT") < 0 { fail("extract weight"); }
+    if str_index_of(extracted, "E_EM_PS") >= 0 { fail("extract must not emit PS"); }
     println("PASS clean extract");
 
     let close: String = lsp_server_handle_did_close("file:///tmp/a.oo");

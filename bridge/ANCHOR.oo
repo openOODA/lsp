@@ -1,6 +1,6 @@
 // # LSP Compiler Bridge
 //
-// Logline: CompilerReadCap merge of user pub fn names into the symbol index.
+// Logline: CompilerReadCap merge of user pub fn, struct, enum, and type names into the symbol index.
 //
 // Setup: stdio calls lsp_compiler_merge_table on didOpen/didChange. Uses &CompilerReadCap.
 //

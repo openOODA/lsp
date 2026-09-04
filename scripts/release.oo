@@ -2,31 +2,34 @@
 //
 // Logline: Runs build, test, and verify in order. Git tags are created by auto-release on push to main.
 //
-// Setup: Requires OODA_COMPILER and OODA_FS_READDIR. No tarball. No VERSION bump.
+// Setup: Requires OODA_COMPILER and OODA_FS_READDIR. No tarball. No VERSION bump. CWD is the polyrepo root.
 //
 // Beats:
 //   1. Run scripts/build.oo.
 //   2. Run scripts/test.oo.
 //   3. Run scripts/verify.oo.
-//   4. Fail closed on the first Err.
+//   4. Fail closed on the first Err. argv only; no shell.
+
+import "lsp_script_path.oo";
 
 pub fn main(p: &ProcessCap, fs_r: &FsReadCap, env: &EnvCap, args: List[String]) -> Result[Int, String] {
     let cr: Result[String, String] = env_get(env, "OODA_COMPILER");
     if cr.is_err() { return Err("OODA_COMPILER required"); }
     let bin: String = match cr { Ok(s) => s, Err(_) => "" };
+    if !lsp_script_path_ok(bin) { return Err("OODA_COMPILER path refused"); }
     let rr: Result[String, String] = env_get(env, "OODA_FS_READDIR");
     if rr.is_err() { return Err("OODA_FS_READDIR required"); }
     let root: String = match rr { Ok(s) => s, Err(_) => "" };
-    if chars_len(root) == 0 { return Err("OODA_FS_READDIR empty"); }
+    if !lsp_script_path_ok(root) { return Err("OODA_FS_READDIR path refused"); }
 
     let steps: List[String] = ["build", "test", "verify"];
     let mut i: Int = 0;
     while i < list_len(steps) {
         let step: String = list_get(steps, i);
         let rel: String = "lsp/scripts/" + step + ".oo";
+        if !lsp_script_path_ok(rel) { return Err("step path refused"); }
         println("Release step " + step);
-        let cmd: String = "cd " + root + " && exec " + bin + " run " + rel;
-        let r: Result[String, String] = sys_exec(p, "sh", "-c", cmd);
+        let r: Result[String, String] = sys_exec(p, bin, "run", rel);
         if r.is_err() {
             let msg: String = match r { Ok(_) => "", Err(e) => e };
             return Err("release " + step + " failed: " + msg);

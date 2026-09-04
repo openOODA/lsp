@@ -10,8 +10,8 @@
 //   3. File mode: read the buffer and print the concatenated replies.
 //   4. Else run the stdio loop until shutdown, exit, or EOF.
 
-import "wire/lsp_stdio.oo";
-import "server/lsp_server_uri.oo";
+import "lsp/wire/lsp_stdio.oo";
+import "lsp/server/lsp_server_uri.oo";
 
 fn cmd_lsp_arg_flag(args: List[String], flag: String) -> Bool {
     let n: Int = list_len(args);
@@ -79,7 +79,7 @@ pub fn run_ooda_lsp(fr: &FsReadCap, c: &CompilerReadCap, args: List[String]) {
         }
         let raw: String = match rawr { Ok(s) => s, Err(m) => m };
         let reply: String = lsp_serve_buffer(fr, c, explicit_root, oodar_root, raw);
-        if chars_len(reply) > 0 { print(reply); }
+        if chars_len(reply) > 0 { oo_print_str(reply); }
         return;
     }
 

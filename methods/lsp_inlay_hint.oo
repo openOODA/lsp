@@ -1,16 +1,49 @@
 // # LSP InlayHint for Literal Lets
 //
-// Logline: Emits type inlay hints for `let x = <literal>` with String, Int, or Bool.
+// Logline: Emits type inlay hints only for `let` / `let mut` bound to a string, int, or bool literal.
 //
-// Setup: Pure text scan. No capability required.
+// Setup: Pure text scan. No capability required. Columns are LSP UTF-16.
 //
 // Beats:
-//   1. Find `=` followed by a string, digit, true, or false literal.
-//   2. Emit an InlayHint with kind=1 (Type).
+//   1. Require a `let` binding. Bare assignment and `==` do not emit.
+//   2. Emit an InlayHint with kind=1 (Type) at the literal.
 //   3. Frame a JSON-RPC response with the hint array.
 
 import "lsp_text.oo";
 import "lsp/wire/lsp_jsonrpc.oo";
+
+fn lsp_inlay_is_ws(c: String) -> Bool {
+    return c == " " || c == "\t";
+}
+
+fn lsp_inlay_word_before(src: String, end: Int, word: String) -> Bool {
+    let wlen: Int = chars_len(word);
+    if end < wlen { return false; }
+    if str_slice(src, end - wlen, end) != word { return false; }
+    if end == wlen { return true; }
+    return !lsp_text_is_ident_char(char_at(src, end - wlen - 1));
+}
+
+pub fn lsp_inlay_is_let_eq(src: String, eq_i: Int) -> Bool {
+    if eq_i < 1 { return false; }
+    let prev: String = char_at(src, eq_i - 1);
+    if prev == "=" || prev == "!" || prev == "<" || prev == ">" { return false; }
+    if eq_i + 1 < chars_len(src) {
+        let nxt: String = char_at(src, eq_i + 1);
+        if nxt == "=" || nxt == ">" { return false; }
+    }
+    let mut k: Int = eq_i;
+    while k > 0 && lsp_inlay_is_ws(char_at(src, k - 1)) { k = k - 1; }
+    let ident_end: Int = k;
+    while k > 0 && lsp_text_is_ident_char(char_at(src, k - 1)) { k = k - 1; }
+    if k == ident_end { return false; }
+    while k > 0 && lsp_inlay_is_ws(char_at(src, k - 1)) { k = k - 1; }
+    if lsp_inlay_word_before(src, k, "mut") {
+        k = k - 3;
+        while k > 0 && lsp_inlay_is_ws(char_at(src, k - 1)) { k = k - 1; }
+    }
+    return lsp_inlay_word_before(src, k, "let");
+}
 
 pub fn lsp_inlay_hint_find(src: String) -> String {
     let n: Int = chars_len(src);
@@ -20,33 +53,27 @@ pub fn lsp_inlay_hint_find(src: String) -> String {
     let mut col: Int = 0;
     while i < n {
         let c: String = char_at(src, i);
-        if c == "=" && i + 1 < n {
-            let prev: String = if i > 0 { char_at(src, i - 1) } else { "" };
-            if prev != "=" {
-                let next: String = char_at(src, i + 1);
-                if next == " " || next == "\t" {
-                    let mut k: Int = i + 1;
-                    let mut k_col: Int = col + 1;
-                    while k < n && (char_at(src, k) == " " || char_at(src, k) == "\t") {
-                        k = k + 1;
-                        k_col = k_col + 1;
-                    }
-                    if k < n {
-                        let first: String = char_at(src, k);
-                        let mut hint: String = "";
-                        if first == "\"" { hint = "String"; }
-                        else if lsp_text_is_digit(first) { hint = "Int"; }
-                        else if str_starts_with(str_slice(src, k, n), "true") { hint = "Bool"; }
-                        else if str_starts_with(str_slice(src, k, n), "false") { hint = "Bool"; }
-                        if chars_len(hint) > 0 {
-                            if chars_len(out) > 0 { out = out + ","; }
-                            out = out + "{\"position\":{\"line\":" + line.to_string() + ",\"character\":" + k_col.to_string() + "},\"label\":\": " + hint + "\",\"kind\":1}";
-                        }
-                    }
+        if c == "=" && lsp_inlay_is_let_eq(src, i) {
+            let mut k: Int = i + 1;
+            let mut k_col: Int = col + lsp_text_utf16_width(c);
+            while k < n && lsp_inlay_is_ws(char_at(src, k)) {
+                k_col = k_col + lsp_text_utf16_width(char_at(src, k));
+                k = k + 1;
+            }
+            if k < n {
+                let first: String = char_at(src, k);
+                let mut hint: String = "";
+                if first == "\"" { hint = "String"; }
+                else if lsp_text_is_digit(first) { hint = "Int"; }
+                else if str_starts_with(str_slice(src, k, n), "true") { hint = "Bool"; }
+                else if str_starts_with(str_slice(src, k, n), "false") { hint = "Bool"; }
+                if chars_len(hint) > 0 {
+                    if chars_len(out) > 0 { out = out + ","; }
+                    out = out + "{\"position\":{\"line\":" + line.to_string() + ",\"character\":" + k_col.to_string() + "},\"label\":\": " + hint + "\",\"kind\":1}";
                 }
             }
         }
-        if c == "\n" { line = line + 1; col = 0; } else { col = col + 1; }
+        if c == "\n" { line = line + 1; col = 0; } else { col = col + lsp_text_utf16_width(c); }
         i = i + 1;
     }
     return "[" + out + "]";
