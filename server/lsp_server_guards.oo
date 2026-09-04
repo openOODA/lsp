@@ -73,7 +73,7 @@ pub fn lsp_server_trust_check(state: LspServerState, uri: String, id: String) ->
     if lsp_server_path_denied(lsp_server_uri_path(uri)) {
         return lsp_jsonrpc_frame(lsp_jsonrpc_make_error(id, 0 - 32602, "URI denied: " + uri));
     }
-    if !lsp_server_uri_is_under(uri, state.root_uri) {
+    if !lsp_server_uri_under_folders(uri, state.root_uri, state.folders) {
         return lsp_jsonrpc_frame(lsp_jsonrpc_make_error(id, 0 - 32602, "URI outside root: " + uri));
     }
     return "";
@@ -89,13 +89,17 @@ pub fn lsp_server_request_guard(state: LspServerState, uri: String, text: String
 }
 
 pub fn lsp_server_stamp(s: LspServerState, init: Bool, root: String) -> LspServerState {
-    return LspServerState { is_initialized: init, root_uri: root, oodar_root: s.oodar_root, docs: s.docs };
+    return LspServerState { is_initialized: init, root_uri: root, oodar_root: s.oodar_root, docs: s.docs, folders: s.folders };
 }
 
 pub fn lsp_server_stamp_doc(s: LspServerState, uri: String, text: String) -> LspServerState {
-    return LspServerState { is_initialized: s.is_initialized, root_uri: s.root_uri, oodar_root: s.oodar_root, docs: lsp_docs_put(s.docs, uri, text) };
+    return LspServerState { is_initialized: s.is_initialized, root_uri: s.root_uri, oodar_root: s.oodar_root, docs: lsp_docs_put(s.docs, uri, text), folders: s.folders };
 }
 
 pub fn lsp_server_clear_doc(s: LspServerState, uri: String) -> LspServerState {
-    return LspServerState { is_initialized: s.is_initialized, root_uri: s.root_uri, oodar_root: s.oodar_root, docs: lsp_docs_remove(s.docs, uri) };
+    return LspServerState { is_initialized: s.is_initialized, root_uri: s.root_uri, oodar_root: s.oodar_root, docs: lsp_docs_remove(s.docs, uri), folders: s.folders };
+}
+
+pub fn lsp_server_stamp_folders(s: LspServerState, folders: List[String]) -> LspServerState {
+    return LspServerState { is_initialized: s.is_initialized, root_uri: s.root_uri, oodar_root: s.oodar_root, docs: s.docs, folders: folders };
 }

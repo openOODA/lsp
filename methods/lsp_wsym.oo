@@ -1,0 +1,57 @@
+// # LSP Workspace Symbol
+//
+// Logline: Prefix-filters the symbol index into SymbolInformation objects with a real URI.
+//
+// Setup: Only records whose doc starts with `declared in ` are emitted. Others have no location.
+//
+// Beats:
+//   1. Filter the index by query prefix.
+//   2. Map Function/Struct/Enum/Type/Capability to SymbolKind.
+//   3. URI is the suffix after `declared in `.
+
+import "lsp/symbols/lsp_symbol_record.oo";
+import "lsp/wire/lsp_jsonrpc.oo";
+import "lsp/wire/lsp_json_encode.oo";
+
+fn lsp_wsym_kind(kind: String) -> String {
+    if kind == "Function" { return "12"; }
+    if kind == "Struct" { return "23"; }
+    if kind == "Enum" { return "10"; }
+    if kind == "Type" { return "5"; }
+    if kind == "Capability" { return "13"; }
+    if kind == "Keyword" { return "14"; }
+    return "13";
+}
+
+fn lsp_wsym_uri(doc: String) -> String {
+    let p: String = "declared in ";
+    if !str_starts_with(doc, p) { return ""; }
+    let rest: String = str_slice(doc, chars_len(p), chars_len(doc));
+    let sp: Int = str_index_of(rest, " ");
+    if sp < 0 { return rest; }
+    return str_slice(rest, 0, sp);
+}
+
+pub fn lsp_wsym_json(idx: List[String], query: String) -> String {
+    let recs: List[String] = lsp_index_prefix(idx, query);
+    let n: Int = list_len(recs);
+    let mut out: String = "";
+    let mut i: Int = 0;
+    while i < n {
+        let rec: String = list_get(recs, i);
+        let uri: String = lsp_wsym_uri(lsp_index_doc(rec));
+        if chars_len(uri) > 0 {
+            if chars_len(out) > 0 { out = out + ","; }
+            let name: String = lsp_json_escape(lsp_index_name(rec));
+            let u: String = lsp_json_escape(uri);
+            let k: String = lsp_wsym_kind(lsp_index_kind(rec));
+            out = out + "{\"name\":\"" + name + "\",\"kind\":" + k + ",\"location\":{\"uri\":\"" + u + "\",\"range\":{\"start\":{\"line\":0,\"character\":0},\"end\":{\"line\":0,\"character\":0}}}}";
+        }
+        i = i + 1;
+    }
+    return "[" + out + "]";
+}
+
+pub fn lsp_wsym_handle(id: String, idx: List[String], query: String) -> String {
+    return lsp_jsonrpc_frame(lsp_jsonrpc_make_response(id, lsp_wsym_json(idx, query)));
+}

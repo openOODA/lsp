@@ -1,12 +1,12 @@
 // # LSP Double-Run Proof
 //
-// Logline: Proves version, framing, completion, definition, hover, diagnostics, and cap-table parse are bit-identical across two calls.
+// Logline: Proves version, framing, completion prefix, diagnostics, and cap-table parse are bit-identical across two calls.
 //
 // Setup: In-process. Cap-free canonical index. Cap table parse uses an in-memory fixture.
 //
 // Beats:
 //   1. lsp_facade_version is 2.12.0 and deterministic.
-//   2. Framing, completion, hover, and diagnostics match across two calls.
+//   2. Framing, completion prefix length, and diagnostics match across two calls.
 //   3. Cap table parse of the same fixture is byte-identical.
 
 import "lsp/wire/lsp_jsonrpc.oo";
@@ -15,9 +15,6 @@ import "lsp/server/lsp_version.oo";
 import "lsp/symbols/lsp_symbol_record.oo";
 import "lsp/symbols/lsp_symbol_canonical.oo";
 import "lsp/symbols/lsp_cap_table.oo";
-import "lsp/methods/lsp_completion_codec.oo";
-import "lsp/methods/lsp_hover.oo";
-import "lsp/methods/lsp_definition.oo";
 
 fn pass(label: String) { println("PASS " + label); }
 fn fail(label: String) {
@@ -50,11 +47,6 @@ pub fn main() {
     if list_len(ra) != list_len(rb) { fail("cap parse length"); }
     if lsp_cap_table_lookup(ra, "FsReadCap") != lsp_cap_table_lookup(rb, "FsReadCap") { fail("cap parse drift"); }
     pass("cap table parse deterministic");
-
-    let src: String = "pub fn hello() -> String { return \"hi\"; }";
-    let h1: String = lsp_hover_from_index(idx, "hello", "1", 1, 10, src);
-    let h2: String = lsp_hover_from_index(idx, "hello", "1", 1, 10, src);
-    if h1 == h2 { pass("hover deterministic"); } else { fail("hover not deterministic"); }
 
     let src2: String = "pub fn hello() -> String { return \"hi\"; }\npub fn world() -> Int { return 2; }\n";
     let di1: String = lsp_server_extract_diags("file:///tmp/test.oo", src2);

@@ -1,0 +1,112 @@
+// # LSP Semantic Tokens
+//
+// Logline: Full-document semantic tokens: comment, string, number, keyword, modifier, function, struct, enum, type, variable.
+//
+// Setup: Legend tokenTypes are the LSP 3.17 defaults. Modifiers are empty. Columns are UTF-16.
+//
+// Beats:
+//   1. Skip // comments and quoted strings as whole tokens.
+//   2. Tag keywords, pub as modifier, and the ident after fn/struct/enum/type.
+//   3. Encode the delta array.
+
+import "lsp_text.oo";
+import "lsp/wire/lsp_jsonrpc.oo";
+
+fn lsp_sem_kw(s: String) -> Bool {
+    if s == "fn" || s == "let" || s == "mut" || s == "if" || s == "else" { return true; }
+    if s == "while" || s == "return" || s == "match" || s == "import" { return true; }
+    if s == "struct" || s == "enum" || s == "type" || s == "true" || s == "false" { return true; }
+    return false;
+}
+
+fn lsp_sem_push(out: String, dl: Int, ds: Int, len: Int, ty: Int) -> String {
+    let bit: String = dl.to_string() + "," + ds.to_string() + "," + len.to_string() + "," + ty.to_string() + ",0";
+    if chars_len(out) == 0 { return bit; }
+    return out + "," + bit;
+}
+
+pub fn lsp_semantic_data(src: String) -> String {
+    let n: Int = chars_len(src);
+    let mut out: String = "";
+    let mut i: Int = 0;
+    let mut line: Int = 0;
+    let mut col: Int = 0;
+    let mut pl: Int = 0;
+    let mut pc: Int = 0;
+    let mut prev: String = "";
+    while i < n {
+        let c: String = char_at(src, i);
+        if c == "/" && i + 1 < n && char_at(src, i + 1) == "/" {
+            let start: Int = i;
+            while i < n && char_at(src, i) != "\n" { i = i + 1; }
+            let w: Int = lsp_text_utf16_len(str_slice(src, start, i));
+            out = lsp_sem_push(out, line - pl, col - pc, w, 17);
+            pl = line;
+            pc = col;
+            col = col + w;
+            prev = "";
+            continue;
+        }
+        if c == "\"" {
+            let start: Int = i;
+            i = i + 1;
+            let mut esc: Bool = false;
+            while i < n {
+                let ch: String = char_at(src, i);
+                if esc { esc = false; }
+                else if ch == "\\" { esc = true; }
+                else if ch == "\"" { i = i + 1; break; }
+                if ch == "\n" { break; }
+                i = i + 1;
+            }
+            let w: Int = lsp_text_utf16_len(str_slice(src, start, i));
+            out = lsp_sem_push(out, line - pl, col - pc, w, 18);
+            pl = line;
+            pc = col;
+            col = col + w;
+            prev = "";
+            continue;
+        }
+        if c == "\n" { line = line + 1; col = 0; pc = 0; i = i + 1; continue; }
+        if c == " " || c == "\t" { col = col + lsp_text_utf16_width(c); i = i + 1; continue; }
+        if lsp_text_is_digit(c) {
+            let start: Int = i;
+            while i < n && lsp_text_is_digit(char_at(src, i)) { i = i + 1; }
+            let w: Int = lsp_text_utf16_len(str_slice(src, start, i));
+            out = lsp_sem_push(out, line - pl, col - pc, w, 19);
+            pl = line;
+            pc = col;
+            col = col + w;
+            prev = "";
+            continue;
+        }
+        if lsp_text_is_ident_char(c) {
+            let start: Int = i;
+            while i < n && lsp_text_is_ident_char(char_at(src, i)) { i = i + 1; }
+            let id: String = str_slice(src, start, i);
+            let w: Int = lsp_text_utf16_len(id);
+            let mut ty: Int = 8;
+            if id == "pub" { ty = 16; }
+            else if lsp_sem_kw(id) { ty = 15; }
+            else if prev == "fn" { ty = 12; }
+            else if prev == "struct" { ty = 5; }
+            else if prev == "enum" { ty = 3; }
+            else if prev == "type" { ty = 1; }
+            out = lsp_sem_push(out, line - pl, col - pc, w, ty);
+            pl = line;
+            pc = col;
+            col = col + w;
+            prev = id;
+            continue;
+        }
+        col = col + lsp_text_utf16_width(c);
+        i = i + 1;
+        prev = "";
+    }
+    return out;
+}
+
+pub fn lsp_semantic_handle(id: String, src: String) -> String {
+    let data: String = lsp_semantic_data(src);
+    return lsp_jsonrpc_frame(lsp_jsonrpc_make_response(id, "{\"data\":[" + data + "]}"));
+}

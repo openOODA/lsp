@@ -66,6 +66,20 @@ pub fn lsp_formatting_handle_formatting(id: String, uri: String, src: String) ->
     return lsp_jsonrpc_frame(lsp_jsonrpc_make_response(id, body));
 }
 
+pub fn lsp_formatting_handle_range(id: String, src: String, sl: Int, sc: Int, el: Int, ec: Int) -> String {
+    let a: Int = lsp_text_index_at(src, sl, sc);
+    let b: Int = lsp_text_index_at(src, el, ec);
+    let piece: String = str_slice(src, a, b);
+    let normalized: String = lsp_formatting_expand_tabs(lsp_formatting_strip_trailing_ws(piece));
+    let esc: String = lsp_jsonrpc_escape(normalized);
+    let sls: String = sl.to_string();
+    let scs: String = sc.to_string();
+    let els: String = el.to_string();
+    let ecs: String = ec.to_string();
+    let body: String = "[{\"range\":{\"start\":{\"line\":" + sls + ",\"character\":" + scs + "},\"end\":{\"line\":" + els + ",\"character\":" + ecs + "}},\"newText\":\"" + esc + "\"}]";
+    return lsp_jsonrpc_frame(lsp_jsonrpc_make_response(id, body));
+}
+
 fn lsp_formatting_ws_col(line: String) -> Int {
     let n: Int = chars_len(line);
     let mut i: Int = 0;

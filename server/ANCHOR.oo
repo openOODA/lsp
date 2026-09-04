@@ -5,7 +5,7 @@
 // Setup: Drives the request lifecycle. Depends on wire (transport), types (payloads), methods (business logic), symbols (data).
 //
 // Beats:
-//   1. 7 files: version, capabilities, dispatch, guards, handlers, uri predicates, open-doc store.
+//   1. version, capabilities, dispatch, dispatch_more, guards, handlers, uri, docs.
 //   2. All files follow the 4-element Academy header and the 256-line cap.
 //   3. Imports go to siblings in this subdir; cross-subdir imports use the new lsp/<subdir>/<file> path.
 
@@ -16,3 +16,4 @@ import "lsp_server_guards.oo";
 import "lsp_server_handlers.oo";
 import "lsp_server_uri.oo";
 import "lsp_server_docs.oo";
+import "lsp_server_dispatch_more.oo";

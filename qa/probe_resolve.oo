@@ -1,0 +1,30 @@
+// # LSP completionItem/resolve - Hostile Probe
+//
+// Logline: Proves resolve fills documentation for a known label and passes through an unknown item.
+//
+// Setup: Canonical index. No dispatcher.
+//
+// Beats:
+//   1. Label FsReadCap resolves with documentation.
+//   2. Unknown label returns the original item JSON.
+
+import "lsp/symbols/lsp_symbol_canonical.oo";
+import "lsp/methods/lsp_completion_codec.oo";
+
+fn fail(msg: String) {
+    println("FAIL " + msg);
+    process_exit(1);
+}
+
+pub fn main() {
+    let idx: List[String] = lsp_index_build_canonical();
+    let r: String = lsp_completion_resolve_handle("1", idx, "{\"label\":\"FsReadCap\"}");
+    if str_index_of(r, "FsReadCap") < 0 { fail("label: " + r); }
+    if str_index_of(r, "documentation") < 0 { fail("docs: " + r); }
+    println("PASS known");
+
+    let u: String = lsp_completion_resolve_handle("2", idx, "{\"label\":\"NotASymbol\",\"kind\":1}");
+    if str_index_of(u, "NotASymbol") < 0 { fail("unknown: " + u); }
+    println("PASS unknown passthrough");
+    println("probe_resolve PASSED");
+}

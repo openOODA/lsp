@@ -3,7 +3,7 @@
 File: lsp/docs/protocol.oot
 
 JSON-RPC 2.0 over stdin/stdout. Framing is `wire/lsp_stdio.oo`.
-Dispatch is `server/lsp_server_dispatch.oo`. 17 methods.
+Dispatch is `server/lsp_server_dispatch.oo` plus `lsp_server_dispatch_more.oo`.
 
 ## 1. Framing
 
@@ -34,13 +34,15 @@ Denied URI path prefixes: `/proc`, `/dev`, `/etc`, `/root`.
 
 ## 4. Document methods
 
-- `didOpen` / `didChange`: merge every open doc, publish WEIGHT/PINS plus oodac check when a compiler path is set
+- `didOpen` / `didChange`: incremental or full contentChanges, merge every open doc, publish WEIGHT/PINS plus oodac check when a compiler path is set
 - `didClose`: publish `diagnostics: []`
 - `completion`: `{isIncomplete:false, items:[...]}` from the index
 - `hover`: markdown contents or `null`
 - `definition`: Location or `null` for pub fn/struct/enum/type. Cap tokens need `--oodar-root`.
 - `documentSymbol`: `kind=12` fn, `23` struct, `10` enum, `26` type
-- `formatting`: one full-file TextEdit (tabs to 4 spaces, trailing ws stripped)
+- `formatting` / `rangeFormatting`: TextEdit (tabs to 4 spaces, trailing ws stripped)
+- `signatureHelp`, `references`, `rename`, `semanticTokens/full`
+- `workspace/symbol`, `workspace/didChangeWatchedFiles`, `workspace/didChangeWorkspaceFolders`
 - `codeAction`: quickfix for `E_EM_PINS` only (delete the pin line)
 - `diagnostic`: `{items:[...]}` pull mode
 - `documentLink`: `&Cap` to oodar grant files when the cap table is loaded

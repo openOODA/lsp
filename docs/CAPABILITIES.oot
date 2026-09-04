@@ -9,56 +9,32 @@ There is no VERSION file.
 
 ## 1. Advertised capabilities
 
-```json
-{
-  "capabilities": {
-    "textDocumentSync": { "openClose": true, "change": 1 },
-    "completionProvider": {
-      "resolveProvider": false,
-      "triggerCharacters": [".", "&", ":"]
-    },
-    "hoverProvider": true,
-    "definitionProvider": true,
-    "documentSymbolProvider": true,
-    "documentFormattingProvider": true,
-    "codeActionProvider": true,
-    "documentLinkProvider": { "resolveProvider": false },
-    "inlayHintProvider": true,
-    "diagnosticProvider": {
-      "interFileDependencies": false,
-      "workspaceDiagnostics": false
-    },
-    "executeCommandProvider": {
-      "commands": ["ooda.lsp.version", "ooda.lsp.indexSize", "ooda.lsp.echo", "ooda.lsp.tokenCount"]
-    }
-  },
-  "serverInfo": { "name": "openooda-lsp", "version": "<lsp_facade_version>" }
-}
-```
+`change: 2` is incremental document sync. Full-document changes (no range) still apply.
+`completionItem/resolve` is implemented (`resolveProvider` true).
+`workspaceFolders` is supported. `rootUri` is still required.
+`didChangeWatchedFiles` restales the stdlib index and cap table.
+Semantic tokenTypes are the LSP 3.17 default legend. tokenModifiers is empty.
 
-`change: 1` is full document sync. Incremental sync is not implemented.
-`completionItem/resolve` is not implemented, so `resolveProvider` is false.
-`workspaceFolders` is not advertised. The server uses one `rootUri`.
+See `lsp_server_capabilities_object()` for the exact JSON.
 
 ## 2. Method notes
 
-- `textDocument/didClose` is dispatched. It publishes `diagnostics: []` for that URI.
-- `textDocument/definition` resolves `pub fn` in the open file, then capability
-  tokens through the loaded oodar cap table. Empty table yields null for builtins.
-- Cap grant files come from `${oodar_root}/sec/cap/cap_table.json` via `--oodar-root`.
-  If `--oodar-root` is set and the file is missing, the process exits 1.
-- Live diagnostics from extract: `E_EM_WEIGHT`, `E_EM_PINS`. `E_EM_PS` is not emitted.
-- When `--compiler` or `OODA_COMPILER` is set, didOpen/didChange also publish
-  oodac `check` errors (`E_TC`, `E_PARSE`, `E_CHECK`, …) for the on-disk path.
-- Code action: `E_EM_PINS` deletes the pin line (`newText` empty). WEIGHT and PS have none.
-- `workspace/executeCommand` `ooda.lsp.tokenCount` estimates tokens for
-  `arguments.text` as chars/4 (`estimator: char-heuristic`). Hover appends a file token footer.
+- `didChange` applies `contentChanges` in order onto the stored document.
+- `definition` / `documentSymbol` cover pub fn, struct, enum, and type.
+- `references` and `rename` scan open documents only, whole-ident.
+- `rename` refuses a `newName` that is not an identifier.
+- `signatureHelp` uses the index signature of the callee before `(`.
+- `workspace/symbol` emits records whose doc starts with `declared in `.
+- `rangeFormatting` formats only the selected span (tabs → 4 spaces, trailing ws).
+- `semanticTokens/full` tags comment, string, number, keyword, modifier, fn/struct/enum/type, variable.
+- Live diagnostics: `E_EM_WEIGHT`, `E_EM_PINS`, plus oodac `check` when a compiler path is set.
+- Code action: `E_EM_PINS` deletes the pin line. WEIGHT and PS have none.
 
 ## 3. Not advertised
 
-`workspace/symbol`, `textDocument/rename`, `textDocument/references`,
-`textDocument/signatureHelp`, range formatting, semantic tokens,
-`workspace/didChangeWatchedFiles`, `workspace/diagnostic`.
+`workspace/diagnostic`, `textDocument/semanticTokens/range`,
+`documentHighlight`, `foldingRange`, `selectionRange`, `callHierarchy`,
+`typeHierarchy`, `linkedEditingRange`.
 Each is absent because the handler does not exist.
 
 ## 4. Version

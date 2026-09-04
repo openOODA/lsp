@@ -1,0 +1,148 @@
+// # LSP References and Rename
+//
+// Logline: Finds ident occurrences in open documents. Rename writes those ranges to newName.
+//
+// Setup: Whole-ident match only. Open documents are uri\\ntext records. newName must be an ident.
+//
+// Beats:
+//   1. Scan each open document for word-boundary hits.
+//   2. references returns Location[]. rename returns a WorkspaceEdit.
+//   3. Empty or illegal newName yields no edit.
+
+import "lsp/server/lsp_server_docs.oo";
+import "lsp_text.oo";
+import "lsp/wire/lsp_jsonrpc.oo";
+import "lsp/wire/lsp_json_encode.oo";
+
+fn lsp_refs_hits(src: String, name: String) -> List[String] {
+    let mut out: List[String] = list_new();
+    let nlen: Int = chars_len(name);
+    if nlen == 0 { return out; }
+    let lines: List[String] = lsp_text_lines(src);
+    let n: Int = list_len(lines);
+    let mut li: Int = 0;
+    while li < n {
+        let line: String = list_get(lines, li);
+        let ln: Int = chars_len(line);
+        let mut i: Int = 0;
+        let mut col: Int = 0;
+        while i + nlen <= ln {
+            if str_slice(line, i, i + nlen) == name {
+                let before: Bool = i == 0 || !lsp_text_is_ident_char(char_at(line, i - 1));
+                let after: Bool = i + nlen == ln || !lsp_text_is_ident_char(char_at(line, i + nlen));
+                if before && after {
+                    out = list_push(out, li.to_string() + "\t" + col.to_string() + "\t" + lsp_text_utf16_len(name).to_string());
+                }
+            }
+            col = col + lsp_text_utf16_width(char_at(line, i));
+            i = i + 1;
+        }
+        li = li + 1;
+    }
+    return out;
+}
+
+fn lsp_refs_hit_sl(hit: String) -> String {
+    let tab: Int = str_index_of(hit, "\t");
+    if tab < 0 { return "0"; }
+    return str_slice(hit, 0, tab);
+}
+
+fn lsp_refs_hit_sc(hit: String) -> String {
+    let tab: Int = str_index_of(hit, "\t");
+    let rest: String = str_slice(hit, tab + 1, chars_len(hit));
+    let tab2: Int = str_index_of(rest, "\t");
+    if tab2 < 0 { return rest; }
+    return str_slice(rest, 0, tab2);
+}
+
+fn lsp_refs_hit_ec(hit: String) -> String {
+    let tab: Int = str_index_of(hit, "\t");
+    let rest: String = str_slice(hit, tab + 1, chars_len(hit));
+    let tab2: Int = str_index_of(rest, "\t");
+    let sc: Int = lsp_parse_int(str_slice(rest, 0, tab2));
+    let w: Int = lsp_parse_int(str_slice(rest, tab2 + 1, chars_len(rest)));
+    return (sc + w).to_string();
+}
+
+fn lsp_refs_range_json(hit: String) -> String {
+    let sl: String = lsp_refs_hit_sl(hit);
+    let sc: String = lsp_refs_hit_sc(hit);
+    let ec: String = lsp_refs_hit_ec(hit);
+    return "{\"start\":{\"line\":" + sl + ",\"character\":" + sc + "},\"end\":{\"line\":" + sl + ",\"character\":" + ec + "}}";
+}
+
+fn lsp_refs_loc_json(uri: String, hit: String) -> String {
+    return "{\"uri\":\"" + lsp_json_escape(uri) + "\",\"range\":" + lsp_refs_range_json(hit) + "}";
+}
+
+fn lsp_parse_int(s: String) -> Int {
+    let n: Int = chars_len(s);
+    let mut v: Int = 0;
+    let mut i: Int = 0;
+    while i < n {
+        let code: Int = byte_at(char_at(s, i), 0);
+        if code >= 48 && code <= 57 { v = v * 10 + (code - 48); }
+        i = i + 1;
+    }
+    return v;
+}
+
+pub fn lsp_refs_locations(docs: List[String], name: String) -> String {
+    let n: Int = list_len(docs);
+    let mut out: String = "";
+    let mut i: Int = 0;
+    while i < n {
+        let rec: String = list_get(docs, i);
+        let uri: String = lsp_docs_uri(rec);
+        let hits: List[String] = lsp_refs_hits(lsp_docs_text(rec), name);
+        let hn: Int = list_len(hits);
+        let mut h: Int = 0;
+        while h < hn {
+            if chars_len(out) > 0 { out = out + ","; }
+            out = out + lsp_refs_loc_json(uri, list_get(hits, h));
+            h = h + 1;
+        }
+        i = i + 1;
+    }
+    return "[" + out + "]";
+}
+
+pub fn lsp_refs_handle(id: String, docs: List[String], name: String) -> String {
+    return lsp_jsonrpc_frame(lsp_jsonrpc_make_response(id, lsp_refs_locations(docs, name)));
+}
+
+pub fn lsp_rename_edit(docs: List[String], name: String, new_name: String) -> String {
+    if !lsp_text_is_ident(new_name) { return "{}"; }
+    let n: Int = list_len(docs);
+    let mut out: String = "";
+    let mut i: Int = 0;
+    let nt: String = lsp_json_escape(new_name);
+    while i < n {
+        let rec: String = list_get(docs, i);
+        let uri: String = lsp_docs_uri(rec);
+        let hits: List[String] = lsp_refs_hits(lsp_docs_text(rec), name);
+        let hn: Int = list_len(hits);
+        if hn > 0 {
+            if chars_len(out) > 0 { out = out + ","; }
+            let u: String = lsp_json_escape(uri);
+            let mut edits: String = "";
+            let mut h: Int = 0;
+            while h < hn {
+                if h > 0 { edits = edits + ","; }
+                edits = edits + "{\"range\":" + lsp_refs_range_json(list_get(hits, h)) + ",\"newText\":\"" + nt + "\"}";
+                h = h + 1;
+            }
+            out = out + "\"" + u + "\":[" + edits + "]";
+        }
+        i = i + 1;
+    }
+    return "{\"changes\":{" + out + "}}";
+}
+
+pub fn lsp_rename_handle(id: String, docs: List[String], name: String, new_name: String) -> String {
+    if !lsp_text_is_ident(new_name) {
+        return lsp_jsonrpc_frame(lsp_jsonrpc_make_error(id, 0 - 32602, "newName must be an identifier"));
+    }
+    return lsp_jsonrpc_frame(lsp_jsonrpc_make_response(id, lsp_rename_edit(docs, name, new_name)));
+}

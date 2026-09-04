@@ -1,0 +1,35 @@
+// # LSP Incremental Sync - Hostile Probe
+//
+// Logline: Proves ranged contentChanges replace a span and a missing range replaces the file.
+//
+// Setup: Pure apply. No dispatcher.
+//
+// Beats:
+//   1. Replace columns 2-4 of hello with y → heyo.
+//   2. A change without range is a full document replace.
+//   3. Two ranged edits apply in order.
+
+import "lsp/methods/lsp_sync.oo";
+
+fn fail(msg: String) {
+    println("FAIL " + msg);
+    process_exit(1);
+}
+
+pub fn main() {
+    let ch: String = "[{\"range\":{\"start\":{\"line\":0,\"character\":2},\"end\":{\"line\":0,\"character\":4}},\"text\":\"y\"}]";
+    let a: String = lsp_sync_apply_changes("hello", ch);
+    if a != "heyo" { fail("range: [" + a + "]"); }
+    println("PASS range");
+
+    let full: String = "[{\"text\":\"abc\"}]";
+    let b: String = lsp_sync_apply_changes("zzzz", full);
+    if b != "abc" { fail("full: [" + b + "]"); }
+    println("PASS full");
+
+    let two: String = "[{\"range\":{\"start\":{\"line\":0,\"character\":0},\"end\":{\"line\":0,\"character\":1}},\"text\":\"H\"},{\"range\":{\"start\":{\"line\":0,\"character\":4},\"end\":{\"line\":0,\"character\":5}},\"text\":\"O\"}]";
+    let c: String = lsp_sync_apply_changes("hello", two);
+    if c != "HellO" { fail("two: [" + c + "]"); }
+    println("PASS ordered");
+    println("probe_sync PASSED");
+}

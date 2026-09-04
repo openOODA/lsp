@@ -16,12 +16,15 @@ import "lsp/wire/lsp_rpc_methods.oo";
 import "lsp/wire/lsp_jsonrpc.oo";
 import "lsp/methods/lsp_text.oo";
 import "lsp_server_guards.oo";
+import "lsp_server_docs.oo";
 import "lsp_server_handlers.oo";
 import "lsp/methods/lsp_formatting.oo";
 import "lsp/methods/lsp_document_link.oo";
 import "lsp/methods/lsp_inlay_hint.oo";
 import "lsp/methods/lsp_execute_command.oo";
 import "lsp/methods/lsp_code_action.oo";
+import "lsp_server_dispatch_more.oo";
+import "lsp/methods/lsp_sync.oo";
 
 pub fn lsp_server_dispatch_request(state: LspServerState, idx: List[String], rows: List[String], method: String, id: String, params: String) -> String {
     if !state.is_initialized && lsp_rpc_methods_is_document(method) {
@@ -45,19 +48,19 @@ pub fn lsp_server_dispatch_request(state: LspServerState, idx: List[String], row
         let d: LspDoc = lsp_server_extract_doc(params);
         if !d.has_doc { return ""; }
         if lsp_server_text_too_large(d.text) { return ""; }
-        if !lsp_server_uri_acceptable(d.uri, state.root_uri) { return ""; }
+        if !lsp_server_uri_acceptable_folders(d.uri, state.root_uri, state.folders) { return ""; }
         return lsp_server_handle_did_open(d.uri, d.text, "");
     }
     if method == "textDocument/didChange" {
         let d: LspDoc = lsp_server_extract_doc(params);
         if !d.has_doc { return ""; }
         if lsp_server_text_too_large(d.text) { return ""; }
-        if !lsp_server_uri_acceptable(d.uri, state.root_uri) { return ""; }
+        if !lsp_server_uri_acceptable_folders(d.uri, state.root_uri, state.folders) { return ""; }
         return lsp_server_handle_did_change(d.uri, d.text, "");
     }
     if method == "textDocument/didClose" {
         let d: LspDoc = lsp_server_extract_doc(params);
-        if !lsp_server_uri_acceptable(d.uri, state.root_uri) { return ""; }
+        if !lsp_server_uri_acceptable_folders(d.uri, state.root_uri, state.folders) { return ""; }
         return lsp_server_handle_did_close(d.uri);
     }
     if method == "textDocument/completion" {
@@ -141,7 +144,7 @@ pub fn lsp_server_dispatch_request(state: LspServerState, idx: List[String], row
         let args: String = lsp_jsonrpc_extract_object(params, "arguments");
         return lsp_execute_command_handle(id, idx, command, args);
     }
-    return lsp_jsonrpc_frame(lsp_jsonrpc_make_error(id, 0 - 32601, "Method not found: " + method));
+    return lsp_server_dispatch_more(state, idx, method, id, params);
 }
 
 pub fn lsp_server_process_message(state: LspServerState, raw_body: String, idx: List[String], rows: List[String], extra_diags: String) -> LspProcessResult {
@@ -153,13 +156,48 @@ pub fn lsp_server_process_message(state: LspServerState, raw_body: String, idx: 
         let root: String = lsp_jsonrpc_extract_string(params, "rootUri");
         if chars_len(root) == 0 { return lsp_process_result_new(lsp_server_dispatch_request(state, idx, rows, method, id, params), state); }
         next = lsp_server_stamp(next, true, root);
+        next = lsp_server_stamp_folders(next, lsp_sync_folder_uris(lsp_jsonrpc_extract_object(params, "workspaceFolders")));
     }
-    if method == "textDocument/didOpen" || method == "textDocument/didChange" {
-        let d: LspDoc = lsp_server_extract_doc(params);
-        if d.has_doc && !lsp_server_text_too_large(d.text) && lsp_server_uri_acceptable(d.uri, next.root_uri) {
-            if method == "textDocument/didOpen" || chars_len(d.text) > 0 {
-                next = lsp_server_stamp_doc(next, d.uri, d.text);
+    if method == "workspace/didChangeWorkspaceFolders" {
+        let ev: String = lsp_jsonrpc_extract_object(params, "event");
+        let added: List[String] = lsp_sync_folder_uris(lsp_jsonrpc_extract_object(ev, "added"));
+        let removed: List[String] = lsp_sync_folder_uris(lsp_jsonrpc_extract_object(ev, "removed"));
+        let mut folders: List[String] = next.folders;
+        let mut i: Int = 0;
+        while i < list_len(added) {
+            let u: String = list_get(added, i);
+            if lsp_server_uri_acceptable(u, u) || (!lsp_server_uri_has_traversal(u) && !lsp_server_path_denied(lsp_server_uri_path(u))) {
+                folders = list_push(folders, u);
             }
+            i = i + 1;
+        }
+        let mut kept: List[String] = list_new();
+        i = 0;
+        while i < list_len(folders) {
+            let u: String = list_get(folders, i);
+            let mut drop: Bool = false;
+            let mut r: Int = 0;
+            while r < list_len(removed) {
+                if u == list_get(removed, r) { drop = true; }
+                r = r + 1;
+            }
+            if !drop { kept = list_push(kept, u); }
+            i = i + 1;
+        }
+        next = lsp_server_stamp_folders(next, kept);
+    }
+    if method == "textDocument/didOpen" {
+        let d: LspDoc = lsp_server_extract_doc(params);
+        if d.has_doc && !lsp_server_text_too_large(d.text) && lsp_server_uri_acceptable_folders(d.uri, next.root_uri, next.folders) {
+            next = lsp_server_stamp_doc(next, d.uri, d.text);
+        }
+    }
+    if method == "textDocument/didChange" {
+        let d: LspDoc = lsp_server_extract_doc(params);
+        if d.has_doc && lsp_server_uri_acceptable_folders(d.uri, next.root_uri, next.folders) {
+            let old: String = lsp_docs_get(next.docs, d.uri);
+            let neu: String = lsp_sync_apply_changes(old, lsp_jsonrpc_extract_object(params, "contentChanges"));
+            if !lsp_server_text_too_large(neu) { next = lsp_server_stamp_doc(next, d.uri, neu); }
         }
     }
     if method == "textDocument/didClose" {
@@ -169,12 +207,12 @@ pub fn lsp_server_process_message(state: LspServerState, raw_body: String, idx: 
     let mut resp: String = "";
     if method == "textDocument/didOpen" {
         let d: LspDoc = lsp_server_extract_doc(params);
-        if d.has_doc && !lsp_server_text_too_large(d.text) && lsp_server_uri_acceptable(d.uri, next.root_uri) {
+        if d.has_doc && !lsp_server_text_too_large(d.text) && lsp_server_uri_acceptable_folders(d.uri, next.root_uri, next.folders) {
             resp = lsp_server_handle_did_open(d.uri, d.text, extra_diags);
         }
     } else if method == "textDocument/didChange" {
         let d: LspDoc = lsp_server_extract_doc(params);
-        if d.has_doc && !lsp_server_text_too_large(d.text) && lsp_server_uri_acceptable(d.uri, next.root_uri) {
+        if d.has_doc && lsp_server_uri_acceptable_folders(d.uri, next.root_uri, next.folders) {
             resp = lsp_server_handle_did_change(d.uri, lsp_server_doc_text(next, d), extra_diags);
         }
     } else {

@@ -5,9 +5,9 @@
 // Setup: Imports only capabilities and version. No session structs.
 //
 // Beats:
-//   1. capabilities include hover, openClose, and false resolveProvider.
-//   2. capabilities omit workspaceFolders.
-//   3. lsp_facade_version is non-empty and equals 2.12.0.
+//   1. Incremental sync, resolve, signature, refs, rename, tokens, folders, watch.
+//   2. resolveProvider is true. change is 2.
+//   3. lsp_facade_version equals 2.12.0.
 
 import "lsp/server/lsp_server_capabilities.oo";
 import "lsp/server/lsp_version.oo";
@@ -21,9 +21,16 @@ pub fn main() {
     let caps: String = lsp_server_capabilities_object();
     if str_index_of(caps, "hoverProvider") < 0 { fail("missing hoverProvider"); }
     if str_index_of(caps, "\"openClose\":true") < 0 { fail("missing openClose"); }
-    if str_index_of(caps, "workspaceFolders") >= 0 { fail("workspaceFolders must not be advertised"); }
-    if str_index_of(caps, "\"resolveProvider\":true") >= 0 { fail("resolveProvider must be false"); }
-    if str_index_of(caps, "didChangeWatchedFiles") >= 0 { fail("watched files must not be advertised"); }
+    if str_index_of(caps, "\"change\":2") < 0 { fail("incremental change"); }
+    if str_index_of(caps, "\"resolveProvider\":true") < 0 { fail("resolveProvider"); }
+    if str_index_of(caps, "signatureHelpProvider") < 0 { fail("signatureHelp"); }
+    if str_index_of(caps, "referencesProvider") < 0 { fail("references"); }
+    if str_index_of(caps, "renameProvider") < 0 { fail("rename"); }
+    if str_index_of(caps, "semanticTokensProvider") < 0 { fail("tokens"); }
+    if str_index_of(caps, "workspaceFolders") < 0 { fail("folders"); }
+    if str_index_of(caps, "didChangeWatchedFiles") < 0 { fail("watch"); }
+    if str_index_of(caps, "documentRangeFormattingProvider") < 0 { fail("range format"); }
+    if str_index_of(caps, "workspaceSymbolProvider") < 0 { fail("workspace symbol"); }
     let ver: String = lsp_facade_version();
     if ver != "2.12.0" { fail("version drift: " + ver); }
     println("PASS initialize capabilities v=" + ver);

@@ -43,5 +43,12 @@ pub fn main() {
     if lsp_server_uri_acceptable("file:///tmp/ws/../etc/passwd", root) { fail("acceptable traversal"); }
     if lsp_server_uri_acceptable("file:///proc/self", root) { fail("acceptable proc"); }
     println("PASS prefix");
+
+    let mut folders: List[String] = list_new();
+    folders = list_push(folders, "file:///tmp/other");
+    if !lsp_server_uri_under_folders("file:///tmp/other/a.oo", root, folders) { fail("folder child"); }
+    if lsp_server_uri_under_folders("file:///tmp/nope/a.oo", root, folders) { fail("outside folder"); }
+    if lsp_server_uri_acceptable_folders("file:///proc/self", root, folders) { fail("folder proc"); }
+    println("PASS folders");
     println("probe_uri PASSED");
 }

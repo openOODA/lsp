@@ -120,9 +120,9 @@ fn lsp_serve_one(fs: &FsReadCap, p: &ProcessCap, compiler: String, idx: List[Str
 
 pub fn lsp_serve_buffer(fs: &FsReadCap, c: &CompilerReadCap, p: &ProcessCap, compiler: String, explicit_root: String, oodar_root: String, raw: String) -> String {
     if bytes_len(raw) > lsp_input_cap_bytes() { return ""; }
-    let base: List[String] = lsp_server_refresh_index(fs, explicit_root);
+    let mut base: List[String] = lsp_server_refresh_index(fs, explicit_root);
     let mut idx: List[String] = base;
-    let rows: List[String] = lsp_serve_load_caps(fs, oodar_root);
+    let mut rows: List[String] = lsp_serve_load_caps(fs, oodar_root);
     let mut state: LspServerState = lsp_server_state_with_oodar(lsp_server_state_new(), oodar_root);
     let mut buf: String = raw;
     let mut out: String = "";
@@ -146,6 +146,11 @@ pub fn lsp_serve_buffer(fs: &FsReadCap, c: &CompilerReadCap, p: &ProcessCap, com
         if method == "textDocument/didOpen" || method == "textDocument/didChange" || method == "textDocument/didClose" {
             idx = lsp_docs_merge_all(c, base, state.docs);
         }
+        if method == "workspace/didChangeWatchedFiles" {
+            base = lsp_server_refresh_index(fs, explicit_root);
+            rows = lsp_serve_load_caps(fs, oodar_root);
+            idx = lsp_docs_merge_all(c, base, state.docs);
+        }
         if chars_len(r.response) > 0 { out = out + r.response; }
         if method == "shutdown" || method == "exit" { return out; }
     }
@@ -153,9 +158,9 @@ pub fn lsp_serve_buffer(fs: &FsReadCap, c: &CompilerReadCap, p: &ProcessCap, com
 }
 
 pub fn lsp_serve(fs: &FsReadCap, c: &CompilerReadCap, p: &ProcessCap, compiler: String, explicit_root: String, oodar_root: String) {
-    let base: List[String] = lsp_server_refresh_index(fs, explicit_root);
+    let mut base: List[String] = lsp_server_refresh_index(fs, explicit_root);
     let mut idx: List[String] = base;
-    let rows: List[String] = lsp_serve_load_caps(fs, oodar_root);
+    let mut rows: List[String] = lsp_serve_load_caps(fs, oodar_root);
     let mut state: LspServerState = lsp_server_state_with_oodar(lsp_server_state_new(), oodar_root);
     let mut buf: String = "";
     let mut total_bytes: Int = 0;
@@ -178,6 +183,11 @@ pub fn lsp_serve(fs: &FsReadCap, c: &CompilerReadCap, p: &ProcessCap, compiler: 
                     state = r.new_state;
                     let method: String = lsp_jsonrpc_extract_method(f_body);
                     if method == "textDocument/didOpen" || method == "textDocument/didChange" || method == "textDocument/didClose" {
+                        idx = lsp_docs_merge_all(c, base, state.docs);
+                    }
+                    if method == "workspace/didChangeWatchedFiles" {
+                        base = lsp_server_refresh_index(fs, explicit_root);
+                        rows = lsp_serve_load_caps(fs, oodar_root);
                         idx = lsp_docs_merge_all(c, base, state.docs);
                     }
                     if chars_len(r.response) > 0 { lsp_stdio_write(r.response); }

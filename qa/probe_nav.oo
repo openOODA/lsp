@@ -1,0 +1,50 @@
+// # LSP Nav Long-Tail - Hostile Probe
+//
+// Logline: Proves signatureHelp, references, rename, and workspace/symbol on open docs.
+//
+// Setup: In-memory docs and canonical index. No dispatcher.
+//
+// Beats:
+//   1. foo(1, |) activeParameter is 1 and label contains foo.
+//   2. Two hits of widget in one file. Rename to gadget.
+//   3. workspace/symbol finds a declared-in URI.
+
+import "lsp/methods/lsp_signature.oo";
+import "lsp/methods/lsp_refs.oo";
+import "lsp/methods/lsp_wsym.oo";
+import "lsp/server/lsp_server_docs.oo";
+import "lsp/symbols/lsp_symbol_record.oo";
+import "lsp/bridge/lsp_compiler_merge.oo";
+import "lsp/symbols/lsp_symbol_canonical.oo";
+
+fn fail(msg: String) {
+    println("FAIL " + msg);
+    process_exit(1);
+}
+
+pub fn main(c: &CompilerReadCap) {
+    let mut idx: List[String] = lsp_index_build_canonical();
+    idx = lsp_index_add(idx, "foo", "Function", "pub fn foo(a: Int, b: String)", "declared in file:///tmp/ws/a.oo");
+    let src: String = "foo(1, 2)\n";
+    let sig: String = lsp_signature_json(idx, src, 0, 6);
+    if str_index_of(sig, "foo") < 0 { fail("sig label: " + sig); }
+    if str_index_of(sig, "\"activeParameter\":1") < 0 { fail("active: " + sig); }
+    println("PASS signature");
+
+    let mut docs: List[String] = lsp_docs_empty();
+    docs = lsp_docs_put(docs, "file:///tmp/ws/a.oo", "pub fn widget() {}\nlet x = widget();\n");
+    let refs: String = lsp_refs_locations(docs, "widget");
+    if str_index_of(refs, "\"line\":0") < 0 { fail("def hit: " + refs); }
+    if str_index_of(refs, "\"line\":1") < 0 { fail("use hit: " + refs); }
+    let ed: String = lsp_rename_edit(docs, "widget", "gadget");
+    if str_index_of(ed, "gadget") < 0 { fail("rename: " + ed); }
+    if chars_len(lsp_rename_edit(docs, "widget", "1bad")) != 2 { fail("bad newName must be empty object"); }
+    println("PASS refs rename");
+
+    let merged: List[String] = lsp_compiler_merge_table(c, idx, "file:///tmp/ws/a.oo", "pub struct Widget {}\n");
+    let ws: String = lsp_wsym_json(merged, "Wid");
+    if str_index_of(ws, "Widget") < 0 { fail("wsym: " + ws); }
+    if str_index_of(ws, "file:///tmp/ws/a.oo") < 0 { fail("wsym uri: " + ws); }
+    println("PASS workspace symbol");
+    println("probe_nav PASSED");
+}

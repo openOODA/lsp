@@ -1,0 +1,92 @@
+// # LSP Incremental Document Sync
+//
+// Logline: Applies textDocument/didChange contentChanges in order: ranged replace or full text.
+//
+// Setup: Pure. Range columns are LSP UTF-16. Missing range means the whole document.
+//
+// Beats:
+//   1. Split contentChanges into JSON objects.
+//   2. Full replace when range is absent.
+//   3. Ranged replace via lsp_text_replace_range.
+
+import "lsp_text.oo";
+import "lsp/wire/lsp_jsonrpc.oo";
+
+pub fn lsp_sync_objects(arr: String) -> List[String] {
+    let mut out: List[String] = list_new();
+    let n: Int = chars_len(arr);
+    let mut i: Int = lsp_text_skip_ws(arr, 0);
+    if i >= n { return out; }
+    if char_at(arr, i) != "[" { return out; }
+    i = i + 1;
+    while i < n {
+        i = lsp_text_skip_ws(arr, i);
+        if i >= n { break; }
+        let c: String = char_at(arr, i);
+        if c == "]" { break; }
+        if c == "," { i = i + 1; continue; }
+        if c != "{" { return list_new(); }
+        let start: Int = i;
+        let mut depth: Int = 0;
+        let mut in_str: Bool = false;
+        let mut esc: Bool = false;
+        while i < n {
+            let ch: String = char_at(arr, i);
+            if in_str {
+                if esc { esc = false; }
+                else if ch == "\\" { esc = true; }
+                else if ch == "\"" { in_str = false; }
+            } else if ch == "\"" { in_str = true; }
+            else if ch == "{" { depth = depth + 1; }
+            else if ch == "}" {
+                depth = depth - 1;
+                if depth == 0 {
+                    out = list_push(out, str_slice(arr, start, i + 1));
+                    i = i + 1;
+                    break;
+                }
+            }
+            i = i + 1;
+        }
+    }
+    return out;
+}
+
+pub fn lsp_sync_apply_one(src: String, ch: String) -> String {
+    let rng: String = lsp_jsonrpc_extract_object(ch, "range");
+    let text: String = lsp_jsonrpc_extract_string(ch, "text");
+    if chars_len(rng) == 0 { return text; }
+    let st: String = lsp_jsonrpc_extract_object(rng, "start");
+    let en: String = lsp_jsonrpc_extract_object(rng, "end");
+    let sl: Int = lsp_jsonrpc_extract_int(st, "line");
+    let sc: Int = lsp_jsonrpc_extract_int(st, "character");
+    let el: Int = lsp_jsonrpc_extract_int(en, "line");
+    let ec: Int = lsp_jsonrpc_extract_int(en, "character");
+    return lsp_text_replace_range(src, sl, sc, el, ec, text);
+}
+
+pub fn lsp_sync_apply_changes(src: String, changes: String) -> String {
+    let objs: List[String] = lsp_sync_objects(changes);
+    let n: Int = list_len(objs);
+    if n == 0 { return src; }
+    let mut acc: String = src;
+    let mut i: Int = 0;
+    while i < n {
+        acc = lsp_sync_apply_one(acc, list_get(objs, i));
+        i = i + 1;
+    }
+    return acc;
+}
+
+pub fn lsp_sync_folder_uris(arr: String) -> List[String] {
+    let objs: List[String] = lsp_sync_objects(arr);
+    let n: Int = list_len(objs);
+    let mut out: List[String] = list_new();
+    let mut i: Int = 0;
+    while i < n {
+        let u: String = lsp_jsonrpc_extract_string(list_get(objs, i), "uri");
+        if chars_len(u) > 0 { out = list_push(out, u); }
+        i = i + 1;
+    }
+    return out;
+}

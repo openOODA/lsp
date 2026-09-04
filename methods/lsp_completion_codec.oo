@@ -34,3 +34,13 @@ pub fn lsp_index_records_to_completion_json(records: List[String]) -> String {
     while i < n { if i > 0 { out = out + ","; } out = out + lsp_index_record_to_completion_json(list_get(records, i)); i = i + 1; }
     return out;
 }
+
+pub fn lsp_completion_resolve_handle(id: String, idx: List[String], item: String) -> String {
+    let label: String = lsp_jsonrpc_extract_string(item, "label");
+    let rec: String = lsp_index_lookup(idx, label);
+    if chars_len(rec) == 0 {
+        if chars_len(item) == 0 { return lsp_jsonrpc_frame(lsp_jsonrpc_make_response(id, "{}")); }
+        return lsp_jsonrpc_frame(lsp_jsonrpc_make_response(id, item));
+    }
+    return lsp_jsonrpc_frame(lsp_jsonrpc_make_response(id, lsp_index_record_to_completion_json(rec)));
+}

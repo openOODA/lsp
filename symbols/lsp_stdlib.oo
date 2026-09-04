@@ -103,10 +103,12 @@ pub fn lsp_stdlib_collect_file(fs: &FsReadCap, file_path: String, idx: List[Stri
         let name: String = str_slice(src, name_start, name_end);
         let line_end: Int = lsp_stdlib_line_end(src, pos);
         let sig: String = str_slice(src, pos, line_end);
+        let loc: String = "declared in file://" + file_path;
+        let d: String = loc + " " + doc;
         if kind == 1 {
-            out = lsp_index_add(out, name, "Function", sig, doc);
+            out = lsp_index_add(out, name, "Function", sig, d);
         } else {
-            out = lsp_index_add(out, name, "Type", sig, doc);
+            out = lsp_index_add(out, name, "Type", sig, d);
         }
         pos = line_end + 1;
     }

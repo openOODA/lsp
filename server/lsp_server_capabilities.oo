@@ -5,10 +5,10 @@
 // Setup: Pure constant. serverInfo is assembled in the initialize handler from lsp_facade_version().
 //
 // Beats:
-//   1. Advertise full-document sync with openClose (didOpen and didClose are dispatched).
-//   2. Advertise completion without resolveProvider (completionItem/resolve is not implemented).
-//   3. Do not advertise workspaceFolders (no folder handler exists).
+//   1. Advertise incremental sync (change=2) with openClose.
+//   2. Advertise resolve, signature help, refs, rename, tokens, folders, watch, range format.
+//   3. Legend tokenTypes are the LSP 3.17 defaults.
 
 pub fn lsp_server_capabilities_object() -> String {
-    return "{\"textDocumentSync\":{\"openClose\":true,\"change\":1},\"completionProvider\":{\"resolveProvider\":false,\"triggerCharacters\":[\".\",\"&\",\":\"]},\"hoverProvider\":true,\"definitionProvider\":true,\"documentSymbolProvider\":true,\"documentFormattingProvider\":true,\"codeActionProvider\":true,\"documentLinkProvider\":{\"resolveProvider\":false},\"inlayHintProvider\":true,\"diagnosticProvider\":{\"interFileDependencies\":false,\"workspaceDiagnostics\":false},\"executeCommandProvider\":{\"commands\":[\"ooda.lsp.version\",\"ooda.lsp.indexSize\",\"ooda.lsp.echo\",\"ooda.lsp.tokenCount\"]}}";
+    return "{\"textDocumentSync\":{\"openClose\":true,\"change\":2},\"completionProvider\":{\"resolveProvider\":true,\"triggerCharacters\":[\".\",\"&\",\":\"]},\"hoverProvider\":true,\"definitionProvider\":true,\"referencesProvider\":true,\"renameProvider\":true,\"documentSymbolProvider\":true,\"workspaceSymbolProvider\":true,\"documentFormattingProvider\":true,\"documentRangeFormattingProvider\":true,\"codeActionProvider\":true,\"documentLinkProvider\":{\"resolveProvider\":false},\"inlayHintProvider\":true,\"signatureHelpProvider\":{\"triggerCharacters\":[\"(\",\",\"]},\"semanticTokensProvider\":{\"legend\":{\"tokenTypes\":[\"namespace\",\"type\",\"class\",\"enum\",\"interface\",\"struct\",\"typeParameter\",\"parameter\",\"variable\",\"property\",\"enumMember\",\"event\",\"function\",\"method\",\"macro\",\"keyword\",\"modifier\",\"comment\",\"string\",\"number\",\"regexp\",\"operator\"],\"tokenModifiers\":[]},\"full\":true,\"range\":false},\"diagnosticProvider\":{\"interFileDependencies\":false,\"workspaceDiagnostics\":false},\"executeCommandProvider\":{\"commands\":[\"ooda.lsp.version\",\"ooda.lsp.indexSize\",\"ooda.lsp.echo\",\"ooda.lsp.tokenCount\"]},\"workspace\":{\"workspaceFolders\":{\"supported\":true,\"changeNotifications\":true},\"didChangeWatchedFiles\":{\"dynamicRegistration\":false}}}";
 }

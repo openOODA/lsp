@@ -26,6 +26,10 @@
 //   19. probe_struct_merge.oo - struct/enum/type merge.
 //   20. probe_docs.oo - multi-document store and merge-all.
 //   21. probe_check.oo - oodac ERR parse to LSP diagnostics.
+//   22. probe_sync.oo - incremental contentChanges.
+//   23. probe_nav.oo - signature, refs, rename, workspace symbol.
+//   24. probe_semantic.oo - semantic token types.
+//   25. probe_resolve.oo - completionItem/resolve.
 
 import "probe_initialize.oo";
 import "probe_completion.oo";
@@ -48,3 +52,7 @@ import "probe_utf16.oo";
 import "probe_struct_merge.oo";
 import "probe_docs.oo";
 import "probe_check.oo";
+import "probe_sync.oo";
+import "probe_nav.oo";
+import "probe_semantic.oo";
+import "probe_resolve.oo";

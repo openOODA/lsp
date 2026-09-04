@@ -12,7 +12,7 @@ missing, the process exits 1. If the flag is absent, builtin definition is null.
 
 ## Capabilities
 
-See `CAPABILITIES.oot`. The server implements 17 JSON-RPC methods.
+See `CAPABILITIES.oot`. The server implements the methods listed in `CAPABILITIES.oot`.
 Engine version: `lsp_facade_version()` (`2.12.0` at this writing).
 
 ## Diagnostics
@@ -41,6 +41,6 @@ the only roots the server will read.
 
 From the polyrepo root set `OODA_COMPILER`, `OODA_FS_READDIR`, and
 `OODA_FS_WRITEDIR`. Then `oodac run lsp/scripts/test.oo`. That script
-emit-c + gcc + runs all 21 qa probes via argv (no `sh -c`). `oodac run`
+emit-c + gcc + runs all 25 qa probes via argv (no `sh -c`). `oodac run`
 on a multi-file probe is not the execution path (duplicate TUs). A probe
 that prints PASS without an assertion is a defect.

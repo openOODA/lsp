@@ -50,3 +50,20 @@ pub fn lsp_server_uri_acceptable(uri: String, root: String) -> Bool {
     if lsp_server_path_denied(lsp_server_uri_path(uri)) { return false; }
     return lsp_server_uri_is_under(uri, root);
 }
+
+pub fn lsp_server_uri_under_folders(uri: String, root: String, folders: List[String]) -> Bool {
+    if lsp_server_uri_is_under(uri, root) { return true; }
+    let n: Int = list_len(folders);
+    let mut i: Int = 0;
+    while i < n {
+        if lsp_server_uri_is_under(uri, list_get(folders, i)) { return true; }
+        i = i + 1;
+    }
+    return false;
+}
+
+pub fn lsp_server_uri_acceptable_folders(uri: String, root: String, folders: List[String]) -> Bool {
+    if lsp_server_uri_has_traversal(uri) { return false; }
+    if lsp_server_path_denied(lsp_server_uri_path(uri)) { return false; }
+    return lsp_server_uri_under_folders(uri, root, folders);
+}

@@ -1,0 +1,75 @@
+// # LSP Long-Tail Dispatcher
+//
+// Logline: Routes signatureHelp, references, rename, tokens, range format, resolve, and workspace symbol.
+//
+// Setup: Called after the primary dispatcher. URI trust on every textDocument method.
+//
+// Beats:
+//   1. Guard URI and use stored document text.
+//   2. Handle completionItem/resolve and workspace/symbol without a document.
+//   3. Return method-not-found only for unknown names.
+
+import "lsp/types/lsp_types.oo";
+import "lsp/wire/lsp_jsonrpc.oo";
+import "lsp/methods/lsp_text.oo";
+import "lsp_server_guards.oo";
+import "lsp/methods/lsp_formatting.oo";
+import "lsp/methods/lsp_signature.oo";
+import "lsp/methods/lsp_refs.oo";
+import "lsp/methods/lsp_semantic.oo";
+import "lsp/methods/lsp_wsym.oo";
+import "lsp/methods/lsp_completion_codec.oo";
+
+pub fn lsp_server_dispatch_more(state: LspServerState, idx: List[String], method: String, id: String, params: String) -> String {
+    if method == "completionItem/resolve" {
+        if !state.is_initialized { return lsp_jsonrpc_frame(lsp_jsonrpc_make_error(id, 0 - 32602, "Server not initialized: " + method)); }
+        return lsp_completion_resolve_handle(id, idx, params);
+    }
+    if method == "workspace/symbol" {
+        if !state.is_initialized { return lsp_jsonrpc_frame(lsp_jsonrpc_make_error(id, 0 - 32602, "Server not initialized: " + method)); }
+        return lsp_wsym_handle(id, idx, lsp_jsonrpc_extract_string(params, "query"));
+    }
+    if method == "workspace/workspaceFolders" {
+        if !state.is_initialized { return lsp_jsonrpc_frame(lsp_jsonrpc_make_error(id, 0 - 32602, "Server not initialized: " + method)); }
+        let n: Int = list_len(state.folders);
+        let mut arr: String = "";
+        let mut i: Int = 0;
+        while i < n {
+            if i > 0 { arr = arr + ","; }
+            let u: String = lsp_jsonrpc_escape(list_get(state.folders, i));
+            arr = arr + "{\"uri\":\"" + u + "\",\"name\":\"" + u + "\"}";
+            i = i + 1;
+        }
+        return lsp_jsonrpc_frame(lsp_jsonrpc_make_response(id, "[" + arr + "]"));
+    }
+    if method == "workspace/didChangeWatchedFiles" { return ""; }
+    if method == "workspace/didChangeWorkspaceFolders" { return ""; }
+    let d: LspDoc = lsp_server_extract_doc(params);
+    let text: String = lsp_server_doc_text(state, d);
+    let err: String = lsp_server_request_guard(state, d.uri, text, id);
+    if chars_len(err) > 0 { return err; }
+    if method == "textDocument/signatureHelp" {
+        let pos: String = lsp_jsonrpc_extract_object(params, "position");
+        return lsp_signature_handle(id, idx, text, lsp_jsonrpc_extract_int(pos, "line"), lsp_jsonrpc_extract_int(pos, "character"));
+    }
+    if method == "textDocument/references" {
+        let pos: String = lsp_jsonrpc_extract_object(params, "position");
+        let sym: String = lsp_text_completion_prefix(text, lsp_jsonrpc_extract_int(pos, "line"), lsp_jsonrpc_extract_int(pos, "character"));
+        return lsp_refs_handle(id, state.docs, sym);
+    }
+    if method == "textDocument/rename" {
+        let pos: String = lsp_jsonrpc_extract_object(params, "position");
+        let sym: String = lsp_text_completion_prefix(text, lsp_jsonrpc_extract_int(pos, "line"), lsp_jsonrpc_extract_int(pos, "character"));
+        return lsp_rename_handle(id, state.docs, sym, lsp_jsonrpc_extract_string(params, "newName"));
+    }
+    if method == "textDocument/semanticTokens/full" {
+        return lsp_semantic_handle(id, text);
+    }
+    if method == "textDocument/rangeFormatting" {
+        let rng: String = lsp_jsonrpc_extract_object(params, "range");
+        let st: String = lsp_jsonrpc_extract_object(rng, "start");
+        let en: String = lsp_jsonrpc_extract_object(rng, "end");
+        return lsp_formatting_handle_range(id, text, lsp_jsonrpc_extract_int(st, "line"), lsp_jsonrpc_extract_int(st, "character"), lsp_jsonrpc_extract_int(en, "line"), lsp_jsonrpc_extract_int(en, "character"));
+    }
+    return lsp_jsonrpc_frame(lsp_jsonrpc_make_error(id, 0 - 32601, "Method not found: " + method));
+}
