@@ -122,8 +122,30 @@ pub fn lsp_text_word_at(src: String, line: Int, col: Int) -> String {
     return str_slice(ln, start, end);
 }
 
+pub fn lsp_text_utf16_width(c: String) -> Int {
+    if chars_len(c) == 0 { return 0; }
+    let b: Int = byte_at(c, 0);
+    if b >= 240 { return 2; }
+    return 1;
+}
+
+pub fn lsp_text_utf16_to_char(line: String, u16col: Int) -> Int {
+    let n: Int = chars_len(line);
+    if u16col <= 0 { return 0; }
+    let mut u: Int = 0;
+    let mut i: Int = 0;
+    while i < n {
+        if u >= u16col { return i; }
+        u = u + lsp_text_utf16_width(char_at(line, i));
+        i = i + 1;
+    }
+    return n;
+}
+
 pub fn lsp_text_completion_prefix(src: String, line: Int, col: Int) -> String {
-    let word: String = lsp_text_word_at(src, line, col);
+    let ln: String = lsp_text_line_at(src, line);
+    let ccol: Int = lsp_text_utf16_to_char(ln, col);
+    let word: String = lsp_text_word_at(src, line, ccol);
     if str_starts_with(word, "&") { return str_slice(word, 1, chars_len(word)); }
     return word;
 }

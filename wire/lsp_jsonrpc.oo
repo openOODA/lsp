@@ -104,31 +104,52 @@ fn lsp_is_ws(c: String) -> Bool {
     return c == " " || c == "\t" || c == "\n" || c == "\r";
 }
 
-fn lsp_jsonrpc_find_val_pos(json: String, key: String) -> Int {
-    let kpat: String = "\"" + key + "\"";
+fn lsp_jsonrpc_key_at(json: String, i: Int, kpat: String) -> Bool {
     let klen: Int = chars_len(kpat);
     let jlen: Int = chars_len(json);
-    if jlen <= klen { return 0 - 1; }
+    if i + klen > jlen { return false; }
+    let mut j: Int = 0;
+    while j < klen {
+        if char_at(json, i + j) != char_at(kpat, j) { return false; }
+        j = j + 1;
+    }
+    return true;
+}
+
+fn lsp_jsonrpc_find_val_pos(json: String, key: String) -> Int {
+    let kpat: String = "\"" + key + "\"";
+    let jlen: Int = chars_len(json);
     let mut i: Int = 0;
-    while i <= jlen - klen {
-        let mut match_k: Bool = true;
-        let mut j: Int = 0;
-        while j < klen {
-            if char_at(json, i + j) != char_at(kpat, j) { match_k = false; break; }
-            j = j + 1;
+    let mut in_str: Bool = false;
+    let mut esc: Bool = false;
+    while i < jlen {
+        let c: String = char_at(json, i);
+        if in_str {
+            if esc { esc = false; }
+            else if c == "\\" { esc = true; }
+            else if c == "\"" { in_str = false; }
+            i = i + 1;
+            continue;
         }
-        if match_k {
-            let mut pos: Int = i + klen;
-            while pos < jlen && lsp_is_ws(char_at(json, pos)) { pos = pos + 1; }
-            if pos < jlen && char_at(json, pos) == ":" {
-                pos = pos + 1;
+        if c == "\"" {
+            if lsp_jsonrpc_key_at(json, i, kpat) {
+                let mut pos: Int = i + chars_len(kpat);
                 while pos < jlen && lsp_is_ws(char_at(json, pos)) { pos = pos + 1; }
-                return pos;
+                if pos < jlen && char_at(json, pos) == ":" {
+                    pos = pos + 1;
+                    while pos < jlen && lsp_is_ws(char_at(json, pos)) { pos = pos + 1; }
+                    return pos;
+                }
             }
+            in_str = true;
         }
         i = i + 1;
     }
     return 0 - 1;
+}
+
+pub fn lsp_jsonrpc_has_id(json: String) -> Bool {
+    return lsp_jsonrpc_find_val_pos(json, "id") >= 0;
 }
 
 pub fn lsp_jsonrpc_extract_string(json: String, key: String) -> String {
@@ -231,14 +252,4 @@ pub fn lsp_jsonrpc_extract_int(json: String, key: String) -> Int {
     return v;
 }
 
-pub fn lsp_jsonrpc_extract_nested_string(json: String, outer: String, inner: String) -> String {
-    let obj: String = lsp_jsonrpc_extract_object(json, outer);
-    if chars_len(obj) == 0 { return ""; }
-    return lsp_jsonrpc_extract_string(obj, inner);
-}
 
-pub fn lsp_jsonrpc_extract_nested_int(json: String, outer: String, inner: String) -> Int {
-    let obj: String = lsp_jsonrpc_extract_object(json, outer);
-    if chars_len(obj) == 0 { return 0; }
-    return lsp_jsonrpc_extract_int(obj, inner);
-}

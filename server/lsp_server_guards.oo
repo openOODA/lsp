@@ -5,10 +5,9 @@
 // Setup: Pure guards. Notifications that fail are dropped. Requests that fail get -32602.
 //
 // Beats:
-//   1. Extract textDocument.uri and textDocument.text only. No params-level uri/text.
+//   1. Extract textDocument.uri and text. No params-level uri/text.
 //   2. Reject text larger than 4MB. Do not truncate.
-//   3. Delegate URI predicates to lsp_server_uri.oo.
-//   4. Stamp session state while preserving oodar_root.
+//   3. Stamp session root and the single open document.
 
 import "lsp/types/lsp_types.oo";
 import "lsp/wire/lsp_jsonrpc.oo";
@@ -29,6 +28,12 @@ pub fn lsp_server_extract_doc(params: String) -> LspDoc {
     return lsp_doc_new(uri, raw, true);
 }
 
+pub fn lsp_server_doc_text(state: LspServerState, d: LspDoc) -> String {
+    if chars_len(d.text) > 0 { return d.text; }
+    if d.uri == state.doc_uri { return state.doc_text; }
+    return "";
+}
+
 pub fn lsp_server_trust_check(state: LspServerState, uri: String, id: String) -> String {
     if lsp_server_uri_has_traversal(uri) {
         return lsp_jsonrpc_frame(lsp_jsonrpc_make_error(id, 0 - 32602, "URI traversal refused: " + uri));
@@ -42,6 +47,23 @@ pub fn lsp_server_trust_check(state: LspServerState, uri: String, id: String) ->
     return "";
 }
 
+pub fn lsp_server_request_guard(state: LspServerState, uri: String, text: String, id: String) -> String {
+    let err: String = lsp_server_trust_check(state, uri, id);
+    if chars_len(err) > 0 { return err; }
+    if lsp_server_text_too_large(text) {
+        return lsp_jsonrpc_frame(lsp_jsonrpc_make_error(id, 0 - 32602, "text exceeds 4MB"));
+    }
+    return "";
+}
+
 pub fn lsp_server_stamp(s: LspServerState, init: Bool, root: String) -> LspServerState {
-    return LspServerState { is_initialized: init, root_uri: root, oodar_root: s.oodar_root };
+    return LspServerState { is_initialized: init, root_uri: root, oodar_root: s.oodar_root, doc_uri: s.doc_uri, doc_text: s.doc_text };
+}
+
+pub fn lsp_server_stamp_doc(s: LspServerState, uri: String, text: String) -> LspServerState {
+    return LspServerState { is_initialized: s.is_initialized, root_uri: s.root_uri, oodar_root: s.oodar_root, doc_uri: uri, doc_text: text };
+}
+
+pub fn lsp_server_clear_doc(s: LspServerState) -> LspServerState {
+    return LspServerState { is_initialized: s.is_initialized, root_uri: s.root_uri, oodar_root: s.oodar_root, doc_uri: "", doc_text: "" };
 }

@@ -6,7 +6,7 @@
 //
 // Beats:
 //   1. Declare LspFrame for Content-Length framing.
-//   2. Declare LspServerState and LspProcessResult for the session.
+//   2. Declare LspServerState including the single open document.
 //   3. Declare LspDoc for a textDocument extract.
 
 type LspFrame = struct {
@@ -18,7 +18,9 @@ type LspFrame = struct {
 type LspServerState = struct {
     is_initialized: Bool,
     root_uri: String,
-    oodar_root: String
+    oodar_root: String,
+    doc_uri: String,
+    doc_text: String
 };
 
 type LspProcessResult = struct {
@@ -45,11 +47,11 @@ pub fn lsp_frame_rest(fr: &LspFrame) -> String { return fr.rest; }
 pub fn lsp_frame_is_ok(fr: &LspFrame) -> Bool { return fr.ok; }
 
 pub fn lsp_server_state_new() -> LspServerState {
-    return LspServerState { is_initialized: false, root_uri: "", oodar_root: "" };
+    return LspServerState { is_initialized: false, root_uri: "", oodar_root: "", doc_uri: "", doc_text: "" };
 }
 
 pub fn lsp_server_state_with_oodar(s: LspServerState, oodar_root: String) -> LspServerState {
-    return LspServerState { is_initialized: s.is_initialized, root_uri: s.root_uri, oodar_root: oodar_root };
+    return LspServerState { is_initialized: s.is_initialized, root_uri: s.root_uri, oodar_root: oodar_root, doc_uri: s.doc_uri, doc_text: s.doc_text };
 }
 
 pub fn lsp_process_result_new(response: String, new_state: LspServerState) -> LspProcessResult {
