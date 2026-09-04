@@ -39,6 +39,19 @@ pub fn lsp_compiler_pub_fn_name(line: String) -> String {
     return lsp_compiler_take_ident(str_slice(t, 7, chars_len(t)));
 }
 
+pub fn lsp_compiler_pub_kind_name(line: String, prefix: String, kind: String) -> String {
+    let t: String = lsp_text_trim(line);
+    if str_starts_with(t, "//") { return ""; }
+    if !str_starts_with(t, prefix) { return ""; }
+    return lsp_compiler_take_ident(str_slice(t, chars_len(prefix), chars_len(t)));
+}
+
+pub fn lsp_compiler_merge_one(out: List[String], nm: String, kind: String, sig: String, uri: String) -> List[String] {
+    if chars_len(nm) == 0 { return out; }
+    if chars_len(lsp_index_lookup(out, nm)) != 0 { return out; }
+    return lsp_index_add(out, nm, kind, sig, "declared in " + uri);
+}
+
 pub fn lsp_compiler_merge_table(c: &CompilerReadCap, idx: List[String], uri: String, text: String) -> List[String] {
     if chars_len(text) == 0 { return idx; }
     let lines: List[String] = lsp_text_lines(text);
@@ -46,12 +59,13 @@ pub fn lsp_compiler_merge_table(c: &CompilerReadCap, idx: List[String], uri: Str
     let mut out: List[String] = idx;
     let mut i: Int = 0;
     while i < n {
-        let nm: String = lsp_compiler_pub_fn_name(list_get(lines, i));
-        if chars_len(nm) > 0 {
-            if chars_len(lsp_index_lookup(out, nm)) == 0 {
-                out = lsp_index_add(out, nm, "Function", "pub fn " + nm + "()", "declared in " + uri);
-            }
-        }
+        let line: String = list_get(lines, i);
+        let fnm: String = lsp_compiler_pub_fn_name(line);
+        out = lsp_compiler_merge_one(out, fnm, "Function", "pub fn " + fnm + "()", uri);
+        let sn: String = lsp_compiler_pub_kind_name(line, "pub struct ", "Struct");
+        out = lsp_compiler_merge_one(out, sn, "Struct", "pub struct " + sn, uri);
+        let tn: String = lsp_compiler_pub_kind_name(line, "pub type ", "Type");
+        out = lsp_compiler_merge_one(out, tn, "Type", "pub type " + tn, uri);
         i = i + 1;
     }
     return out;

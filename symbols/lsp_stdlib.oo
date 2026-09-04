@@ -23,7 +23,7 @@ pub fn lsp_stdlib_try_dir(fs: &FsReadCap, path: String) -> Bool {
 pub fn lsp_stdlib_find_root(fs: &FsReadCap, explicit_root: String) -> String {
     if chars_len(explicit_root) == 0 { return ""; }
     if lsp_stdlib_try_dir(fs, explicit_root) { return explicit_root; }
-    println("ERR\tlsp\tstdlib root missing: " + explicit_root);
+    eprintln("ERR\tlsp\tstdlib root missing: " + explicit_root);
     process_exit(1);
     return "";
 }

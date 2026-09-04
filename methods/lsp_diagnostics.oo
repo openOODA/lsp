@@ -43,11 +43,9 @@ pub fn lsp_diag_pins_drift_msg(content: String) -> String {
     let mut i: Int = 0;
     while i < n {
         let line: String = lsp_text_trim(list_get(lines, i));
-        if str_starts_with(line, "//") {
-            if str_index_of(line, "Floor:") >= 0 { return "SSoT pins drift: Floor:/Thrust:/Patch: must be 0, version lives in ooda.pkg"; }
-            if str_index_of(line, "Thrust:") >= 0 { return "SSoT pins drift: Floor:/Thrust:/Patch: must be 0, version lives in ooda.pkg"; }
-            if str_index_of(line, "Patch:") >= 0 { return "SSoT pins drift: Floor:/Thrust:/Patch: must be 0, version lives in ooda.pkg"; }
-        }
+        if str_starts_with(line, "// Floor:") { return "SSoT pins: Floor: must not appear in the header"; }
+        if str_starts_with(line, "// Thrust:") { return "SSoT pins: Thrust: must not appear in the header"; }
+        if str_starts_with(line, "// Patch:") { return "SSoT pins: Patch: must not appear in the header"; }
         i = i + 1;
     }
     return "";
@@ -67,8 +65,7 @@ pub fn lsp_server_extract_diags(uri: String, src: String) -> String {
     let em_line: Int = lsp_text_count_lines(src);
     let em_w: String = lsp_diag_weight_to_diagnostic(em_line);
     let em_pins: String = lsp_diag_pins_to_diagnostic(src);
-    let ps_diag: String = lsp_diag_ps_to_diagnostic(lsp_diag_t_default(), lsp_diag_d_default(), em_line, lsp_diag_v_default());
-    return lsp_em_concat_diags("", em_w, em_pins, ps_diag);
+    return lsp_em_concat_diags("", em_w, em_pins, "");
 }
 
 pub fn lsp_server_emit_diagnostics(uri: String, src: String) -> String {
