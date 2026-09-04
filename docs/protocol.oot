@@ -34,7 +34,7 @@ Denied URI path prefixes: `/proc`, `/dev`, `/etc`, `/root`.
 
 ## 4. Document methods
 
-- `didOpen` / `didChange`: publish the three E-M diagnostics
+- `didOpen` / `didChange`: merge user symbols under CompilerReadCap, then publish the three E-M diagnostics
 - `didClose`: publish `diagnostics: []`
 - `completion`: `{isIncomplete:false, items:[...]}` from the index
 - `hover`: markdown contents or `null`
@@ -48,7 +48,7 @@ Denied URI path prefixes: `/proc`, `/dev`, `/etc`, `/root`.
 
 ## 5. Workspace
 
-`workspace/executeCommand`: `ooda.lsp.version`, `ooda.lsp.indexSize`, `ooda.lsp.echo`.
+`workspace/executeCommand`: `ooda.lsp.version`, `ooda.lsp.indexSize`, `ooda.lsp.echo`, `ooda.lsp.tokenCount`.
 
 ## 6. Trust
 

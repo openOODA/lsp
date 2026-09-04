@@ -14,6 +14,7 @@ import "lsp/symbols/lsp_symbol_record.oo";
 import "lsp/wire/lsp_json_encode.oo";
 import "lsp_text.oo";
 import "lsp/wire/lsp_jsonrpc.oo";
+import "lsp_token.oo";
 
 pub fn lsp_hover_find_pub_fn_line(src: String, name: String) -> Int {
     let needle: String = "pub fn " + name;
@@ -148,6 +149,7 @@ pub fn lsp_hover_from_index(idx: List[String], name: String, id: String, line: I
         if pub_line >= 0 { parsed = lsp_hover_parse_academy_in_range(src, pub_line, pub_line); }
         let academy_md: String = lsp_hover_format_markdown(parsed);
         if chars_len(academy_md) > 0 { full_md = academy_md + idx_md; }
+        full_md = full_md + lsp_token_hover_footer(src);
     }
     let esc: String = lsp_json_escape(full_md);
     let sline: String = line.to_string();

@@ -1,6 +1,6 @@
 // # LSP Method Implementations
 //
-// Logline: User-facing LSP methods: hover, completion, definition, formatting, codeAction, diagnostics, documentLink, inlayHint, executeCommand, text.
+// Logline: User-facing LSP methods: hover, completion, definition, formatting, codeAction, diagnostics, documentLink, inlayHint, executeCommand, token, text.
 //
 // Setup: Business logic. Definition and documentLink read the loaded cap table. No extras file.
 //
@@ -19,3 +19,4 @@ import "lsp_formatting.oo";
 import "lsp_hover.oo";
 import "lsp_inlay_hint.oo";
 import "lsp_text.oo";
+import "lsp_token.oo";

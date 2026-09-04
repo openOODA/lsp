@@ -1,0 +1,30 @@
+// # LSP Token Count Probe
+//
+// Logline: Hostile test that file token count is positive for source and zero for empty.
+//
+// Setup: Calls lsp_token_count_text. No network. No compiler.
+//
+// Beats:
+//   1. Empty source is zero tokens.
+//   2. A non-empty file is greater than zero.
+//   3. The JSON object contains bytes and tokens.
+//   4. Hover footer is empty when source is empty.
+
+import "lsp/methods/lsp_token.oo";
+
+fn fail(msg: String) {
+    println("FAIL " + msg);
+    process_exit(1);
+}
+
+pub fn main() {
+    if lsp_token_count_text("") != 0 { fail("empty source must be 0 tokens"); }
+    let src: String = "pub fn hello() { println(\"hi\"); }\n";
+    if lsp_token_count_text(src) < 1 { fail("non-empty source must count tokens"); }
+    let j: String = lsp_token_json(src);
+    if str_index_of(j, "\"tokens\"") < 0 { fail("json missing tokens"); }
+    if str_index_of(j, "\"bytes\"") < 0 { fail("json missing bytes"); }
+    if chars_len(lsp_token_hover_footer("")) != 0 { fail("empty src footer must be empty"); }
+    if str_index_of(lsp_token_hover_footer(src), "tokens") < 0 { fail("footer missing tokens"); }
+    println("probe_token PASSED");
+}

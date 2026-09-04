@@ -1,0 +1,58 @@
+// # LSP Editor Session - Hostile Probe
+//
+// Logline: Runs initialize caps, CompilerReadCap merge, completion, hover, definition, and didClose.
+//
+// Setup: Does not import stdio or dispatch (oodac emit OOBs on that graph). Calls the same functions the stdio loop calls.
+//
+// Beats:
+//   1. initialize capabilities include hoverProvider.
+//   2. Merge of pub fn widget makes completion contain widget.
+//   3. Hover and definition resolve widget. didClose publishes diagnostics [].
+
+import "lsp/server/lsp_server_capabilities.oo";
+import "lsp/server/lsp_version.oo";
+import "lsp/bridge/lsp_compiler_merge.oo";
+import "lsp/symbols/lsp_symbol_canonical.oo";
+import "lsp/symbols/lsp_symbol_record.oo";
+import "lsp/methods/lsp_completion_codec.oo";
+import "lsp/methods/lsp_hover.oo";
+import "lsp/methods/lsp_definition.oo";
+import "lsp/methods/lsp_diagnostics.oo";
+
+fn fail(msg: String) {
+    println("FAIL " + msg);
+    process_exit(1);
+}
+
+pub fn main(c: &CompilerReadCap) {
+    let caps: String = lsp_server_capabilities_object();
+    if str_index_of(caps, "hoverProvider") < 0 { fail("initialize caps"); }
+    if str_index_of(lsp_facade_version(), "2.12.0") < 0 { fail("version"); }
+    println("PASS initialize");
+
+    let uri: String = "file:///tmp/ws/a.oo";
+    let src: String = "pub fn widget() -> Int { return 1; }\n";
+    let seed: List[String] = lsp_index_build_canonical();
+    let idx: List[String] = lsp_compiler_merge_table(c, seed, uri, src);
+    let recs: List[String] = lsp_index_prefix(idx, "widg");
+    let items: String = lsp_index_records_to_completion_json(recs);
+    if str_index_of(items, "widget") < 0 { fail("completion missing widget: " + items); }
+    println("PASS completion after merge");
+
+    let hov: String = lsp_hover_from_index(idx, "widget", "3", 0, 8, src);
+    if str_index_of(hov, "widget") < 0 { fail("hover: " + hov); }
+    println("PASS hover");
+
+    let loc: String = lsp_definition_resolve_in_doc(idx, lsp_cap_table_empty_rows(), "", "widget", uri, src);
+    if str_index_of(loc, uri) < 0 { fail("definition: " + loc); }
+    println("PASS definition");
+
+    let close: String = lsp_server_handle_did_close(uri);
+    if str_index_of(close, "\"diagnostics\":[]") < 0 { fail("didClose: " + close); }
+    println("PASS didClose");
+    println("probe_session PASSED");
+}
+
+pub fn lsp_cap_table_empty_rows() -> List[String] {
+    return lsp_index_new();
+}

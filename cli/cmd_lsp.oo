@@ -45,7 +45,7 @@ fn cmd_lsp_arg_positional(args: List[String]) -> String {
     return "";
 }
 
-pub fn run_ooda_lsp(fr: &FsReadCap, env: &EnvCap, sys: &SysCap, args: List[String]) {
+pub fn run_ooda_lsp(fr: &FsReadCap, env: &EnvCap, sys: &SysCap, c: &CompilerReadCap, args: List[String]) {
     let explicit_root: String = cmd_lsp_arg_value(args, "--stdlib-root");
     let oodar_root: String = cmd_lsp_arg_value(args, "--oodar-root");
     let path: String = cmd_lsp_arg_positional(args);
@@ -62,10 +62,10 @@ pub fn run_ooda_lsp(fr: &FsReadCap, env: &EnvCap, sys: &SysCap, args: List[Strin
             process_exit(1);
         }
         let raw: String = match rawr { Ok(s) => s, Err(m) => m };
-        let reply: String = lsp_serve_buffer(fr, env, explicit_root, oodar_root, raw);
+        let reply: String = lsp_serve_buffer(fr, env, c, explicit_root, oodar_root, raw);
         if chars_len(reply) > 0 { println(reply); }
         return;
     }
 
-    lsp_serve(fr, env, explicit_root, oodar_root);
+    lsp_serve(fr, env, c, explicit_root, oodar_root);
 }

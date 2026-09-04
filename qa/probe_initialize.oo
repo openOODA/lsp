@@ -1,6 +1,6 @@
 // # LSP Initialize - Hostile Probe
 //
-// Logline: Proves the advertised capabilities object and engine version. URI guards are in probe_diagnostics.
+// Logline: Proves the advertised capabilities object and engine version. URI guards are in probe_uri.oo.
 //
 // Setup: Imports only capabilities and version. No session structs.
 //

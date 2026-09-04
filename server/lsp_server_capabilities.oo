@@ -10,5 +10,5 @@
 //   3. Do not advertise workspaceFolders (no folder handler exists).
 
 pub fn lsp_server_capabilities_object() -> String {
-    return "{\"textDocumentSync\":{\"openClose\":true,\"change\":1},\"completionProvider\":{\"resolveProvider\":false,\"triggerCharacters\":[\".\",\"&\",\":\"]},\"hoverProvider\":true,\"definitionProvider\":true,\"documentSymbolProvider\":true,\"documentFormattingProvider\":true,\"codeActionProvider\":true,\"documentLinkProvider\":{\"resolveProvider\":false},\"inlayHintProvider\":true,\"diagnosticProvider\":{\"interFileDependencies\":false,\"workspaceDiagnostics\":false},\"executeCommandProvider\":{\"commands\":[\"ooda.lsp.version\",\"ooda.lsp.indexSize\",\"ooda.lsp.echo\"]}}";
+    return "{\"textDocumentSync\":{\"openClose\":true,\"change\":1},\"completionProvider\":{\"resolveProvider\":false,\"triggerCharacters\":[\".\",\"&\",\":\"]},\"hoverProvider\":true,\"definitionProvider\":true,\"documentSymbolProvider\":true,\"documentFormattingProvider\":true,\"codeActionProvider\":true,\"documentLinkProvider\":{\"resolveProvider\":false},\"inlayHintProvider\":true,\"diagnosticProvider\":{\"interFileDependencies\":false,\"workspaceDiagnostics\":false},\"executeCommandProvider\":{\"commands\":[\"ooda.lsp.version\",\"ooda.lsp.indexSize\",\"ooda.lsp.echo\",\"ooda.lsp.tokenCount\"]}}";
 }

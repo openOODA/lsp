@@ -5,7 +5,7 @@
 // Setup: Uses lsp_jsonrpc framing, lsp_server dispatch, and the non-blocking oo_read_stdin_chunk runtime helper. The cap values are safety ceilings, not session limits. The in-process twin was removed: tests now call lsp_server_process_message directly.
 //
 // Beats:
-//   1. Build the canonical stdlib index once and initialize a fresh LspServerState.
+//   1. Build the stdlib index once. On didOpen/didChange, merge user symbols from that base.
 //   2. While the buffer holds a complete frame, dispatch it and update state.
 //   3. Otherwise poll oo_read_stdin_chunk(100ms) for the next 4KB chunk; idle >30s ends the session.
 //   4. Reject inputs above the safety cap, frames above LSP_MAX_FRAME_BYTES, and bail on shutdown/exit/EOF.
@@ -17,6 +17,7 @@ import "lsp/server/lsp_server_dispatch.oo";
 import "lsp/symbols/lsp_e_m_concat.oo";
 import "lsp/symbols/lsp_cap_table.oo";
 import "lsp/methods/lsp_text.oo";
+import "lsp/bridge/lsp_compiler_merge.oo";
 
 pub fn lsp_input_cap_bytes() -> Int { return lsp_em_cap_input(); }
 pub fn lsp_safety_max_msgs() -> Int { return lsp_em_cap_msgs(); }
@@ -84,9 +85,20 @@ pub fn lsp_serve_load_caps(fs: &FsReadCap, oodar_root: String) -> List[String] {
     return match loaded { Ok(rows) => rows, Err(_) => lsp_cap_table_empty() };
 }
 
-pub fn lsp_serve_buffer(fs: &FsReadCap, env: &EnvCap, explicit_root: String, oodar_root: String, raw: String) -> String {
+pub fn lsp_serve_maybe_merge(c: &CompilerReadCap, state: LspServerState, base: List[String], idx: List[String], f_body: String) -> List[String] {
+    let method: String = lsp_jsonrpc_extract_method(f_body);
+    if method != "textDocument/didOpen" && method != "textDocument/didChange" { return idx; }
+    let d: LspDoc = lsp_server_extract_doc(lsp_jsonrpc_extract_params(f_body));
+    if !d.has_doc { return idx; }
+    if lsp_server_text_too_large(d.text) { return idx; }
+    if !lsp_server_uri_acceptable(d.uri, state.root_uri) { return idx; }
+    return lsp_compiler_merge_table(c, base, d.uri, d.text);
+}
+
+pub fn lsp_serve_buffer(fs: &FsReadCap, env: &EnvCap, c: &CompilerReadCap, explicit_root: String, oodar_root: String, raw: String) -> String {
     if bytes_len(raw) > lsp_input_cap_bytes() { return ""; }
-    let idx: List[String] = lsp_server_refresh_index(fs, explicit_root);
+    let base: List[String] = lsp_server_refresh_index(fs, explicit_root);
+    let mut idx: List[String] = base;
     let rows: List[String] = lsp_serve_load_caps(fs, oodar_root);
     let mut state: LspServerState = lsp_server_state_with_oodar(lsp_server_state_new(), oodar_root);
     let mut buf: String = raw;
@@ -102,6 +114,7 @@ pub fn lsp_serve_buffer(fs: &FsReadCap, env: &EnvCap, explicit_root: String, ood
         let f_body: String = lsp_frame_body(&fr);
         if chars_len(f_body) == 0 { continue; }
         if bytes_len(f_body) > fcap { continue; }
+        idx = lsp_serve_maybe_merge(c, state, base, idx, f_body);
         let r: LspProcessResult = lsp_server_process_message(state, f_body, idx, rows);
         state = r.new_state;
         if chars_len(r.response) > 0 { out = out + r.response; }
@@ -111,8 +124,9 @@ pub fn lsp_serve_buffer(fs: &FsReadCap, env: &EnvCap, explicit_root: String, ood
     return out;
 }
 
-pub fn lsp_serve(fs: &FsReadCap, env: &EnvCap, explicit_root: String, oodar_root: String) {
-    let idx: List[String] = lsp_server_refresh_index(fs, explicit_root);
+pub fn lsp_serve(fs: &FsReadCap, env: &EnvCap, c: &CompilerReadCap, explicit_root: String, oodar_root: String) {
+    let base: List[String] = lsp_server_refresh_index(fs, explicit_root);
+    let mut idx: List[String] = base;
     let rows: List[String] = lsp_serve_load_caps(fs, oodar_root);
     let mut state: LspServerState = lsp_server_state_with_oodar(lsp_server_state_new(), oodar_root);
     let mut buf: String = "";
@@ -131,6 +145,7 @@ pub fn lsp_serve(fs: &FsReadCap, env: &EnvCap, explicit_root: String, oodar_root
             buf = lsp_frame_rest(&fr);
             let f_body: String = lsp_frame_body(&fr);
             if chars_len(f_body) > 0 && bytes_len(f_body) <= cap_frame {
+                idx = lsp_serve_maybe_merge(c, state, base, idx, f_body);
                 let r: LspProcessResult = lsp_server_process_message(state, f_body, idx, rows);
                 state = r.new_state;
                 if chars_len(r.response) > 0 { out = out + r.response; }

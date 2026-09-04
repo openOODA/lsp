@@ -1,0 +1,31 @@
+// # LSP File Token Count
+//
+// Logline: Estimate LLM context tokens for one open document as chars/4.
+//
+// Setup: Pure compute. Matches the std char-heuristic default (4000 x1000 bytes/token).
+//        Does not import std/app/agent/token (oodac emit of that module is currently broken).
+//
+// Beats:
+//   1. Empty source is 0 tokens. Non-empty source is at least 1.
+//   2. Emit a JSON object for executeCommand.
+//   3. Emit a one-line markdown footer for hover.
+
+pub fn lsp_token_count_text(src: String) -> Int {
+    let n: Int = chars_len(src);
+    if n <= 0 { return 0; }
+    let q: Int = n / 4;
+    if q < 1 { return 1; }
+    return q;
+}
+
+pub fn lsp_token_json(src: String) -> String {
+    let b: Int = chars_len(src);
+    let tok: Int = lsp_token_count_text(src);
+    return "{\"bytes\":" + b.to_string() + ",\"tokens\":" + tok.to_string() + ",\"estimator\":\"char-heuristic\"}";
+}
+
+pub fn lsp_token_hover_footer(src: String) -> String {
+    if chars_len(src) == 0 { return ""; }
+    let tok: Int = lsp_token_count_text(src);
+    return "\n\n_file ~" + tok.to_string() + " tokens._";
+}

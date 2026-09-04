@@ -1,6 +1,6 @@
 // # LSP workspace/executeCommand
 //
-// Logline: Dispatches ooda.lsp.version, ooda.lsp.indexSize, and ooda.lsp.echo. Unknown commands return -32601.
+// Logline: Dispatches version, indexSize, echo, and tokenCount. Unknown commands return -32601.
 //
 // Setup: Version is lsp_facade_version() only. No VERSION file.
 //
@@ -8,10 +8,12 @@
 //   1. ooda.lsp.version returns the engine version string.
 //   2. ooda.lsp.indexSize returns the in-memory index length.
 //   3. ooda.lsp.echo returns the arguments blob.
-//   4. Any other command is Method not found.
+//   4. ooda.lsp.tokenCount estimates tokens for arguments.text.
+//   5. Any other command is Method not found.
 
 import "lsp/server/lsp_version.oo";
 import "lsp/wire/lsp_jsonrpc.oo";
+import "lsp_token.oo";
 
 pub fn lsp_execute_command_handle(id: String, idx: List[String], command: String, args_json: String) -> String {
     if command == "ooda.lsp.version" {
@@ -25,6 +27,10 @@ pub fn lsp_execute_command_handle(id: String, idx: List[String], command: String
             return lsp_jsonrpc_frame(lsp_jsonrpc_make_response(id, "[]"));
         }
         return lsp_jsonrpc_frame(lsp_jsonrpc_make_response(id, args_json));
+    }
+    if command == "ooda.lsp.tokenCount" {
+        let text: String = lsp_jsonrpc_extract_string(args_json, "text");
+        return lsp_jsonrpc_frame(lsp_jsonrpc_make_response(id, lsp_token_json(text)));
     }
     return lsp_jsonrpc_frame(lsp_jsonrpc_make_error(id, 0 - 32601, "Unknown command: " + command));
 }

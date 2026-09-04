@@ -34,7 +34,7 @@ pub fn main(p: &ProcessCap, fs_r: &FsReadCap, env: &EnvCap, args: List[String]) 
     let chs: String = rt + "/chs_rt.c";
     if !path_exists(fs_r, chs) { return Err("missing " + chs); }
 
-    let probes: List[String] = ["probe_initialize", "probe_completion", "probe_hover", "probe_definition", "probe_diagnostics", "probe_formatting", "probe_codeaction", "probe_double_run"];
+    let probes: List[String] = ["probe_initialize", "probe_completion", "probe_hover", "probe_definition", "probe_diagnostics", "probe_formatting", "probe_codeaction", "probe_double_run", "probe_token", "probe_uri", "probe_bridge", "probe_session"];
     let mut failed: Int = 0;
     let mut i: Int = 0;
     while i < list_len(probes) {

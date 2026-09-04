@@ -1,18 +1,22 @@
 // # LSP QA Index - Anchor for Agents
 //
-// Logline: Index of the 8 self-test probe drivers that ship with ooda/lsp/.
+// Logline: Index of the hostile probe drivers that ship with lsp/qa/.
 //
-// Setup: Each probe driver is a hostile test for one LSP method or behavior. If a driver fails, ooda/lsp/ fails to release.
+// Setup: Each probe is a hostile test. If a driver fails, lsp fails to release.
 //
 // Beats:
-//   1. probe_initialize.oo - server lifecycle, capabilities, session state init.
-//   2. probe_completion.oo - textDocument/completion returns valid items.
-//   3. probe_hover.oo - textDocument/hover renders the canonical symbol with Academy header.
-//   4. probe_definition.oo - textDocument/definition resolves URI+line+col.
-//   5. probe_diagnostics.oo - E-M gauge readings round-trip through Diagnostic JSON.
-//   6. probe_formatting.oo - textDocument/formatting produces non-empty edits.
-//   7. probe_codeaction.oo - textDocument/codeAction for the 3 live E-M diagnostics.
-//   8. probe_double_run.oo - byte-identical determinism across 2 calls.
+//   1. probe_initialize.oo - advertised capabilities and engine version.
+//   2. probe_completion.oo - prefix completion from the canonical seed.
+//   3. probe_hover.oo - hover markdown and unknown-symbol null.
+//   4. probe_definition.oo - cap table parse and user pub fn location.
+//   5. probe_diagnostics.oo - E-M diagnostics and didClose clear.
+//   6. probe_formatting.oo - trailing ws strip and tab expand.
+//   7. probe_codeaction.oo - live E-M codes only.
+//   8. probe_double_run.oo - bit-identical determinism.
+//   9. probe_token.oo - file token count.
+//   10. probe_uri.oo - traversal, deny list, workspace prefix.
+//   11. probe_bridge.oo - CompilerReadCap merge of a user pub fn.
+//   12. probe_session.oo - stdio buffer session through didClose.
 
 import "probe_initialize.oo";
 import "probe_completion.oo";
@@ -22,3 +26,7 @@ import "probe_diagnostics.oo";
 import "probe_formatting.oo";
 import "probe_codeaction.oo";
 import "probe_double_run.oo";
+import "probe_token.oo";
+import "probe_uri.oo";
+import "probe_bridge.oo";
+import "probe_session.oo";

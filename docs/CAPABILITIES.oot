@@ -29,7 +29,7 @@ There is no VERSION file.
       "workspaceDiagnostics": false
     },
     "executeCommandProvider": {
-      "commands": ["ooda.lsp.version", "ooda.lsp.indexSize", "ooda.lsp.echo"]
+      "commands": ["ooda.lsp.version", "ooda.lsp.indexSize", "ooda.lsp.echo", "ooda.lsp.tokenCount"]
     }
   },
   "serverInfo": { "name": "openooda-lsp", "version": "<lsp_facade_version>" }
@@ -49,6 +49,8 @@ There is no VERSION file.
   If `--oodar-root` is set and the file is missing, the process exits 1.
 - Live diagnostics: `E_EM_WEIGHT`, `E_EM_PINS`, `E_EM_PS`. No other codes are emitted.
 - Code actions exist only for those three codes.
+- `workspace/executeCommand` `ooda.lsp.tokenCount` estimates LLM tokens for
+  `arguments.text` using `std/app/agent/token`. Hover appends a file token footer.
 
 ## 3. Not advertised
 

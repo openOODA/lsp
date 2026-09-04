@@ -17,7 +17,9 @@ Engine version: `lsp_facade_version()` (`2.12.0` at this writing).
 
 ## Diagnostics
 
-On `didOpen` and `didChange` the server publishes three governance diagnostics:
+On `didOpen` and `didChange` the server merges `pub fn` symbols from the
+open document into the completion index (`&CompilerReadCap`), then
+publishes three governance diagnostics:
 
 - `E_EM_WEIGHT` (warning) - source exceeds 256 lines
 - `E_EM_PINS` (info) - header contains Floor:/Thrust:/Patch:
@@ -36,16 +38,8 @@ the only roots the server will read.
 
 ## Proof
 
-Run from the polyrepo root with `OODA_COMPILER` and `OODA_FS_READDIR` set:
-
-1. `oodac run lsp/qa/probe_initialize.oo`
-2. `oodac run lsp/qa/probe_completion.oo`
-3. `oodac run lsp/qa/probe_hover.oo`
-4. `oodac run lsp/qa/probe_definition.oo`
-5. `oodac run lsp/qa/probe_diagnostics.oo`
-6. `oodac run lsp/qa/probe_formatting.oo`
-7. `oodac run lsp/qa/probe_codeaction.oo`
-8. `oodac run lsp/qa/probe_double_run.oo`
-
-`lsp/scripts/test.oo` execs all eight. A probe that prints PASS without an
-assertion is a defect.
+From the polyrepo root set `OODA_COMPILER`, `OODA_FS_READDIR`, and
+`OODA_FS_WRITEDIR`. Then `oodac run lsp/scripts/test.oo`. That script
+emit-c + gcc + runs all 12 qa probes. `oodac run` on a multi-file
+probe is not the execution path (duplicate TUs). A probe that prints
+PASS without an assertion is a defect.

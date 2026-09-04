@@ -8,6 +8,7 @@
 //   1. cmd_lsp.oo parses --stdio, --stdlib-root, --oodar-root, and a positional request file.
 //   2. main.oo is the binary entry: parse argv, call run_ooda_lsp.
 //   3. Missing --oodar-root leaves cap rows empty. Set --oodar-root and a missing file exits 1.
+//   4. main() takes &CompilerReadCap so didOpen can merge user symbols.
 
 import "cmd_lsp.oo";
 import "main.oo";

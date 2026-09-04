@@ -1,0 +1,40 @@
+// # LSP Compiler Bridge - Hostile Probe
+//
+// Logline: Proves CompilerReadCap merge adds a user pub fn and empty text does not.
+//
+// Setup: Requires &CompilerReadCap. Does not import the dispatcher.
+//
+// Beats:
+//   1. Merge a document that declares pub fn widget. The index then contains widget.
+//   2. Empty text leaves the seed unchanged.
+//   3. A name that is not a pub fn is not added.
+
+import "lsp/bridge/lsp_compiler_merge.oo";
+import "lsp/symbols/lsp_symbol_canonical.oo";
+import "lsp/symbols/lsp_symbol_record.oo";
+
+fn fail(msg: String) {
+    println("FAIL " + msg);
+    process_exit(1);
+}
+
+pub fn main(c: &CompilerReadCap) {
+    let seed: List[String] = lsp_index_build_canonical();
+    if chars_len(lsp_index_lookup(seed, "widget")) != 0 { fail("seed must not contain widget"); }
+
+    let src: String = "pub fn widget() -> Int { return 1; }\n";
+    let merged: List[String] = lsp_compiler_merge_table(c, seed, "file:///tmp/ws/a.oo", src);
+    if chars_len(lsp_index_lookup(merged, "widget")) == 0 { fail("widget missing after merge"); }
+    if chars_len(lsp_index_lookup(seed, "widget")) != 0 { fail("seed mutated"); }
+    println("PASS merge pub fn");
+
+    let empty: List[String] = lsp_compiler_merge_table(c, seed, "file:///tmp/ws/a.oo", "");
+    if chars_len(lsp_index_lookup(empty, "widget")) != 0 { fail("empty text must not add widget"); }
+    println("PASS empty text");
+
+    let comment: String = "// pub fn decoy() {}\nlet x = 1;\n";
+    let cmt: List[String] = lsp_compiler_merge_table(c, seed, "file:///tmp/ws/a.oo", comment);
+    if chars_len(lsp_index_lookup(cmt, "decoy")) != 0 { fail("commented pub fn must not merge"); }
+    println("PASS comment decoy");
+    println("probe_bridge PASSED");
+}

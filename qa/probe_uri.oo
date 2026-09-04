@@ -1,0 +1,47 @@
+// # LSP URI Trust - Hostile Probe
+//
+// Logline: Proves traversal refuse, system-path deny, workspace prefix, and /home allow.
+//
+// Setup: Imports only lsp_server_uri.oo. No session structs. No dispatcher.
+//
+// Beats:
+//   1. A .. path segment is traversal. A clean file URI is not.
+//   2. /proc, /dev, /etc, and /root are denied. /home is not.
+//   3. A URI under the root is accepted. A sibling of the root is not.
+
+import "lsp/server/lsp_server_uri.oo";
+
+fn fail(msg: String) {
+    println("FAIL " + msg);
+    process_exit(1);
+}
+
+pub fn main() {
+    if !lsp_server_uri_has_traversal("file:///tmp/ws/../etc/passwd") { fail("dotdot not detected"); }
+    if !lsp_server_uri_has_traversal("/tmp/ws/foo/../bar") { fail("mid-path dotdot"); }
+    if lsp_server_uri_has_traversal("file:///tmp/ws/main.oo") { fail("clean uri flagged"); }
+    if lsp_server_uri_has_traversal("file:///tmp/ws/file..oo") { fail("dotdot in name is not a segment"); }
+    println("PASS traversal");
+
+    if !lsp_server_path_denied("/proc/self/maps") { fail("proc"); }
+    if !lsp_server_path_denied("/dev/null") { fail("dev"); }
+    if !lsp_server_path_denied("/etc/passwd") { fail("etc"); }
+    if !lsp_server_path_denied("/root") { fail("root exact"); }
+    if !lsp_server_path_denied("/root/.ssh") { fail("root child"); }
+    if lsp_server_path_denied("/rooter") { fail("rooter must pass"); }
+    if lsp_server_path_denied("/home/jeryd/proj") { fail("home must pass"); }
+    if lsp_server_path_denied(lsp_server_uri_path("file:///home/jeryd/a.oo")) { fail("file home must pass"); }
+    if !lsp_server_path_denied(lsp_server_uri_path("file:///proc/self")) { fail("file proc"); }
+    println("PASS deny list");
+
+    let root: String = "file:///tmp/ws";
+    if !lsp_server_uri_is_under("file:///tmp/ws", root) { fail("root equals root"); }
+    if !lsp_server_uri_is_under("file:///tmp/ws/a.oo", root) { fail("child under root"); }
+    if lsp_server_uri_is_under("file:///tmp/ws2/a.oo", root) { fail("sibling prefix"); }
+    if lsp_server_uri_is_under("file:///tmp/ws", "") { fail("empty root"); }
+    if !lsp_server_uri_acceptable("file:///tmp/ws/a.oo", root) { fail("acceptable child"); }
+    if lsp_server_uri_acceptable("file:///tmp/ws/../etc/passwd", root) { fail("acceptable traversal"); }
+    if lsp_server_uri_acceptable("file:///proc/self", root) { fail("acceptable proc"); }
+    println("PASS prefix");
+    println("probe_uri PASSED");
+}

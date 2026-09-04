@@ -11,7 +11,7 @@
 
 import "cmd_lsp.oo";
 
-pub fn main(fr: &FsReadCap, env: &EnvCap, sys: &SysCap, args: List[String]) -> Result<Int, String> {
-    run_ooda_lsp(fr, env, sys, args);
+pub fn main(fr: &FsReadCap, env: &EnvCap, sys: &SysCap, c: &CompilerReadCap, args: List[String]) -> Result<Int, String> {
+    run_ooda_lsp(fr, env, sys, c, args);
     return Ok(0);
 }

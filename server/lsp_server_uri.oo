@@ -1,0 +1,52 @@
+// # LSP URI Trust Predicates
+//
+// Logline: Path-segment traversal, system-path deny, and workspace-root prefix checks. No structs.
+//
+// Setup: Pure string predicates. Dispatch and guards call these before any handler.
+//
+// Beats:
+//   1. Strip the file:// prefix.
+//   2. Deny /proc, /dev, /etc, and /root as path prefixes. Do not deny /home.
+//   3. Detect .. as a path segment.
+//   4. Require the URI to sit under the workspace root.
+
+pub fn lsp_server_uri_path(uri: String) -> String {
+    if str_starts_with(uri, "file://") { return str_slice(uri, 7, chars_len(uri)); }
+    return uri;
+}
+
+pub fn lsp_server_path_denied(path: String) -> Bool {
+    if path == "/proc" || str_starts_with(path, "/proc/") { return true; }
+    if path == "/dev" || str_starts_with(path, "/dev/") { return true; }
+    if path == "/etc" || str_starts_with(path, "/etc/") { return true; }
+    if path == "/root" || str_starts_with(path, "/root/") { return true; }
+    return false;
+}
+
+pub fn lsp_server_uri_has_traversal(uri: String) -> Bool {
+    let n: Int = chars_len(uri);
+    let mut i: Int = 0;
+    while i < n {
+        if char_at(uri, i) == "." && i + 1 < n && char_at(uri, i + 1) == "." {
+            let before: Bool = i == 0 || char_at(uri, i - 1) == "/";
+            let after: Bool = i + 2 == n || char_at(uri, i + 2) == "/";
+            if before && after { return true; }
+        }
+        i = i + 1;
+    }
+    return false;
+}
+
+pub fn lsp_server_uri_is_under(uri: String, root: String) -> Bool {
+    if chars_len(root) == 0 { return false; }
+    if chars_len(uri) < chars_len(root) { return false; }
+    if !str_starts_with(uri, root) { return false; }
+    if chars_len(uri) == chars_len(root) { return true; }
+    return char_at(uri, chars_len(root)) == "/";
+}
+
+pub fn lsp_server_uri_acceptable(uri: String, root: String) -> Bool {
+    if lsp_server_uri_has_traversal(uri) { return false; }
+    if lsp_server_path_denied(lsp_server_uri_path(uri)) { return false; }
+    return lsp_server_uri_is_under(uri, root);
+}
