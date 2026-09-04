@@ -101,6 +101,19 @@ double-run-proof SSoT.
   compiler index). `null` otherwise. The mapping table lives in
   `lsp_definition_cap_path_table()` in
   `lsp/methods/lsp_definition.oo`.
+- **v0.6.3 (doc-only)**: the hard-coded table in
+  `lsp_definition_cap_path_table()` is now explicitly the **cached
+  fallback**. The intended runtime path is a new
+  `lsp_definition_load_cap_table(oodar_root: String) -> List<String>`
+  that reads `${oodar_root}/cap_table.json` when the oodar repo
+  ships it, falling back to the hard-coded table on missing file or
+  parse error. `lsp_definition_builtin_path(name)` will consult the
+  loaded table first, then the fallback. The JSON source is owned
+  by oodar (item 22 of the v2.1.0 audit residuals, or a v2.2.0
+  follow-up); the lsp side of the change is doc-only in v0.6.3 — no
+  behavior change. Coupling principle: the lsp must be as independent
+  of oodar as possible; the cap→file table is a derived view of an
+  oodar-owned file, not a hand-maintained lsp-side table.
 
 ### 2.5 `documentSymbolProvider: true`
 
