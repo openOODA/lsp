@@ -10,7 +10,7 @@
 //   3. Each subdir has its own ANCHOR.oo front door.
 //   4. qa/ has 8 self-test probe drivers; scripts/ has build, test, verify, release.
 //   5. docs/ has LSP_SETUP.oot, protocol.oot, and client_config.oot; examples/ has 3 sample JSON-RPC pairs.
-//   6. VERSION declares lsp=0.6.2 with ooda compat range and api_surface=7.
+//   6. VERSION declares lsp=0.6.3 with ooda compat range and api_surface=7. v0.6.3 is a doc-only release: documents the planned `lsp_definition_load_cap_table(oodar_root)` design that sources the cap→file mapping from `${oodar_root}/cap_table.json` (oodar-owned, future commit) and falls back to the hard-coded table; no behavior change.
 
 import "wire/ANCHOR.oo";
 import "types/ANCHOR.oo";

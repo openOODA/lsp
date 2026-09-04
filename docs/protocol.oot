@@ -116,6 +116,7 @@ in the log.
 
 - **When called**: Client requests go-to-definition at a position.
 - **Response result**: a single `Location` (URI + line + col) if the symbol is a capability builtin or a user `pub fn`; `null` otherwise. Capability builtins resolve to `<oodar_root>/<subdir>/<file>.c` URIs per the oodar v2.0.0 6-subdir layout (default root is the polyrepo convention `oodar`); user `pub fn` resolve to the compiler URI + line + col.
+- **v0.6.3 (doc-only)**: the cap→file table that drives the builtin URI is `lsp_definition_cap_path_table()` in `lsp/methods/lsp_definition.oo`; that function is now documented as the cached fallback. The intended runtime path is a future `lsp_definition_load_cap_table(oodar_root)` that reads `${oodar_root}/cap_table.json` (oodar-owned) and falls back to the hard-coded table. No wire-shape change in v0.6.3.
 
 ### 6.6 `textDocument/documentSymbol` (request)
 

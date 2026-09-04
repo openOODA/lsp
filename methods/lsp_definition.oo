@@ -2,13 +2,14 @@
 //
 // Logline: Resolves symbol via CompilerReadCap Location (uri+line/col), builtin path as secondary.
 //
-// Setup: Active path is compiler-fetched index; resolves via compiler uri+line/col. The oodar root is the configured `oodar_root` (defaults to the polyrepo convention `oodar`); all builtin paths are resolved relative to it. v0.6.2: paths moved from the legacy `ooda/runtime/chs_rt_*.c` to the canonical `oodar/<subdir>/<file>.c` (Gen 1 C host substrate extraction + std-aligned 6-subdir reorg + Floor break v2.0.0).
+// Setup: Active path is compiler-fetched index; resolves via compiler uri+line/col. The oodar root is the configured `oodar_root` (defaults to the polyrepo convention `oodar`); all builtin paths are resolved relative to it. v0.6.2: paths moved from the legacy `ooda/runtime/chs_rt_*.c` to the canonical `oodar/<subdir>/<file>.c` (Gen 1 C host substrate extraction + std-aligned 6-subdir reorg + Floor break v2.0.0). v0.6.3: the hard-coded cap→file table in `lsp_definition_cap_path_table()` is now explicitly documented as the CACHED FALLBACK. The intended runtime path is `lsp_definition_load_cap_table(oodar_root)` which reads `${oodar_root}/cap_table.json` when the oodar repo ships it, and falls back to the cached table when the file is missing or unparseable. The JSON source is owned by oodar (item 22 of the v2.1.0 audit residuals, or a v2.2.0 follow-up); this lsp side of the change is doc-only in v0.6.3. See `lsp/docs/CAPABILITIES.oot` §2.4 and `lsp/docs/LSP_SETUP.oot` for the spec.
 //
 // Beats:
 //   1. Look up a symbol in the compiler-fetched index to confirm it is known.
 //   2. Resolve Location via compiler uri+line/col, builtin path table as secondary.
 //   3. Format a JSON Location response with uri, range, and line/column.
 //   4. Format a JSON null result envelope when the symbol cannot be resolved.
+//   5. v0.6.3 (planned): `lsp_definition_load_cap_table(oodar_root)` attempts `${oodar_root}/cap_table.json` first, then the hard-coded `lsp_definition_cap_path_table()` fallback. `lsp_definition_builtin_path` consults the loaded table, then the fallback.
 
 import "lsp/symbols/lsp_symbol_record.oo";
 import "lsp/bridge/lsp_compiler_merge.oo";
@@ -23,7 +24,7 @@ pub fn lsp_definition_format_location(name: String, path: String, line: Int, col
     return "{\"uri\":\"" + p + "\",\"range\":{\"start\":{\"line\":" + sl + ",\"character\":" + sc + "},\"end\":{\"line\":" + el + ",\"character\":" + ec + "}}}";
 }
 
-/* Cap-to-oodar-file table.
+/* Cap-to-oodar-file table. CACHED FALLBACK as of v0.6.3.
  *
  * All paths are RELATIVE to the oodar repo root. The default oodar
  * root is "oodar" (the polyrepo convention) and is overridable via
@@ -42,6 +43,16 @@ pub fn lsp_definition_format_location(name: String, path: String, line: Int, col
  *   HttpCap                    → net/fetch.c
  *   GpuCap                     → hw/gpu/gpu.c
  *   UnsafeFFICap               → app/xlang/ffi.c
+ *
+ * TODO(v0.6.3+): Replace the hard-coded fallback with a runtime
+ * read of `${oodar_root}/cap_table.json` (or the oodar ANCHOR.oo
+ * Beats section if it gains a cap→file table) in a new
+ * `lsp_definition_load_cap_table(oodar_root: String) -> List<String>`
+ * function. `lsp_definition_builtin_path(name)` should consult the
+ * loaded table first, then fall back to this static list. The oodar
+ * side of the JSON source is a follow-up commit in oodar (item 22 of
+ * the v2.1.0 audit residuals, or a v2.2.0 follow-up). See
+ * `lsp/docs/CAPABILITIES.oot` §2.4 and the header docblock above.
  */
 pub fn lsp_definition_cap_path_table() -> List[String] {
     let mut out: List[String] = list_new();
