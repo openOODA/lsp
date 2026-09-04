@@ -2,7 +2,7 @@
 //
 // Logline: Resolves symbol via CompilerReadCap Location (uri+line/col), builtin path as secondary.
 //
-// Setup: Active path is compiler-fetched index; resolves via compiler uri+line/col.
+// Setup: Active path is compiler-fetched index; resolves via compiler uri+line/col. The oodar root is the configured `oodar_root` (defaults to the polyrepo convention `oodar`); all builtin paths are resolved relative to it. v0.6.2: paths moved from the legacy `ooda/runtime/chs_rt_*.c` to the canonical `oodar/<subdir>/<file>.c` (Gen 1 C host substrate extraction + std-aligned 6-subdir reorg + Floor break v2.0.0).
 //
 // Beats:
 //   1. Look up a symbol in the compiler-fetched index to confirm it is known.
@@ -23,26 +23,53 @@ pub fn lsp_definition_format_location(name: String, path: String, line: Int, col
     return "{\"uri\":\"" + p + "\",\"range\":{\"start\":{\"line\":" + sl + ",\"character\":" + sc + "},\"end\":{\"line\":" + el + ",\"character\":" + ec + "}}}";
 }
 
+/* Cap-to-oodar-file table.
+ *
+ * All paths are RELATIVE to the oodar repo root. The default oodar
+ * root is "oodar" (the polyrepo convention) and is overridable via
+ * the lsp config (so the lsp/ repo does NOT hard-code the absolute
+ * location of the oodar/ repo — that coupling would be a violation
+ * of the polyrepo independence rule).
+ *
+ * Mapping derived from the v2.0.0 oodar layout:
+ *   FsCap/FsReadCap/FsWriteCap → sec/cap/caps.c   (the OCap token system)
+ *   SysCap/EnvCap              → fs/os/sys.c
+ *   TimeCap/RandCap            → fs/os/time_rand.c
+ *   ProcessCap                 → fs/os/sys.c
+ *   AllocCap                   → core/mem/alloc.c
+ *   ThreadCap                  → app/actor/thread.c
+ *   NetCap/TcpCap/UdpCap/BindCap → fs/os/netfloor.c
+ *   HttpCap                    → net/fetch.c
+ *   GpuCap                     → hw/gpu/gpu.c
+ *   UnsafeFFICap               → app/xlang/ffi.c
+ */
 pub fn lsp_definition_cap_path_table() -> List[String] {
     let mut out: List[String] = list_new();
-    out = list_push(out, "FsCap|ooda/runtime/chs_rt_caps.c");
-    out = list_push(out, "FsReadCap|ooda/runtime/chs_rt_caps.c");
-    out = list_push(out, "FsWriteCap|ooda/runtime/chs_rt_caps.c");
-    out = list_push(out, "SysCap|ooda/runtime/chs_rt_sys.c");
-    out = list_push(out, "EnvCap|ooda/runtime/chs_rt_sys.c");
-    out = list_push(out, "TimeCap|ooda/runtime/chs_rt_sys.c");
-    out = list_push(out, "RandCap|ooda/runtime/chs_rt_sys.c");
-    out = list_push(out, "ProcessCap|ooda/runtime/chs_rt_libfloor.c");
-    out = list_push(out, "AllocCap|ooda/runtime/chs_rt_alloc.c");
-    out = list_push(out, "ThreadCap|ooda/runtime/chs_rt_thread.c");
-    out = list_push(out, "NetCap|ooda/runtime/chs_rt_netfloor.c");
-    out = list_push(out, "TcpCap|ooda/runtime/chs_rt_netfloor.c");
-    out = list_push(out, "UdpCap|ooda/runtime/chs_rt_netfloor.c");
-    out = list_push(out, "BindCap|ooda/runtime/chs_rt_netfloor.c");
-    out = list_push(out, "HttpCap|ooda/runtime/chs_rt_sys.c");
-    out = list_push(out, "GpuCap|ooda/runtime/chs_rt_gpu.c");
-    out = list_push(out, "UnsafeFFICap|ooda/runtime/chs_rt_xlang.c");
+    out = list_push(out, "FsCap|sec/cap/caps.c");
+    out = list_push(out, "FsReadCap|sec/cap/caps.c");
+    out = list_push(out, "FsWriteCap|sec/cap/caps.c");
+    out = list_push(out, "SysCap|fs/os/sys.c");
+    out = list_push(out, "EnvCap|fs/os/sys.c");
+    out = list_push(out, "TimeCap|fs/os/time_rand.c");
+    out = list_push(out, "RandCap|fs/os/time_rand.c");
+    out = list_push(out, "ProcessCap|fs/os/sys.c");
+    out = list_push(out, "AllocCap|core/mem/alloc.c");
+    out = list_push(out, "ThreadCap|app/actor/thread.c");
+    out = list_push(out, "NetCap|fs/os/netfloor.c");
+    out = list_push(out, "TcpCap|fs/os/netfloor.c");
+    out = list_push(out, "UdpCap|fs/os/netfloor.c");
+    out = list_push(out, "BindCap|fs/os/netfloor.c");
+    out = list_push(out, "HttpCap|net/fetch.c");
+    out = list_push(out, "GpuCap|hw/gpu/gpu.c");
+    out = list_push(out, "UnsafeFFICap|app/xlang/ffi.c");
     return out;
+}
+
+/* Default oodar root (polyrepo convention). Override at runtime via
+ * the lsp config (LSP_SETTINGS or initialize params) — see protocol.oot.
+ */
+pub fn lsp_definition_oodar_root() -> String {
+    return "oodar";
 }
 
 pub fn lsp_definition_lookup_path(name: String, tbl: List[String]) -> String {
@@ -61,8 +88,11 @@ pub fn lsp_definition_lookup_path(name: String, tbl: List[String]) -> String {
 }
 
 pub fn lsp_definition_builtin_path(name: String) -> String {
-    if str_starts_with(name, "&") { return "ooda/runtime/chs_rt_caps.c"; }
-    return lsp_definition_lookup_path(name, lsp_definition_cap_path_table());
+    let root: String = lsp_definition_oodar_root();
+    if str_starts_with(name, "&") { return root + "/sec/cap/caps.c"; }
+    let rel: String = lsp_definition_lookup_path(name, lsp_definition_cap_path_table());
+    if chars_len(rel) == 0 { return ""; }
+    return root + "/" + rel;
 }
 
 pub fn lsp_definition_is_builtin(symbol_name: String) -> Bool {

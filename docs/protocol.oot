@@ -115,7 +115,7 @@ in the log.
 ### 6.5 `textDocument/definition` (request)
 
 - **When called**: Client requests go-to-definition at a position.
-- **Response result**: a single `Location` (URI + line + col) if the symbol is a capability builtin or a user `pub fn`; `null` otherwise. Capability builtins resolve to `ooda/runtime/chs_rt_*.c` URIs; user `pub fn` resolve to the compiler URI + line + col.
+- **Response result**: a single `Location` (URI + line + col) if the symbol is a capability builtin or a user `pub fn`; `null` otherwise. Capability builtins resolve to `<oodar_root>/<subdir>/<file>.c` URIs per the oodar v2.0.0 6-subdir layout (default root is the polyrepo convention `oodar`); user `pub fn` resolve to the compiler URI + line + col.
 
 ### 6.6 `textDocument/documentSymbol` (request)
 

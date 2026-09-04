@@ -17,7 +17,7 @@ library is required.
 | `textDocumentSync` | `didOpen`, `didChange` | publishes E-M `publishDiagnostics` on both with up to 4 governance diagnostics: `W_GEN_LAYER`, `E-M Weight`, `E-M Drag`, `E-M Ps`, `E-M Pins`, `E_EM_SSO` (SSoT version drift). |
 | `completionProvider` | `textDocument/completion` | triggers on `.`, `&`, `:`; matches against the canonical 69-entry stdlib seed (18 caps + 20 keywords + 8 types + 23 functions) merged with the user module's compiler-fetched index. |
 | `hoverProvider` | `textDocument/hover` | Markdown Contents block: Academy 4-element header (Title/Logline/Setup/Beats, parsed from `textDocument.text`) prepended to the index signature + doc. `null` for unknown symbols. |
-| `definitionProvider` | `textDocument/definition` | Location with `ooda/runtime/chs_rt_*.c` URI for capability builtins, compiler URI+line/col for user `pub fn`, `null` otherwise. |
+| `definitionProvider` | `textDocument/definition` | Location with `<oodar_root>/<subdir>/<file>.c` URI for capability builtins (v0.6.2: oodar v2.0.0 layout; default root is the polyrepo convention `oodar`), compiler URI+line/col for user `pub fn`, `null` otherwise. |
 | `documentSymbolProvider` | `textDocument/documentSymbol` | kind=12 (Function) symbols extracted by `pub fn ` scan. |
 | `documentFormattingProvider` | `textDocument/formatting` | single full-file TextEdit with normalized indentation. |
 | `codeActionProvider` | `textDocument/codeAction` | `E_CAP` → add &Cap parameter, `E_PARSE` → close brace, `E_EM_WEIGHT` → split file, `E_CAP_ATTENUATE` → narrow to &FsReadCap. |
@@ -37,7 +37,7 @@ library is required.
 ooda lsp
 ```
 The server drives a non-blocking chunk read via `oo_read_stdin_chunk(100ms)`
-(implemented in `ooda/runtime/chs_rt_sys.c`). The framing loop is in
+(implemented in `oodar/fs/os/sys.c` since the v0.6.2 oodar v2.0.0 reorg; previously `ooda/runtime/chs_rt_sys.c`). The framing loop is in
 `ooda/lsp/lsp_stdio.oo::lsp_serve`. Each poll returns up to 4 KB; the buffer
 is parsed for complete Content-Length or raw-JSON frames; each frame is
 dispatched; a response is appended; the loop continues. Idle >30s ends the
