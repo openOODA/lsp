@@ -1,15 +1,13 @@
 // # Native LSP stdio JSON-RPC loop
 //
-// Logline: Streams Content-Length or JSON-object frames from a non-blocking stdin chunk read and dispatches each through the stateful LSP server until shutdown, exit, or EOF.
+// Logline: Reads frames from stdin, dispatches each, and writes each reply to stdout immediately.
 //
-// Setup: Uses lsp_jsonrpc framing, lsp_server dispatch, and the non-blocking oo_read_stdin_chunk runtime helper. The cap values are safety ceilings, not session limits. The in-process twin was removed: tests now call lsp_server_process_message directly.
+// Setup: Merge user symbols on didOpen/didChange. Reset the index on didClose. No idle timeout.
 //
 // Beats:
-//   1. Build the stdlib index once. On didOpen/didChange, merge user symbols from that base.
-//   2. While the buffer holds a complete frame, dispatch it and update state.
-//   3. Otherwise poll oo_read_stdin_chunk(100ms) for the next 4KB chunk; idle >30s ends the session.
-//   4. Reject inputs above the safety cap, frames above LSP_MAX_FRAME_BYTES, and bail on shutdown/exit/EOF.
-//   5. Append each framed response to the cumulative output buffer; print on exit.
+//   1. Build the stdlib index once. Merge from that base on each open/change.
+//   2. Write each framed response as it is produced. File mode concatenates.
+//   3. Oversize frames with an id get -32602. Poll until EOF, shutdown, or exit.
 
 import "lsp/types/lsp_types.oo";
 import "lsp_jsonrpc.oo";
@@ -18,12 +16,16 @@ import "lsp/symbols/lsp_e_m_concat.oo";
 import "lsp/symbols/lsp_cap_table.oo";
 import "lsp/methods/lsp_text.oo";
 import "lsp/bridge/lsp_compiler_merge.oo";
+import "lsp/server/lsp_server_uri.oo";
 
 pub fn lsp_input_cap_bytes() -> Int { return lsp_em_cap_input(); }
 pub fn lsp_safety_max_msgs() -> Int { return lsp_em_cap_msgs(); }
 pub fn lsp_max_frame_bytes() -> Int { return lsp_em_cap_text(); }
 pub fn lsp_stdin_poll_ms() -> Int { return 100; }
-pub fn lsp_stdin_idle_iters() -> Int { return 300; }
+
+pub fn lsp_err(msg: String) {
+    eprintln("ERR\tlsp\t" + msg);
+}
 
 fn lsp_take_json_object(s: String) -> LspFrame {
     let n: Int = chars_len(s);
@@ -79,7 +81,7 @@ pub fn lsp_serve_load_caps(fs: &FsReadCap, oodar_root: String) -> List[String] {
     let loaded: Result[List[String], String] = lsp_cap_table_load(fs, oodar_root);
     if loaded.is_err() {
         let msg: String = match loaded { Ok(_) => "", Err(e) => e };
-        println("ERR\tlsp\t" + msg);
+        lsp_err(msg);
         process_exit(1);
     }
     return match loaded { Ok(rows) => rows, Err(_) => lsp_cap_table_empty() };
@@ -87,6 +89,11 @@ pub fn lsp_serve_load_caps(fs: &FsReadCap, oodar_root: String) -> List[String] {
 
 pub fn lsp_serve_maybe_merge(c: &CompilerReadCap, state: LspServerState, base: List[String], idx: List[String], f_body: String) -> List[String] {
     let method: String = lsp_jsonrpc_extract_method(f_body);
+    if method == "textDocument/didClose" {
+        let d: LspDoc = lsp_server_extract_doc(lsp_jsonrpc_extract_params(f_body));
+        if d.uri == state.doc_uri { return base; }
+        return idx;
+    }
     if method != "textDocument/didOpen" && method != "textDocument/didChange" { return idx; }
     let d: LspDoc = lsp_server_extract_doc(lsp_jsonrpc_extract_params(f_body));
     if !d.has_doc { return idx; }
@@ -95,7 +102,13 @@ pub fn lsp_serve_maybe_merge(c: &CompilerReadCap, state: LspServerState, base: L
     return lsp_compiler_merge_table(c, base, d.uri, d.text);
 }
 
-pub fn lsp_serve_buffer(fs: &FsReadCap, env: &EnvCap, c: &CompilerReadCap, explicit_root: String, oodar_root: String, raw: String) -> String {
+pub fn lsp_serve_oversize(f_body: String) -> String {
+    if !lsp_jsonrpc_has_id(f_body) { return ""; }
+    let id: String = lsp_jsonrpc_extract_id(f_body);
+    return lsp_jsonrpc_frame(lsp_jsonrpc_make_error(id, 0 - 32602, "frame exceeds 4MB"));
+}
+
+pub fn lsp_serve_buffer(fs: &FsReadCap, c: &CompilerReadCap, explicit_root: String, oodar_root: String, raw: String) -> String {
     if bytes_len(raw) > lsp_input_cap_bytes() { return ""; }
     let base: List[String] = lsp_server_refresh_index(fs, explicit_root);
     let mut idx: List[String] = base;
@@ -113,7 +126,10 @@ pub fn lsp_serve_buffer(fs: &FsReadCap, env: &EnvCap, c: &CompilerReadCap, expli
         buf = lsp_frame_rest(&fr);
         let f_body: String = lsp_frame_body(&fr);
         if chars_len(f_body) == 0 { continue; }
-        if bytes_len(f_body) > fcap { continue; }
+        if bytes_len(f_body) > fcap {
+            out = out + lsp_serve_oversize(f_body);
+            continue;
+        }
         idx = lsp_serve_maybe_merge(c, state, base, idx, f_body);
         let r: LspProcessResult = lsp_server_process_message(state, f_body, idx, rows);
         state = r.new_state;
@@ -124,7 +140,7 @@ pub fn lsp_serve_buffer(fs: &FsReadCap, env: &EnvCap, c: &CompilerReadCap, expli
     return out;
 }
 
-pub fn lsp_serve(fs: &FsReadCap, env: &EnvCap, c: &CompilerReadCap, explicit_root: String, oodar_root: String) {
+pub fn lsp_serve(fs: &FsReadCap, c: &CompilerReadCap, explicit_root: String, oodar_root: String) {
     let base: List[String] = lsp_server_refresh_index(fs, explicit_root);
     let mut idx: List[String] = base;
     let rows: List[String] = lsp_serve_load_caps(fs, oodar_root);
@@ -136,38 +152,34 @@ pub fn lsp_serve(fs: &FsReadCap, env: &EnvCap, c: &CompilerReadCap, explicit_roo
     let cap_input: Int = lsp_input_cap_bytes();
     let cap_frame: Int = lsp_max_frame_bytes();
     let poll_ms: Int = lsp_stdin_poll_ms();
-    let idle_max: Int = lsp_stdin_idle_iters();
-    let mut out: String = "";
-    let mut idle: Int = 0;
     while msgs < cap_msgs {
         let fr: LspFrame = lsp_jsonrpc_take_message(buf);
         if lsp_frame_is_ok(&fr) {
             buf = lsp_frame_rest(&fr);
             let f_body: String = lsp_frame_body(&fr);
-            if chars_len(f_body) > 0 && bytes_len(f_body) <= cap_frame {
-                idx = lsp_serve_maybe_merge(c, state, base, idx, f_body);
-                let r: LspProcessResult = lsp_server_process_message(state, f_body, idx, rows);
-                state = r.new_state;
-                if chars_len(r.response) > 0 { out = out + r.response; }
-                let method: String = lsp_jsonrpc_extract_method(f_body);
-                if method == "shutdown" || method == "exit" { println(out); return; }
+            if chars_len(f_body) > 0 {
+                if bytes_len(f_body) > cap_frame {
+                    let ov: String = lsp_serve_oversize(f_body);
+                    if chars_len(ov) > 0 { print(ov); }
+                } else {
+                    idx = lsp_serve_maybe_merge(c, state, base, idx, f_body);
+                    let r: LspProcessResult = lsp_server_process_message(state, f_body, idx, rows);
+                    state = r.new_state;
+                    if chars_len(r.response) > 0 { print(r.response); }
+                    let method: String = lsp_jsonrpc_extract_method(f_body);
+                    if method == "shutdown" || method == "exit" { return; }
+                }
             }
-            idle = 0;
         } else {
             if total_bytes > cap_input { break; }
             let r: Result[String, String] = oo_read_stdin_chunk(poll_ms);
             if !r.is_ok() { break; }
             let chunk: String = match r { Ok(s) => s, Err(_) => "" };
-            if chars_len(chunk) == 0 {
-                idle = idle + 1;
-                if idle > idle_max { break; }
-            } else {
+            if chars_len(chunk) > 0 {
                 buf = buf + chunk;
                 total_bytes = total_bytes + bytes_len(chunk);
-                idle = 0;
             }
         }
         msgs = msgs + 1;
     }
-    println(out);
 }

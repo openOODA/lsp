@@ -1,16 +1,17 @@
 // # Sovereign ooda lsp CLI command with stdio JSON-RPC
 //
-// Logline: Wires the native openOODA LSP engine into `ooda lsp` over standard stdio JSON-RPC.
+// Logline: Wires the native openOODA LSP engine into stdio JSON-RPC or a request-file buffer.
 //
-// Setup: Uses the native lsp_stdio loop. No temp files, no shell subprocesses, no Node.js/npm.
+// Setup: File mode reads one buffer that may contain many frames. --oodar-root loads cap_table.json.
 //
 // Beats:
-//   1. Parse --stdio, --stdlib-root, --oodar-root, and an optional request file path from argv.
-//   2. In file mode, read a complete LSP wire frame and dispatch one request.
-//   3. In --stdio mode, run the native lsp_serve loop until shutdown/exit/EOF.
-//   4. Frame engine replies with Content-Length headers.
+//   1. Parse --stdio, --stdlib-root, --oodar-root, and a positional request file.
+//   2. Refuse roots with traversal or denied system prefixes.
+//   3. File mode: read the buffer and print the concatenated replies.
+//   4. Else run the stdio loop until shutdown, exit, or EOF.
 
 import "wire/lsp_stdio.oo";
+import "server/lsp_server_uri.oo";
 
 fn cmd_lsp_arg_flag(args: List[String], flag: String) -> Bool {
     let n: Int = list_len(args);
@@ -45,27 +46,42 @@ fn cmd_lsp_arg_positional(args: List[String]) -> String {
     return "";
 }
 
-pub fn run_ooda_lsp(fr: &FsReadCap, env: &EnvCap, sys: &SysCap, c: &CompilerReadCap, args: List[String]) {
+fn cmd_lsp_root_ok(p: String) -> Bool {
+    if chars_len(p) == 0 { return true; }
+    if lsp_server_uri_has_traversal(p) { return false; }
+    if lsp_server_path_denied(p) { return false; }
+    return true;
+}
+
+pub fn run_ooda_lsp(fr: &FsReadCap, c: &CompilerReadCap, args: List[String]) {
     let explicit_root: String = cmd_lsp_arg_value(args, "--stdlib-root");
     let oodar_root: String = cmd_lsp_arg_value(args, "--oodar-root");
+    if !cmd_lsp_root_ok(explicit_root) {
+        lsp_err("stdlib-root refused");
+        process_exit(2);
+    }
+    if !cmd_lsp_root_ok(oodar_root) {
+        lsp_err("oodar-root refused");
+        process_exit(2);
+    }
     let path: String = cmd_lsp_arg_positional(args);
     let use_stdio: Bool = cmd_lsp_arg_flag(args, "--stdio") || path == "";
 
     if !use_stdio {
         if !path_exists(fr, path) {
-            println("ERR\tlsp\tunreadable file: " + path);
+            lsp_err("unreadable file: " + path);
             process_exit(2);
         }
         let rawr: Result[String, String] = read_file(fr, path);
         if !rawr.is_ok() {
-            println("ERR\tlsp\tcannot read " + path);
+            lsp_err("cannot read " + path);
             process_exit(1);
         }
         let raw: String = match rawr { Ok(s) => s, Err(m) => m };
-        let reply: String = lsp_serve_buffer(fr, env, c, explicit_root, oodar_root, raw);
-        if chars_len(reply) > 0 { println(reply); }
+        let reply: String = lsp_serve_buffer(fr, c, explicit_root, oodar_root, raw);
+        if chars_len(reply) > 0 { print(reply); }
         return;
     }
 
-    lsp_serve(fr, env, c, explicit_root, oodar_root);
+    lsp_serve(fr, c, explicit_root, oodar_root);
 }
