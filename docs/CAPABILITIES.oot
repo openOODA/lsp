@@ -1,11 +1,11 @@
 # LSP Server Capabilities
 
-File: ooda/lsp/docs/CAPABILITIES.oot
+File: openOODA/lsp/docs/CAPABILITIES.oot
 
 The openOODA native LSP engine advertises a fixed, minimal set of
 capabilities in the `initialize` response. This doc is the
 authoritative spec for that declaration. The single source of truth
-in the source tree is `ooda/lsp/server/lsp_server_capabilities.oo`,
+in the source tree is `openOODA/lsp/server/lsp_server_capabilities.oo`,
 which returns one constant JSON string. The doc duplicates that
 string, explains every entry, and lists what is intentionally
 NOT advertised and why.
@@ -95,8 +95,12 @@ double-run-proof SSoT.
 ### 2.4 `definitionProvider: true`
 
 - Definition returns a `Location` for capability builtins (URI is
-  `ooda/runtime/chs_rt_*.c`) and for user `pub fn` (URI + line + col
-  from the compiler index). `null` otherwise.
+  `<oodar_root>/<subdir>/<file>.c` per the v2.0.0 oodar layout; default
+  oodar root is the polyrepo convention `oodar`, overridable in the
+  lsp config) and for user `pub fn` (URI + line + col from the
+  compiler index). `null` otherwise. The mapping table lives in
+  `lsp_definition_cap_path_table()` in
+  `lsp/methods/lsp_definition.oo`.
 
 ### 2.5 `documentSymbolProvider: true`
 
@@ -186,7 +190,7 @@ advertised. Each entry has a one-line rationale.
 ## 4. SSoT: where the JSON lives
 
 The capability JSON is one constant string in
-`ooda/lsp/server/lsp_server_capabilities.oo`. It is not assembled
+`openOODA/lsp/server/lsp_server_capabilities.oo`. It is not assembled
 from per-capability fields; any change to a capability's shape
 must be made in that file. The `lsp_server_handle_initialize` in
 `lsp_server_handlers.oo` reads the constant and frames the
