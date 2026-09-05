@@ -153,10 +153,12 @@ pub fn lsp_server_process_message(state: LspServerState, raw_body: String, idx: 
     let params: String = lsp_jsonrpc_extract_params(raw_body);
     let mut next: LspServerState = state;
     if method == "initialize" {
+        let resp_init: String = lsp_server_dispatch_request(state, idx, rows, method, id, params);
+        if str_contains(resp_init, "\"error\":") { return lsp_process_result_new(resp_init, state); }
         let root: String = lsp_jsonrpc_extract_string(params, "rootUri");
-        if chars_len(root) == 0 { return lsp_process_result_new(lsp_server_dispatch_request(state, idx, rows, method, id, params), state); }
         next = lsp_server_stamp(next, true, root);
         next = lsp_server_stamp_folders(next, lsp_sync_folder_uris(lsp_jsonrpc_extract_object(params, "workspaceFolders")));
+        return lsp_process_result_new(resp_init, next);
     }
     if method == "workspace/didChangeWorkspaceFolders" {
         let ev: String = lsp_jsonrpc_extract_object(params, "event");

@@ -12,7 +12,7 @@
 
 import "lsp_script_path.oo";
 
-fn lsp_test_run_one(p: &ProcessCap, fs_r: &FsReadCap, fw: &FsWriteCap, bin: String, root: String, wdir: String, chs: String, rt: String, name: String) -> Bool {
+fn lsp_test_run_one(p: &ProcessCap, fs_r: &FsReadCap, fw: &FsWriteCap, bin: String, root: String, wdir: String, chs: String, rt: String, bb: String, oodar_inc: String, name: String) -> Bool {
     let rel: String = "lsp/qa/" + name + ".oo";
     let full: String = if path_exists(fs_r, root + "/" + rel) {
         root + "/" + rel
@@ -38,7 +38,7 @@ fn lsp_test_run_one(p: &ProcessCap, fs_r: &FsReadCap, fw: &FsWriteCap, bin: Stri
     if chars_len(csrc) == 0 { println("  FAIL emit empty " + name); return false; }
     let wr: Result[Void, String] = write_file(fw, cfile, csrc);
     if wr.is_err() { println("  FAIL write " + name); return false; }
-    let gr: Result[String, String] = sys_exec(p, "gcc", "-O0", "-o", binp, cfile, chs, "-I", rt, "-lm");
+    let gr: Result[String, String] = sys_exec(p, "gcc", "-O0", "-o", binp, cfile, chs, bb, "-I", rt, "-I", oodar_inc, "-lm");
     if gr.is_err() {
         let msg: String = match gr { Ok(_) => "", Err(e) => e };
         println("  FAIL gcc " + name + " " + msg);
@@ -94,6 +94,24 @@ pub fn main(p: &ProcessCap, fs_r: &FsReadCap, fw: &FsWriteCap, env: &EnvCap, arg
     if !lsp_script_path_ok(chs) { return Err("chs_rt path refused"); }
     if !path_exists(fs_r, chs) { return Err("missing " + chs); }
 
+    let bb: String = if path_exists(fs_r, root + "/oodar/core/blackbox/blackbox.c") {
+        root + "/oodar/core/blackbox/blackbox.c"
+    } else if path_exists(fs_r, root + "/Projects/openOODA/oodar/core/blackbox/blackbox.c") {
+        root + "/Projects/openOODA/oodar/core/blackbox/blackbox.c"
+    } else {
+        root + "/oodar/core/blackbox/blackbox.c"
+    };
+    if !lsp_script_path_ok(bb) { return Err("bb path refused"); }
+    if !path_exists(fs_r, bb) { return Err("missing " + bb); }
+
+    let oodar_inc: String = if path_exists(fs_r, root + "/oodar/oodar.h") {
+        root + "/oodar"
+    } else if path_exists(fs_r, root + "/Projects/openOODA/oodar/oodar.h") {
+        root + "/Projects/openOODA/oodar"
+    } else {
+        root + "/oodar"
+    };
+
     let mut probes: List[String] = list_new();
     probes = list_push(probes, "probe_initialize");
     probes = list_push(probes, "probe_completion");
@@ -125,7 +143,7 @@ pub fn main(p: &ProcessCap, fs_r: &FsReadCap, fw: &FsWriteCap, env: &EnvCap, arg
     let mut i: Int = 0;
     while i < list_len(probes) {
         let name: String = list_get(probes, i);
-        if !lsp_test_run_one(p, fs_r, fw, bin, root, wdir, chs, rt, name) { failed = failed + 1; }
+        if !lsp_test_run_one(p, fs_r, fw, bin, root, wdir, chs, rt, bb, oodar_inc, name) { failed = failed + 1; }
         i = i + 1;
     }
     println("Results: failed=" + failed.to_string());
