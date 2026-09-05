@@ -25,7 +25,7 @@ pub fn lsp_max_frame_bytes() -> Int { return lsp_em_cap_text(); }
 pub fn lsp_stdin_poll_ms() -> Int { return 100; }
 
 pub fn lsp_err(msg: String) {
-    eprintln("ERR\tlsp\t" + msg);
+    println("ERR\tlsp\t" + msg);
 }
 
 fn lsp_take_json_object(s: String) -> LspFrame {
