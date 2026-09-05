@@ -14,15 +14,21 @@ import "lsp_script_path.oo";
 
 fn lsp_test_run_one(p: &ProcessCap, fs_r: &FsReadCap, fw: &FsWriteCap, bin: String, root: String, wdir: String, chs: String, rt: String, name: String) -> Bool {
     let rel: String = "lsp/qa/" + name + ".oo";
-    let full: String = root + "/" + rel;
-    if !lsp_script_path_ok(rel) { println("  FAIL path " + rel); return false; }
+    let full: String = if path_exists(fs_r, root + "/" + rel) {
+        root + "/" + rel
+    } else if path_exists(fs_r, root + "/Projects/openOODA/" + rel) {
+        root + "/Projects/openOODA/" + rel
+    } else {
+        root + "/" + rel
+    };
     if !path_exists(fs_r, full) { println("  FAIL missing " + full); return false; }
     let cfile: String = wdir + "/" + name + ".c";
     let binp: String = wdir + "/" + name;
     if !lsp_script_path_ok(cfile) { println("  FAIL c path"); return false; }
     if !lsp_script_path_ok(binp) { println("  FAIL bin path"); return false; }
     println("  EMIT " + rel);
-    let em: Result[String, String] = sys_exec(p, bin, "emit-c", rel);
+    let target: String = if path_exists(fs_r, rel) { rel } else { full };
+    let em: Result[String, String] = sys_exec(p, bin, "emit-c", target);
     if em.is_err() {
         let msg: String = match em { Ok(_) => "", Err(e) => e };
         println("  FAIL emit " + name + " " + msg);
@@ -49,28 +55,72 @@ fn lsp_test_run_one(p: &ProcessCap, fs_r: &FsReadCap, fw: &FsWriteCap, bin: Stri
 }
 
 pub fn main(p: &ProcessCap, fs_r: &FsReadCap, fw: &FsWriteCap, env: &EnvCap, args: List[String]) -> Result[Int, String] {
-    let cr: Result[String, String] = env_get(env, "OODA_COMPILER");
-    if cr.is_err() { return Err("OODA_COMPILER required"); }
-    let bin: String = match cr { Ok(s) => s, Err(_) => "" };
-    if !lsp_script_path_ok(bin) { return Err("OODA_COMPILER path refused"); }
-    if !path_exists(fs_r, bin) { return Err("OODA_COMPILER missing"); }
-
     let rr: Result[String, String] = env_get(env, "OODA_FS_READDIR");
     if rr.is_err() { return Err("OODA_FS_READDIR required"); }
     let root: String = match rr { Ok(s) => s, Err(_) => "" };
     if !lsp_script_path_ok(root) { return Err("OODA_FS_READDIR path refused"); }
+
+    let cr: Result[String, String] = env_get(env, "OODA_COMPILER");
+    if cr.is_err() { return Err("OODA_COMPILER required"); }
+    let raw_bin: String = match cr { Ok(s) => s, Err(_) => "" };
+    if !lsp_script_path_ok(raw_bin) { return Err("OODA_COMPILER path refused"); }
+
+    let bin: String = if path_exists(fs_r, raw_bin) {
+        raw_bin
+    } else if path_exists(fs_r, root + "/oodac/bin/oodac") {
+        root + "/oodac/bin/oodac"
+    } else if path_exists(fs_r, root + "/Projects/openOODA/oodac/bin/oodac") {
+        root + "/Projects/openOODA/oodac/bin/oodac"
+    } else {
+        raw_bin
+    };
+    if !path_exists(fs_r, bin) { return Err("OODA_COMPILER missing"); }
 
     let wr: Result[String, String] = env_get(env, "OODA_FS_WRITEDIR");
     if wr.is_err() { return Err("OODA_FS_WRITEDIR required"); }
     let wdir: String = match wr { Ok(s) => s, Err(_) => "" };
     if !lsp_script_path_ok(wdir) { return Err("OODA_FS_WRITEDIR path refused"); }
 
-    let rt: String = root + "/oodac/runtime";
+    let rt: String = if path_exists(fs_r, root + "/oodac/runtime/chs_rt.c") {
+        root + "/oodac/runtime"
+    } else if path_exists(fs_r, root + "/Projects/openOODA/oodac/runtime/chs_rt.c") {
+        root + "/Projects/openOODA/oodac/runtime"
+    } else if path_exists(fs_r, "/home/jeryd/.local/runtime/chs_rt.c") {
+        "/home/jeryd/.local/runtime"
+    } else {
+        root + "/oodac/runtime"
+    };
     let chs: String = rt + "/chs_rt.c";
     if !lsp_script_path_ok(chs) { return Err("chs_rt path refused"); }
     if !path_exists(fs_r, chs) { return Err("missing " + chs); }
 
-    let probes: List[String] = ["probe_initialize", "probe_completion", "probe_hover", "probe_definition", "probe_diagnostics", "probe_formatting", "probe_codeaction", "probe_double_run", "probe_token", "probe_uri", "probe_bridge", "probe_session", "probe_document_link", "probe_inlay", "probe_document_symbol", "probe_execute_command", "probe_json_smuggle", "probe_utf16", "probe_struct_merge", "probe_docs", "probe_check", "probe_sync", "probe_nav", "probe_semantic", "probe_resolve"];
+    let mut probes: List[String] = list_new();
+    probes = list_push(probes, "probe_initialize");
+    probes = list_push(probes, "probe_completion");
+    probes = list_push(probes, "probe_hover");
+    probes = list_push(probes, "probe_definition");
+    probes = list_push(probes, "probe_diagnostics");
+    probes = list_push(probes, "probe_formatting");
+    probes = list_push(probes, "probe_codeaction");
+    probes = list_push(probes, "probe_double_run");
+    probes = list_push(probes, "probe_token");
+    probes = list_push(probes, "probe_uri");
+    probes = list_push(probes, "probe_bridge");
+    probes = list_push(probes, "probe_session");
+    probes = list_push(probes, "probe_document_link");
+    probes = list_push(probes, "probe_inlay");
+    probes = list_push(probes, "probe_document_symbol");
+    probes = list_push(probes, "probe_execute_command");
+    probes = list_push(probes, "probe_json_smuggle");
+    probes = list_push(probes, "probe_utf16");
+    probes = list_push(probes, "probe_struct_merge");
+    probes = list_push(probes, "probe_docs");
+    probes = list_push(probes, "probe_check");
+    probes = list_push(probes, "probe_sync");
+    probes = list_push(probes, "probe_nav");
+    probes = list_push(probes, "probe_semantic");
+    probes = list_push(probes, "probe_resolve");
+
     let mut failed: Int = 0;
     let mut i: Int = 0;
     while i < list_len(probes) {

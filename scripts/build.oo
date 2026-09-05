@@ -12,21 +12,37 @@
 import "lsp_script_path.oo";
 
 pub fn main(p: &ProcessCap, fs_r: &FsReadCap, env: &EnvCap, args: List[String]) -> Result[Int, String] {
-    let cr: Result[String, String] = env_get(env, "OODA_COMPILER");
-    if cr.is_err() { return Err("OODA_COMPILER required"); }
-    let bin: String = match cr { Ok(s) => s, Err(_) => "" };
-    if !lsp_script_path_ok(bin) { return Err("OODA_COMPILER path refused"); }
-    if !path_exists(fs_r, bin) { return Err("OODA_COMPILER missing"); }
-
     let rr: Result[String, String] = env_get(env, "OODA_FS_READDIR");
     if rr.is_err() { return Err("OODA_FS_READDIR required"); }
     let root: String = match rr { Ok(s) => s, Err(_) => "" };
     if !lsp_script_path_ok(root) { return Err("OODA_FS_READDIR path refused"); }
 
-    let entry: String = root + "/lsp/cli/main.oo";
+    let cr: Result[String, String] = env_get(env, "OODA_COMPILER");
+    if cr.is_err() { return Err("OODA_COMPILER required"); }
+    let raw_bin: String = match cr { Ok(s) => s, Err(_) => "" };
+    if !lsp_script_path_ok(raw_bin) { return Err("OODA_COMPILER path refused"); }
+
+    let bin: String = if path_exists(fs_r, raw_bin) {
+        raw_bin
+    } else if path_exists(fs_r, root + "/oodac/bin/oodac") {
+        root + "/oodac/bin/oodac"
+    } else if path_exists(fs_r, root + "/Projects/openOODA/oodac/bin/oodac") {
+        root + "/Projects/openOODA/oodac/bin/oodac"
+    } else {
+        raw_bin
+    };
+    if !path_exists(fs_r, bin) { return Err("OODA_COMPILER missing"); }
+
+    let entry: String = if path_exists(fs_r, root + "/lsp/cli/main.oo") {
+        root + "/lsp/cli/main.oo"
+    } else if path_exists(fs_r, root + "/Projects/openOODA/lsp/cli/main.oo") {
+        root + "/Projects/openOODA/lsp/cli/main.oo"
+    } else {
+        root + "/lsp/cli/main.oo"
+    };
     if !path_exists(fs_r, entry) { return Err("missing " + entry); }
     println("Building lsp/cli/main.oo");
-    let r: Result[String, String] = sys_exec(p, bin, "check", "lsp/cli/main.oo");
+    let r: Result[String, String] = sys_exec(p, bin, "check", entry);
     if r.is_err() {
         let msg: String = match r { Ok(_) => "", Err(e) => e };
         return Err("build failed: " + msg);

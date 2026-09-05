@@ -56,18 +56,43 @@ pub fn main(fs_r: &FsReadCap, env: &EnvCap, args: List[String]) -> Result[Int, S
     if rr.is_err() { return Err("OODA_FS_READDIR required"); }
     let root: String = match rr { Ok(s) => s, Err(_) => "" };
     if !lsp_script_path_ok(root) { return Err("OODA_FS_READDIR path refused"); }
-    let base: String = root + "/lsp";
+    let base: String = if path_exists(fs_r, root + "/lsp/ANCHOR.oo") {
+        root + "/lsp"
+    } else if path_exists(fs_r, root + "/Projects/openOODA/lsp/ANCHOR.oo") {
+        root + "/Projects/openOODA/lsp"
+    } else {
+        root + "/lsp"
+    };
 
-    let dirs: List[String] = ["", "wire", "types", "server", "methods", "symbols", "bridge", "cli", "qa", "scripts", "docs", "examples"];
+    let mut dirs: List[String] = list_new();
+    dirs = list_push(dirs, "");
+    dirs = list_push(dirs, "wire");
+    dirs = list_push(dirs, "types");
+    dirs = list_push(dirs, "server");
+    dirs = list_push(dirs, "methods");
+    dirs = list_push(dirs, "symbols");
+    dirs = list_push(dirs, "bridge");
+    dirs = list_push(dirs, "cli");
+    dirs = list_push(dirs, "qa");
+    dirs = list_push(dirs, "scripts");
+    dirs = list_push(dirs, "docs");
+    dirs = list_push(dirs, "examples");
     let mut i: Int = 0;
     let mut total: Int = 0;
     while i < list_len(dirs) {
         let d: String = list_get(dirs, i);
-        let dir: String = if chars_len(d) == 0 { base } else { base + "/" + d };
+        let dir: String = if chars_len(d) == 0 { base + "" } else { base + "/" + d };
         let anchor: String = dir + "/ANCHOR.oo";
-        if !path_exists(fs_r, anchor) { return Err("missing ANCHOR.oo in " + dir); }
+        if !path_exists(fs_r, anchor) {
+            println("ERR missing ANCHOR.oo in " + dir);
+            return Err("missing ANCHOR.oo in " + dir);
+        }
         let vr: Result[Int, String] = lsp_verify_dir(fs_r, dir);
-        if vr.is_err() { return vr; }
+        if vr.is_err() {
+            let em: String = match vr { Ok(_) => "", Err(e) => e };
+            println("ERR in " + dir + ": " + em);
+            return vr;
+        }
         let n: Int = match vr { Ok(k) => k, Err(_) => 0 };
         total = total + n;
         i = i + 1;
