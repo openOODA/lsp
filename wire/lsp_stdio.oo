@@ -22,7 +22,7 @@ import "lsp/methods/lsp_check.oo";
 pub fn lsp_input_cap_bytes() -> Int { return lsp_em_cap_input(); }
 pub fn lsp_safety_max_msgs() -> Int { return lsp_em_cap_msgs(); }
 pub fn lsp_max_frame_bytes() -> Int { return lsp_em_cap_text(); }
-pub fn lsp_stdin_poll_ms() -> Int { return 100; }
+pub fn lsp_stdin_poll_ms() -> Int { return 1; }
 
 pub fn lsp_err(msg: String) {
     println("ERR\tlsp\t" + msg);
@@ -202,6 +202,21 @@ pub fn lsp_serve(fs: &FsReadCap, c: &CompilerReadCap, p: &ProcessCap, compiler: 
             if chars_len(chunk) > 0 {
                 buf = buf + chunk;
                 total_bytes = total_bytes + bytes_len(chunk);
+                let mut more: Bool = true;
+                while more && total_bytes <= cap_input {
+                    let r0: Result[String, String] = oo_read_stdin_chunk(0);
+                    if r0.is_ok() {
+                        let extra: String = match r0 { Ok(s) => s, Err(_) => "" };
+                        if chars_len(extra) > 0 {
+                            buf = buf + extra;
+                            total_bytes = total_bytes + bytes_len(extra);
+                        } else {
+                            more = false;
+                        }
+                    } else {
+                        more = false;
+                    }
+                }
             }
         }
         msgs = msgs + 1;
