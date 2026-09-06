@@ -65,16 +65,7 @@ pub fn main(p: &ProcessCap, fs_r: &FsReadCap, fw: &FsWriteCap, env: &EnvCap, arg
     let raw_bin: String = match cr { Ok(s) => s, Err(_) => "" };
     if !lsp_script_path_ok(raw_bin) { return Err("OODA_COMPILER path refused"); }
 
-    let bin: String = if path_exists(fs_r, raw_bin) {
-        raw_bin
-    } else if path_exists(fs_r, root + "/oodac/bin/oodac") {
-        root + "/oodac/bin/oodac"
-    } else if path_exists(fs_r, root + "/Projects/openOODA/oodac/bin/oodac") {
-        root + "/Projects/openOODA/oodac/bin/oodac"
-    } else {
-        raw_bin
-    };
-    if !path_exists(fs_r, bin) { return Err("OODA_COMPILER missing"); }
+    let bin: String = raw_bin;
 
     let wr: Result[String, String] = env_get(env, "OODA_FS_WRITEDIR");
     if wr.is_err() { return Err("OODA_FS_WRITEDIR required"); }
@@ -139,6 +130,7 @@ pub fn main(p: &ProcessCap, fs_r: &FsReadCap, fw: &FsWriteCap, env: &EnvCap, arg
     probes = list_push(probes, "probe_semantic");
     probes = list_push(probes, "probe_resolve");
     probes = list_push(probes, "probe_em_cache");
+    probes = list_push(probes, "probe_path");
 
     let mut failed: Int = 0;
     let mut i: Int = 0;

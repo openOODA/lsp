@@ -30,6 +30,8 @@
 //   23. probe_nav.oo - signature, refs, rename, workspace symbol.
 //   24. probe_semantic.oo - semantic token types.
 //   25. probe_resolve.oo - completionItem/resolve.
+//   26. probe_em_cache.oo - module .em header cache.
+//   27. probe_path.oo - script path guard for methods seam.
 
 import "probe_initialize.oo";
 import "probe_completion.oo";
@@ -56,3 +58,5 @@ import "probe_sync.oo";
 import "probe_nav.oo";
 import "probe_semantic.oo";
 import "probe_resolve.oo";
+import "probe_em_cache.oo";
+import "probe_path.oo";

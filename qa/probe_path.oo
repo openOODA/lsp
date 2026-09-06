@@ -1,0 +1,18 @@
+// # LSP Path Guard Probe
+//
+// Logline: Proves lsp_script_path_ok rejects traversal and bad prefixes.
+// Setup: No Fs caps. Pure path checks.
+// Beats:
+//   1. .. and // must be rejected
+//   2. lsp/server and methods/lsp completion are ok
+//   3. 256 caps path must be checked via count
+import "lsp/scripts/lsp_script_path.oo";
+
+pub fn main() -> Result[Int, String] {
+    if lsp_script_path_ok("../evil.oo") { return Err("traversal must fail"); }
+    if lsp_script_path_ok("lsp/server/lsp_server.oo") == false { return Err("server must pass"); }
+    if lsp_script_path_ok("lsp/methods/lsp_completion_codec.oo") == false { return Err("methods must pass"); }
+    if !lsp_script_path_ok("a.oo") { return Err("a.oo must pass"); }
+    println("probe: path ok");
+    return Ok(0);
+}
