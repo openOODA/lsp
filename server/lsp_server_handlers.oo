@@ -27,6 +27,28 @@ pub fn lsp_server_handle_completion(id: String, idx: List[String], prefix: Strin
     return lsp_jsonrpc_frame(lsp_jsonrpc_make_response(id, "{\"isIncomplete\":false,\"items\":[" + items + "]}"));
 }
 
+pub fn lsp_server_handle_completion_token_aware(id: String, idx: List[String], prefix: String, held: List[String]) -> String {
+    let all: List[String] = lsp_index_prefix(idx, prefix);
+    let mut out: List[String] = list_new();
+    let n: Int = list_len(all);
+    let mut i: Int = 0;
+    while i < n {
+        let rec: String = list_get(all, i);
+        if lsp_index_kind(rec) != "Capability" {
+            out = list_push(out, rec);
+        } else {
+            let nm: String = lsp_index_name(rec);
+            let mut ok: Bool = list_len(held) == 0;
+            let mut j: Int = 0;
+            while j < list_len(held) { if list_get(held, j) == nm { ok = true; break; } j = j + 1; }
+            if ok { out = list_push(out, rec); }
+        }
+        i = i + 1;
+    }
+    let items: String = lsp_index_records_to_completion_json(out);
+    return lsp_jsonrpc_frame(lsp_jsonrpc_make_response(id, "{\"isIncomplete\":false,\"items\":[" + items + "]}"));
+}
+
 pub fn lsp_server_handle_hover(id: String, idx: List[String], sym: String, line: Int, col: Int, src: String) -> String {
     let hov: String = lsp_hover_from_index(idx, sym, id, line, col, src);
     return lsp_jsonrpc_frame(hov);
