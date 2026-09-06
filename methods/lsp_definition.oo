@@ -15,6 +15,7 @@ import "lsp/symbols/lsp_cap_table.oo";
 import "lsp/wire/lsp_jsonrpc.oo";
 import "lsp_text.oo";
 import "lsp/bridge/lsp_compiler_merge.oo";
+import "lsp/bridge/lsp_compiler_types.oo";
 
 pub fn lsp_definition_format_location(name: String, path: String, line: Int, col: Int) -> String {
     let sl: String = line.to_string();
@@ -53,6 +54,37 @@ pub fn lsp_definition_resolve_in_doc(
     let path: String = lsp_definition_builtin_path(name, rows, oodar_root);
     if chars_len(path) == 0 { return ""; }
     return lsp_definition_format_location(name, path, 0, 0);
+}
+
+pub fn lsp_definition_resolve_with_table(table: &LspModuleSymbolTable, name: String) -> String {
+    let n_fns: Int = list_len(table.functions);
+    let mut i: Int = 0;
+    while i < n_fns {
+        let f: LspFunction = list_get(table.functions, i);
+        if f.name == name {
+            return lsp_definition_format_location(name, table.uri, f.line, f.col);
+        }
+        i = i + 1;
+    }
+    let n_sts: Int = list_len(table.structs);
+    let mut j: Int = 0;
+    while j < n_sts {
+        let s: LspStruct = list_get(table.structs, j);
+        if s.name == name {
+            return lsp_definition_format_location(name, table.uri, s.line, s.col);
+        }
+        j = j + 1;
+    }
+    let n_ens: Int = list_len(table.enums);
+    let mut k: Int = 0;
+    while k < n_ens {
+        let e: LspEnum = list_get(table.enums, k);
+        if e.name == name {
+            return lsp_definition_format_location(name, table.uri, e.line, e.col);
+        }
+        k = k + 1;
+    }
+    return "";
 }
 
 pub fn lsp_definition_response_json(id: String, location_json: String) -> String {

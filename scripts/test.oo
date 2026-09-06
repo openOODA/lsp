@@ -138,6 +138,7 @@ pub fn main(p: &ProcessCap, fs_r: &FsReadCap, fw: &FsWriteCap, env: &EnvCap, arg
     probes = list_push(probes, "probe_nav");
     probes = list_push(probes, "probe_semantic");
     probes = list_push(probes, "probe_resolve");
+    probes = list_push(probes, "probe_em_cache");
 
     let mut failed: Int = 0;
     let mut i: Int = 0;
