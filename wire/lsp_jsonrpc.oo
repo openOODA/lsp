@@ -54,11 +54,10 @@ pub fn lsp_jsonrpc_parse_content_length(header: String) -> Int {
 
 pub fn lsp_jsonrpc_is_safe_id(s: String) -> Bool {
     let n: Int = chars_len(s);
-    let mut i: Int = 0;
     if n == 0 { return true; }
+    if s == "null" { return true; }
     if char_at(s, 0) == "\"" {
         if n < 2 || char_at(s, n - 1) != "\"" { return false; }
-        i = 1;
         let mut j: Int = 1;
         while j < n - 1 {
             let c: String = char_at(s, j);
@@ -68,15 +67,14 @@ pub fn lsp_jsonrpc_is_safe_id(s: String) -> Bool {
         }
         return true;
     }
-    if s == "null" { return true; }
+    let mut i: Int = 0;
     while i < n {
         let c: String = char_at(s, i);
         if c == "-" && i == 0 { i = i + 1; continue; }
-        let code: Int = byte_at(c, 0);
-        if code < 48 || code > 57 { return false; }
+        if byte_at(c, 0) < 48 || byte_at(c, 0) > 57 { return false; }
         i = i + 1;
     }
-    return n > 0;
+    return true;
 }
 
 pub fn lsp_jsonrpc_make_response(id: String, result_json: String) -> String {
