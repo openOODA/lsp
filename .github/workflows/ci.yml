@@ -48,7 +48,7 @@ jobs:
         working-directory: ${{ github.workspace }}
         env:
           OODA_FS_READDIR: ${{ github.workspace }}
-          OODA_FS_WRITEDIR: ${{ runner.temp }}/lsp-probes
+          OODA_FS_WRITEDIR: ${{ github.workspace }}
           OODA_COMPILER: ${{ github.workspace }}/oodac/bin/oodac
         run: |
           set -euo pipefail
