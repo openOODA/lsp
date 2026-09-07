@@ -5,13 +5,15 @@
 // Setup: File mode reads one buffer that may contain many frames. --oodar-root loads cap_table.json.
 //
 // Beats:
-//   1. Parse --stdio, --stdlib-root, --oodar-root, --compiler, and a positional request file.
+//   1. Parse --stdio, --stdlib-root, --oodar-root, --compiler,
+//      --help, --version, and a positional request file.
 //   2. Refuse roots with traversal or denied system prefixes.
 //   3. File mode: read the buffer and print the concatenated replies.
 //   4. Else run the stdio loop until shutdown, exit, or EOF.
 
 import "lsp/wire/lsp_stdio.oo";
 import "lsp/server/lsp_server_uri.oo";
+import "lsp/server/lsp_version.oo";
 
 fn cmd_lsp_arg_flag(args: List[String], flag: String) -> Bool {
     let n: Int = list_len(args);
@@ -63,6 +65,16 @@ fn cmd_lsp_compiler(env: &EnvCap, args: List[String]) -> String {
 }
 
 pub fn run_ooda_lsp(fr: &FsReadCap, c: &CompilerReadCap, p: &ProcessCap, env: &EnvCap, args: List[String]) {
+    if cmd_lsp_arg_flag(args, "--help") || cmd_lsp_arg_flag(args, "-h") {
+        println("lsp - openOODA LSP stdio/file server");
+        println("usage: lsp [--stdio] [<request-file>]");
+        println("       [--stdlib-root <dir>] [--oodar-root <dir>]");
+        return;
+    }
+    if cmd_lsp_arg_flag(args, "--version") || cmd_lsp_arg_flag(args, "-v") {
+        println("lsp v" + lsp_facade_version());
+        return;
+    }
     let explicit_root: String = cmd_lsp_arg_value(args, "--stdlib-root");
     let oodar_root: String = cmd_lsp_arg_value(args, "--oodar-root");
     let compiler: String = cmd_lsp_compiler(env, args);
