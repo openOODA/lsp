@@ -27,7 +27,7 @@ fn fail(msg: String) {
 pub fn main(c: &CompilerReadCap) {
     let caps: String = lsp_server_capabilities_object();
     if str_index_of(caps, "hoverProvider") < 0 { fail("initialize caps"); }
-    if str_index_of(lsp_facade_version(), "2.12.0") < 0 { fail("version"); }
+    if str_index_of(lsp_facade_version(), "0.6.21") < 0 { fail("version"); }
     println("PASS initialize");
 
     let uri: String = "file:///tmp/ws/a.oo";

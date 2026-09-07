@@ -5,7 +5,7 @@
 // Setup: In-process handle. No filesystem.
 //
 // Beats:
-//   1. ooda.lsp.version returns 2.12.0.
+//   1. ooda.lsp.version returns 0.6.21.
 //   2. ooda.lsp.indexSize returns the list length.
 //   3. ooda.lsp.tokenCount uses chars/4. Unknown commands are -32601.
 
@@ -20,7 +20,7 @@ fn fail(msg: String) {
 pub fn main() {
     let idx: List[String] = lsp_index_new();
     let v: String = lsp_execute_command_handle("1", idx, "ooda.lsp.version", "[]");
-    if str_index_of(v, "2.12.0") < 0 { fail("version: " + v); }
+    if str_index_of(v, "0.6.21") < 0 { fail("version: " + v); }
     println("PASS version");
 
     let one: List[String] = lsp_index_add(idx, "n", "Function", "fn", "d");

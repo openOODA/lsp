@@ -3,13 +3,13 @@
 File: lsp/docs/client_config.oot
 
 The server has no bundled editor extension. Wire a standard LSP 3.17 client
-to `ooda lsp` over stdio.
+to `ooda-lsp` over stdio (`ooda lsp` also spawns that binary).
 
 ## Launch
 
 ```sh
+ooda-lsp --stdio --oodar-root /path/to/oodar
 ooda lsp --stdio --oodar-root /path/to/oodar
-ooda lsp path/to/request.txt
 ```
 
 No environment variables are required. `--oodar-root` enables capability
@@ -27,8 +27,8 @@ go-to-definition. `--stdlib-root` enables stdlib symbol scan. If
 ```json
 {
   "openooda-lsp": {
-    "command": "ooda",
-    "args": ["lsp", "--oodar-root", "/path/to/oodar"],
+    "command": "ooda-lsp",
+    "args": ["--stdio", "--oodar-root", "/path/to/oodar"],
     "filetypes": ["ooda"],
     "rootMarkers": ["ANCHOR.oo"]
   }

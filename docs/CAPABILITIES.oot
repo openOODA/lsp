@@ -39,5 +39,5 @@ Each is absent because the handler does not exist.
 
 ## 4. Version
 
-One engine string: `lsp_facade_version()`. GitHub release tags are a separate
-auto-release identity (RFC-0006). Do not add a VERSION file.
+One engine string: `lsp_facade_version()`. It matches the git tag
+(RFC-0006). Do not add a VERSION file.
