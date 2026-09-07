@@ -40,7 +40,7 @@ the only roots the server will read.
 ## Proof
 
 From the polyrepo root set `OODA_COMPILER`, `OODA_FS_READDIR`, and
-`OODA_FS_WRITEDIR`. Then `oodac run lsp/scripts/test.oo`. That script
-emit-c + gcc + runs all 25 qa probes via argv (no `sh -c`). `oodac run`
+`OODA_FS_WRITEDIR`. Then follow `.github/workflows/ci.yml`: it
+emit-c + gcc + runs all 25 qa probes from shell (no `sh -c`). `oodac run`
 on a multi-file probe is not the execution path (duplicate TUs). A probe
 that prints PASS without an assertion is a defect.

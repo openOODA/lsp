@@ -6,7 +6,7 @@
 //   1. .. and // must be rejected
 //   2. lsp/server and methods/lsp completion are ok
 //   3. 256 caps path must be checked via count
-import "lsp/scripts/lsp_script_path.oo";
+import "lsp/qa/lsp_script_path.oo";
 
 pub fn main() -> Result[Int, String] {
     if lsp_script_path_ok("../evil.oo") { return Err("traversal must fail"); }

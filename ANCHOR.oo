@@ -1,13 +1,14 @@
 // # LSP Subsystem - Anchor for Agents
 //
-// Logline: Front door for the lsp/ directory. Six functional layers plus cli, qa, scripts, docs, examples.
+// Logline: Front door for the lsp/ directory. Six functional layers plus cli, qa, docs, examples.
 //
 // Setup: Pure structural file. No VERSION file. Engine version is lsp_facade_version() in server/lsp_version.oo.
 //
 // Beats:
 //   1. wire, types, server, methods, symbols, bridge are the six functional dirs.
 //   2. cli/ is the stdio JSON-RPC entry. Pass --oodar-root to load oodar cap_table.json.
-//   3. qa/ has 25 hostile probes. scripts/ build, test, and verify exec OODA_COMPILER as argv.
+//   3. qa/ has 25 hostile probes. .github/workflows/ci.yml builds,
+//      tests, and verifies (gh-owned; no scripts/ runners).
 //   4. Cap grant files come from ${oodar_root}/sec/cap/cap_table.json. No hard-coded table.
 //   5. To propose a change, keep every file <= 256 lines and fail closed. No fallbacks.
 
@@ -19,6 +20,5 @@ import "symbols/ANCHOR.oo";
 import "bridge/ANCHOR.oo";
 import "qa/ANCHOR.oo";
 import "cli/ANCHOR.oo";
-import "scripts/ANCHOR.oo";
 import "docs/ANCHOR.oo";
 import "examples/ANCHOR.oo";
