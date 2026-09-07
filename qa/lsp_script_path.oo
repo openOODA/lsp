@@ -2,7 +2,7 @@
 //
 // Logline: Refuse path strings that can inject a shell or escape the granted roots.
 //
-// Setup: Pure predicate. Scripts call this before sys_exec argv and write_file.
+// Setup: Pure predicate. Callers check paths before sys_exec argv and write_file.
 //
 // Beats:
 //   1. Empty paths fail.
