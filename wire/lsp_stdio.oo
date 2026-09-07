@@ -196,7 +196,7 @@ pub fn lsp_serve(fs: &FsReadCap, c: &CompilerReadCap, p: &ProcessCap, compiler: 
             }
         } else {
             if total_bytes > cap_input { break; }
-            let r: Result[String, String] = oo_read_stdin_chunk(poll_ms);
+            let r: Result[String, String] = oo_read_stdin_chunk(fs, poll_ms);
             if !r.is_ok() { break; }
             let chunk: String = match r { Ok(s) => s, Err(_) => "" };
             if chars_len(chunk) > 0 {
@@ -204,7 +204,7 @@ pub fn lsp_serve(fs: &FsReadCap, c: &CompilerReadCap, p: &ProcessCap, compiler: 
                 total_bytes = total_bytes + bytes_len(chunk);
                 let mut more: Bool = true;
                 while more && total_bytes <= cap_input {
-                    let r0: Result[String, String] = oo_read_stdin_chunk(0);
+                    let r0: Result[String, String] = oo_read_stdin_chunk(fs, 0);
                     if r0.is_ok() {
                         let extra: String = match r0 { Ok(s) => s, Err(_) => "" };
                         if chars_len(extra) > 0 {
