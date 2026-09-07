@@ -43,7 +43,6 @@ jobs:
         run: |
           test -x oodac/bin/oodac || { echo "missing oodac/bin/oodac"; exit 1; }
           test -x oodac/bin/oodac_bin.core || { echo "missing oodac/bin/oodac_bin.core"; exit 1; }
-          test -f oodac/runtime/chs_rt.c || { echo "missing oodac/runtime/chs_rt.c"; exit 1; }
           test -f oodar/core/blackbox/blackbox.c || { echo "missing oodar/core/blackbox/blackbox.c"; exit 1; }
       - name: emit-c gcc run probes
         working-directory: ${{ github.workspace }}
@@ -68,7 +67,7 @@ jobs:
               failed=$((failed + 1))
               continue
             fi
-            if ! gcc -O0 -o "$binp" "$cfile" "$rt/chs_rt.c" "$bb" -I "$rt" -I "$OODA_FS_READDIR/oodar" -lm; then
+            if ! gcc -O0 -o "$binp" "$cfile" "$bb" -I "$OODA_FS_READDIR/oodar" -lm; then
               echo "  FAIL gcc $name"
               failed=$((failed + 1))
               continue
@@ -108,7 +107,6 @@ jobs:
       - name: require compiler
         run: |
           test -x oodac/bin/oodac || chmod +x oodac/bin/oodac
-          test -f oodac/runtime/chs_rt.c || { echo "missing oodac/runtime/chs_rt.c"; exit 1; }
           test -f oodar/core/blackbox/blackbox.c || { echo "missing oodar/core/blackbox/blackbox.c"; exit 1; }
       - name: build native binary
         working-directory: ${{ github.workspace }}
