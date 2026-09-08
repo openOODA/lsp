@@ -134,7 +134,7 @@ pub fn lsp_cap_table_parse(json: String) -> Result[List[String], String] {
 }
 
 pub fn lsp_cap_table_lookup(rows: List[String], name: String) -> String {
-    let mut key: String = name;
+    let mut key: String = str_slice(name, 0, chars_len(name));
     if str_starts_with(name, "&") { key = str_slice(name, 1, chars_len(name)); }
     let n: Int = list_len(rows);
     let mut i: Int = 0;

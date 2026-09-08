@@ -133,7 +133,7 @@ pub fn lsp_hover_from_index(idx: List[String], name: String, id: String, line: I
     let sig: String = lsp_index_signature(rec);
     let doc: String = lsp_index_doc(rec);
     let idx_md: String = lsp_hover_render(name, sig, doc);
-    let mut full_md: String = idx_md;
+    let mut full_md: String = str_slice(idx_md, 0, chars_len(idx_md));
     if chars_len(src) > 0 {
         let pub_line: Int = lsp_compiler_find_line(src, name);
         let mut parsed: List[String] = list_new();
