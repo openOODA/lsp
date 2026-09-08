@@ -9,7 +9,8 @@
 //   2. Map kind to E_TC / E_PARSE / E_CHECK / E_LEX / E_CAP.
 //   3. Parse --json-errors objects too; fix_hint appends to the message.
 //   4. Emit comma-separated diagnostic objects for concat with WEIGHT/PINS.
-//   5. --json-errors is lossy in current oodac, so run() spawns both shapes.
+//   5. run() spawns --json-errors once; the legacy shape is parse-only now
+//      (kept for probes). Spawning both doubled every diagnostic.
 
 import "lsp/wire/lsp_json_encode.oo";
 import "lsp/wire/lsp_jsonrpc.oo";
@@ -191,12 +192,6 @@ pub fn lsp_check_parse_json(raw: String) -> String {
     return out;
 }
 
-fn lsp_check_concat(a: String, b: String) -> String {
-    if chars_len(a) == 0 { return b; }
-    if chars_len(b) == 0 { return a; }
-    return a + "," + b;
-}
-
 pub fn lsp_check_run(p: &ProcessCap, fs: &FsReadCap, compiler: String, path: String) -> String {
     if chars_len(compiler) == 0 { return ""; }
     if chars_len(path) == 0 { return ""; }
@@ -205,7 +200,5 @@ pub fn lsp_check_run(p: &ProcessCap, fs: &FsReadCap, compiler: String, path: Str
     if !path_exists(fs, path) { return ""; }
     let rj: Result[String, String] = sys_exec(p, compiler, "check", "--json-errors", path);
     let raw_json: String = match rj { Ok(s) => s, Err(e) => e };
-    let rl: Result[String, String] = sys_exec(p, compiler, "check", path);
-    let raw_legacy: String = match rl { Ok(s) => s, Err(e) => e };
-    return lsp_check_concat(lsp_check_parse_json(raw_json), lsp_check_parse(raw_legacy));
+    return lsp_check_parse_json(raw_json);
 }
