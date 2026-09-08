@@ -1,0 +1,35 @@
+// # LSP Incremental Sync Escapes - Hostile Probe
+//
+// Logline: Proves didChange `text` with JSON escapes merges into the real characters.
+//
+// Setup: Pure apply through lsp_sync_apply_changes. No dispatcher.
+//
+// Beats:
+//   1. Full replace decodes \n, \", \\, and \t.
+//   2. Ranged insert decodes an escaped quote.
+//   3. Ranged insert decodes an escaped newline into two lines.
+
+import "lsp/methods/lsp_sync.oo";
+
+fn fail(msg: String) {
+    println("FAIL " + msg);
+    process_exit(1);
+}
+
+pub fn main() {
+    let full: String = "[{\"text\":\"x\\ny\\\"q\\\"\\\\z\\t!\"}]";
+    let a: String = lsp_sync_apply_changes("", full);
+    if a != "x\ny\"q\"\\z\t!" { fail("full escapes: [" + a + "]"); }
+    println("PASS full escapes");
+
+    let ins_q: String = "[{\"range\":{\"start\":{\"line\":0,\"character\":1},\"end\":{\"line\":0,\"character\":1}},\"text\":\"\\\"\"}]";
+    let b: String = lsp_sync_apply_changes("abc", ins_q);
+    if b != "a\"bc" { fail("ranged quote: [" + b + "]"); }
+    println("PASS ranged quote");
+
+    let ins_nl: String = "[{\"range\":{\"start\":{\"line\":0,\"character\":1},\"end\":{\"line\":0,\"character\":1}},\"text\":\"p\\nq\"}]";
+    let c: String = lsp_sync_apply_changes("ab", ins_nl);
+    if c != "ap\nqb" { fail("ranged newline: [" + c + "]"); }
+    println("PASS ranged newline");
+    println("probe_sync_escape PASSED");
+}
