@@ -98,6 +98,8 @@ pub fn lsp_jsonrpc_escape(s: String) -> String {
     return lsp_json_escape(s);
 }
 
+pub fn lsp_jsonrpc_unescape(s: String) -> String { return lsp_json_unescape(s); }
+
 fn lsp_is_ws(c: String) -> Bool {
     return c == " " || c == "\t" || c == "\n" || c == "\r";
 }

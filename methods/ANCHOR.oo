@@ -26,3 +26,5 @@ import "lsp_signature.oo";
 import "lsp_refs.oo";
 import "lsp_wsym.oo";
 import "lsp_semantic.oo";
+import "lsp_ws_scan.oo";
+import "lsp_fix.oo";

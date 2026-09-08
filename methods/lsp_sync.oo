@@ -54,7 +54,7 @@ pub fn lsp_sync_objects(arr: String) -> List[String] {
 
 pub fn lsp_sync_apply_one(src: String, ch: String) -> String {
     let rng: String = lsp_jsonrpc_extract_object(ch, "range");
-    let text: String = lsp_jsonrpc_extract_string(ch, "text");
+    let text: String = lsp_jsonrpc_unescape(lsp_jsonrpc_extract_string(ch, "text"));
     if chars_len(rng) == 0 { return text; }
     let st: String = lsp_jsonrpc_extract_object(rng, "start");
     let en: String = lsp_jsonrpc_extract_object(rng, "end");

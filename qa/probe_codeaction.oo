@@ -8,6 +8,8 @@
 //   1. E_EM_PINS returns one quickfix whose newText is empty.
 //   2. E_EM_WEIGHT and E_EM_PS return an empty list.
 //   3. An unknown code returns an empty list.
+//   4. source oodac yields an ooda.fix command action carrying the URI.
+//   5. parse keeps the diagnostic source.
 
 import "lsp/types/lsp_payload.oo";
 import "lsp/methods/lsp_code_action.oo";
@@ -20,21 +22,28 @@ fn fail(msg: String) {
 pub fn main() {
     let uri: String = "file:///tmp/a.oo";
     let d1: LspDiagnostic = lsp_diagnostic_new(0, 0, 0, 80, 2, "E_EM_WEIGHT", "w", "em");
-    let j1: String = lsp_code_actions_to_json(lsp_code_action_resolve(&d1), uri);
+    let j1: String = lsp_code_actions_to_json(lsp_code_action_resolve(&d1, uri), uri);
     if j1 != "[]" { fail("WEIGHT must be empty: " + j1); }
     let d2: LspDiagnostic = lsp_diagnostic_new(0, 0, 0, 80, 1, "E_EM_PS", "ps", "em");
-    let j2: String = lsp_code_actions_to_json(lsp_code_action_resolve(&d2), uri);
+    let j2: String = lsp_code_actions_to_json(lsp_code_action_resolve(&d2, uri), uri);
     if j2 != "[]" { fail("PS must be empty: " + j2); }
     let d3: LspDiagnostic = lsp_diagnostic_new(2, 0, 2, 12, 3, "E_EM_PINS", "pins", "em");
-    let j3: String = lsp_code_actions_to_json(lsp_code_action_resolve(&d3), uri);
+    let j3: String = lsp_code_actions_to_json(lsp_code_action_resolve(&d3, uri), uri);
     if str_index_of(j3, "quickfix") < 0 { fail("PINS json: " + j3); }
     if str_index_of(j3, "\"newText\":\"\"") < 0 { fail("PINS must delete: " + j3); }
     let d4: LspDiagnostic = lsp_diagnostic_new(0, 0, 0, 80, 1, "E_EM_DRAG", "dead", "em");
-    let j4: String = lsp_code_actions_to_json(lsp_code_action_resolve(&d4), uri);
+    let j4: String = lsp_code_actions_to_json(lsp_code_action_resolve(&d4, uri), uri);
     if j4 != "[]" { fail("DRAG must be empty: " + j4); }
     let d5: LspDiagnostic = lsp_diagnostic_new(0, 0, 0, 80, 1, "E_CAP", "no", "em");
-    let j5: String = lsp_code_actions_to_json(lsp_code_action_resolve(&d5), uri);
+    let j5: String = lsp_code_actions_to_json(lsp_code_action_resolve(&d5, uri), uri);
     if j5 != "[]" { fail("E_CAP must be empty: " + j5); }
+    let d6: LspDiagnostic = lsp_diagnostic_new(3, 8, 3, 9, 1, "E_TC", "bad", "oodac");
+    let j6: String = lsp_code_actions_to_json(lsp_code_action_resolve(&d6, uri), uri);
+    if str_index_of(j6, "ooda.fix") < 0 { fail("oodac must offer ooda.fix: " + j6); }
+    if str_index_of(j6, "file:///tmp/a.oo") < 0 { fail("ooda.fix args must carry uri: " + j6); }
+    if str_index_of(j6, "newText") >= 0 { fail("command action must not edit: " + j6); }
+    if lsp_code_action_parse_diagnostic("{\"context\":{\"diagnostics\":[{\"code\":\"E_TC\",\"source\":\"oodac\",\"range\":{\"start\":{\"line\":3,\"character\":8},\"end\":{\"line\":3,\"character\":9}}}]}}").source != "oodac" { fail("parse must keep source"); }
     println("PASS pins delete only");
+    println("PASS oodac fix command");
     println("probe_codeaction PASSED");
 }

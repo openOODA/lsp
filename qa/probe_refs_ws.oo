@@ -1,0 +1,50 @@
+// # LSP Workspace Refs - Hostile Probe
+//
+// Logline: Proves references and rename run over the merged view: disk-only files hit, open docs shadow.
+//
+// Setup: Pure. Synthetic open + disk records through lsp_ws_merge into refs/rename.
+//
+// Beats:
+//   1. references finds the ident in the disk-only record.
+//   2. rename edit covers the disk URI and the open URI.
+//   3. An open record shadowing a disk URI reports the open text, not disk.
+
+import "lsp/methods/lsp_refs.oo";
+import "lsp/methods/lsp_ws_scan.oo";
+import "lsp/server/lsp_server_docs.oo";
+
+fn fail(msg: String) {
+    println("FAIL " + msg);
+    process_exit(1);
+}
+
+pub fn main() {
+    let disk_a: String = lsp_docs_rec("file:///w/a.oo", "pub fn alpha() {\n    return 1;\n}\n");
+    let disk_b: String = lsp_docs_rec("file:///w/b.oo", "pub fn beta() {\n    return alpha();\n}\n");
+    let mut ws: List[String] = list_new();
+    ws = list_push(ws, disk_a);
+    ws = list_push(ws, disk_b);
+
+    let open: List[String] = list_new();
+    let merged: List[String] = lsp_ws_merge(open, ws);
+    if list_len(merged) != 2 { fail("merge keeps both disk"); }
+    let locs: String = lsp_refs_locations(merged, "alpha");
+    if str_index_of(locs, "file:///w/a.oo") < 0 { fail("refs decl: " + locs); }
+    if str_index_of(locs, "file:///w/b.oo") < 0 { fail("refs use: " + locs); }
+    println("PASS refs disk");
+
+    let ed: String = lsp_rename_edit(merged, "alpha", "gamma");
+    if str_index_of(ed, "file:///w/a.oo") < 0 { fail("rename a: " + ed); }
+    if str_index_of(ed, "file:///w/b.oo") < 0 { fail("rename b: " + ed); }
+    if str_index_of(ed, "gamma") < 0 { fail("rename text: " + ed); }
+    println("PASS rename disk");
+
+    let mut open2: List[String] = list_new();
+    open2 = list_push(open2, lsp_docs_rec("file:///w/b.oo", "pub fn beta() {\n    return 0;\n}\n"));
+    let merged2: List[String] = lsp_ws_merge(open2, ws);
+    let locs2: String = lsp_refs_locations(merged2, "alpha");
+    if str_index_of(locs2, "file:///w/b.oo") >= 0 { fail("shadow must hide disk use: " + locs2); }
+    if str_index_of(locs2, "file:///w/a.oo") < 0 { fail("shadow keeps decl: " + locs2); }
+    println("PASS shadow");
+    println("probe_refs_ws PASSED");
+}

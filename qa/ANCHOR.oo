@@ -32,6 +32,12 @@
 //   25. probe_resolve.oo - completionItem/resolve.
 //   26. probe_em_cache.oo - module .em header cache.
 //   27. probe_path.oo - script path guard for methods seam.
+//   28. probe_check_json.oo - --json-errors arrays to diagnostics with fix hint.
+//   29. probe_ws_scan.oo - disk walk, source filter, open-shadows-disk merge.
+//   30. probe_refs_ws.oo - references and rename over the merged view.
+//   31. probe_fix.oo - ooda fix runner guards and dry-run.
+//   32. probe_unescape.oo - JSON decode round-trip and \u00XX forms.
+//   fixture_fix.oo is a runtime victim, never imported (it owns a main and a deliberate error).
 
 import "probe_initialize.oo";
 import "probe_completion.oo";
@@ -60,3 +66,8 @@ import "probe_semantic.oo";
 import "probe_resolve.oo";
 import "probe_em_cache.oo";
 import "probe_path.oo";
+import "probe_check_json.oo";
+import "probe_ws_scan.oo";
+import "probe_refs_ws.oo";
+import "probe_fix.oo";
+import "probe_unescape.oo";

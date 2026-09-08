@@ -1,13 +1,14 @@
-// # LSP Code Action - Live Cap Attenuation
+// # LSP Code Action - Pins Delete plus ooda fix Command
 //
-// Logline: Generates a quick-fix only for E_EM_PINS: delete the Floor/Thrust/Patch line.
+// Logline: Generates a quick-fix for E_EM_PINS (delete the line) and an ooda.fix command action for oodac diagnostics.
 //
-// Setup: Maps only the code that has an honest edit. WEIGHT and PS have no edit that fixes them.
+// Setup: PINS has an honest edit. Compiler errors delegate to `ooda fix` via command; WEIGHT and PS have no fix.
 //
 // Beats:
-//   1. Parse the first diagnostic object out of context.diagnostics.
+//   1. Parse the first diagnostic object out of context.diagnostics, keeping source.
 //   2. Resolve E_EM_PINS to a quickfix whose newText is empty (delete the range).
-//   3. Serialize the action list to JSON. Unknown codes yield [].
+//   3. Resolve source oodac to a quickfix command action ooda.fix with the file URI.
+//   4. Serialize the action list to JSON. Unknown codes yield [].
 
 import "lsp/types/lsp_payload.oo";
 import "lsp_text.oo";
@@ -58,6 +59,8 @@ pub fn lsp_code_action_parse_diagnostic(params: String) -> LspDiagnostic {
     let diags_arr: String = lsp_jsonrpc_extract_object(ctx, "diagnostics");
     let first: String = lsp_code_action_first_array_object(diags_arr);
     let code: String = lsp_jsonrpc_extract_string(first, "code");
+    let src: String = lsp_jsonrpc_extract_string(first, "source");
+    let origin: String = if chars_len(src) > 0 { src } else { "openOODA" };
     let rng: String = lsp_jsonrpc_extract_object(first, "range");
     let start: String = lsp_jsonrpc_extract_object(rng, "start");
     let end: String = lsp_jsonrpc_extract_object(rng, "end");
@@ -65,10 +68,10 @@ pub fn lsp_code_action_parse_diagnostic(params: String) -> LspDiagnostic {
     let sc: Int = lsp_jsonrpc_extract_int(start, "character");
     let el: Int = lsp_jsonrpc_extract_int(end, "line");
     let ec: Int = lsp_jsonrpc_extract_int(end, "character");
-    return lsp_diagnostic_new(sl, sc, el, ec, 1, code, "", "openOODA");
+    return lsp_diagnostic_new(sl, sc, el, ec, 1, code, "", origin);
 }
 
-pub fn lsp_code_action_resolve(diag: &LspDiagnostic) -> List[LspCodeAction] {
+pub fn lsp_code_action_resolve(diag: &LspDiagnostic, uri: String) -> List[LspCodeAction] {
     let mut actions: List[LspCodeAction] = list_new();
     let code: String = diag.code;
     let sl: Int = diag.start_line;
@@ -80,6 +83,11 @@ pub fn lsp_code_action_resolve(diag: &LspDiagnostic) -> List[LspCodeAction] {
         let title: String = "E-M: Remove Floor/Thrust/Patch pins from the header";
         actions = list_push(actions, lsp_action_simple_new(title, "quickfix", "", sl, sc, el, ec));
     }
+    if diag.source == "oodac" {
+        let ftitle: String = "Run `ooda fix` on this file (" + code + ")";
+        let fargs: String = "{\"uri\":\"" + lsp_jsonrpc_escape(uri) + "\"}";
+        actions = list_push(actions, lsp_action_command_new(ftitle, "quickfix", "ooda.fix", fargs));
+    }
 
     return actions;
 }
@@ -87,6 +95,11 @@ pub fn lsp_code_action_resolve(diag: &LspDiagnostic) -> List[LspCodeAction] {
 pub fn lsp_code_action_to_json(action: &LspCodeAction, uri: String) -> String {
     let ttl: String = lsp_jsonrpc_escape(lsp_code_action_title(action));
     let knd: String = lsp_jsonrpc_escape(lsp_code_action_kind(action));
+    let cmd: String = lsp_code_action_command(action);
+    if chars_len(cmd) > 0 {
+        let ecmd: String = lsp_jsonrpc_escape(cmd);
+        return "{\"title\":\"" + ttl + "\",\"kind\":\"" + knd + "\",\"command\":{\"command\":\"" + ecmd + "\",\"arguments\":[" + lsp_code_action_args(action) + "]}}";
+    }
     let edt: String = lsp_jsonrpc_escape(lsp_code_action_edit(action));
     let u: String = lsp_jsonrpc_escape(uri);
     let sl: String = action.start_line.to_string();

@@ -52,11 +52,11 @@ fn lsp_server_first_object(arr: String) -> String {
 pub fn lsp_server_extract_doc(params: String) -> LspDoc {
     let td: String = lsp_jsonrpc_extract_object(params, "textDocument");
     if chars_len(td) == 0 { return lsp_doc_new("", "", false); }
-    let uri: String = lsp_jsonrpc_extract_string(td, "uri");
-    let mut raw: String = lsp_jsonrpc_extract_string(td, "text");
+    let uri: String = lsp_jsonrpc_unescape(lsp_jsonrpc_extract_string(td, "uri"));
+    let mut raw: String = lsp_jsonrpc_unescape(lsp_jsonrpc_extract_string(td, "text"));
     if chars_len(raw) == 0 {
         let ch: String = lsp_jsonrpc_extract_object(params, "contentChanges");
-        raw = lsp_jsonrpc_extract_string(lsp_server_first_object(ch), "text");
+        raw = lsp_jsonrpc_unescape(lsp_jsonrpc_extract_string(lsp_server_first_object(ch), "text"));
     }
     return lsp_doc_new(uri, raw, true);
 }

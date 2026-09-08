@@ -1,0 +1,63 @@
+// # LSP Workspace Scan - Hostile Probe
+//
+// Logline: Proves the disk walk finds .oo files, skips dot-dirs, and open docs shadow disk in the merge.
+//
+// Setup: Scans lsp/qa (small, known). Needs FsReadCap only. No spawn.
+//
+// Beats:
+//   1. collect finds probe_check.oo and no traversal names.
+//   2. load yields file:// records; oversize and missing files skip.
+//   3. merge keeps disk-only records and lets open docs win by URI.
+
+import "lsp/methods/lsp_ws_scan.oo";
+import "lsp/server/lsp_server_docs.oo";
+
+fn fail(msg: String) {
+    println("FAIL " + msg);
+    process_exit(1);
+}
+
+pub fn main(fs: &FsReadCap) {
+    if lsp_ws_is_source("probe_check.oo") != true { fail("oo suffix"); }
+    if lsp_ws_is_source("notes.oot") != true { fail("oot suffix"); }
+    if lsp_ws_is_source(".hidden.oo") != false { fail("dot file"); }
+    if lsp_ws_is_source("a/b.oo") != false { fail("slash"); }
+    if lsp_ws_is_source("../x.oo") != false { fail("traversal"); }
+    if lsp_ws_is_source("README.md") != false { fail("non-source"); }
+    if lsp_ws_is_source("") != false { fail("empty"); }
+    println("PASS source filter");
+
+    let paths: List[String] = lsp_ws_collect(fs, "lsp/qa");
+    let n: Int = list_len(paths);
+    if n < 5 { fail("qa must hold many sources, got " + n.to_string()); }
+    let mut saw_check: Bool = false;
+    let mut i: Int = 0;
+    while i < n {
+        let p: String = list_get(paths, i);
+        if str_index_of(p, "..") >= 0 { fail("traversal path: " + p); }
+        if p == "lsp/qa/probe_check.oo" { saw_check = true; }
+        i = i + 1;
+    }
+    if !saw_check { fail("collect must find probe_check.oo"); }
+    println("PASS collect");
+
+    let docs: List[String] = lsp_ws_load(fs, paths);
+    if list_len(docs) < 5 { fail("load must yield records"); }
+    let r0: String = list_get(docs, 0);
+    if !str_starts_with(lsp_docs_uri(r0), "file://lsp/qa/") { fail("record uri: " + lsp_docs_uri(r0)); }
+    if chars_len(lsp_docs_text(r0)) == 0 { fail("record text empty"); }
+    println("PASS load");
+
+    let mut open: List[String] = list_new();
+    open = list_push(open, lsp_docs_rec("file://lsp/qa/probe_check.oo", "OPEN-VERSION"));
+    let merged: List[String] = lsp_ws_merge(open, docs);
+    let got: String = lsp_docs_get(merged, "file://lsp/qa/probe_check.oo");
+    if got != "OPEN-VERSION" { fail("open must shadow disk"); }
+    if list_len(merged) != list_len(docs) { fail("shadow must not duplicate"); }
+    println("PASS merge shadow");
+
+    let merged2: List[String] = lsp_ws_merge(list_new(), docs);
+    if list_len(merged2) != list_len(docs) { fail("empty open must keep all disk"); }
+    println("PASS merge keep");
+    println("probe_ws_scan PASSED");
+}

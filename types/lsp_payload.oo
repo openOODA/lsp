@@ -23,6 +23,8 @@ type LspCodeAction = struct {
     title: String,
     kind: String,
     edit: String,
+    command: String,
+    args: String,
     start_line: Int,
     start_col: Int,
     end_line: Int,
@@ -34,9 +36,15 @@ pub fn lsp_diagnostic_new(sl: Int, sc: Int, el: Int, ec: Int, sev: Int, code: St
 }
 
 pub fn lsp_action_simple_new(title: String, kind: String, edit: String, start_line: Int, start_col: Int, end_line: Int, end_col: Int) -> LspCodeAction {
-    return LspCodeAction { title: title, kind: kind, edit: edit, start_line: start_line, start_col: start_col, end_line: end_line, end_col: end_col };
+    return LspCodeAction { title: title, kind: kind, edit: edit, command: "", args: "", start_line: start_line, start_col: start_col, end_line: end_line, end_col: end_col };
+}
+
+pub fn lsp_action_command_new(title: String, kind: String, command: String, args: String) -> LspCodeAction {
+    return LspCodeAction { title: title, kind: kind, edit: "", command: command, args: args, start_line: 0, start_col: 0, end_line: 0, end_col: 0 };
 }
 
 pub fn lsp_code_action_title(a: &LspCodeAction) -> String { return a.title; }
 pub fn lsp_code_action_kind(a: &LspCodeAction) -> String { return a.kind; }
 pub fn lsp_code_action_edit(a: &LspCodeAction) -> String { return a.edit; }
+pub fn lsp_code_action_command(a: &LspCodeAction) -> String { return a.command; }
+pub fn lsp_code_action_args(a: &LspCodeAction) -> String { return a.args; }

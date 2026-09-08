@@ -1,8 +1,8 @@
 // # LSP References and Rename
 //
-// Logline: Finds ident occurrences in open documents. Rename writes those ranges to newName.
+// Logline: Finds ident occurrences across the workspace-merged view. Rename writes those ranges to newName.
 //
-// Setup: Whole-ident match only. Open documents are uri\\ntext records. newName must be an ident.
+// Setup: Whole-ident match only. Documents are uri\\ntext records: open docs shadow disk (see lsp_ws_scan.oo). newName must be an ident.
 //
 // Beats:
 //   1. Scan each open document for word-boundary hits.

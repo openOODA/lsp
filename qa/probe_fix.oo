@@ -1,0 +1,55 @@
+// # LSP ooda fix Runner - Hostile Probe
+//
+// Logline: Proves the fix runner fails closed without a sibling ooda and dry-runs through a real one.
+//
+// Setup: Needs ProcessCap, FsReadCap, EnvCap. Compiler resolves from OODA_COMPILER else OODAC_BIN.
+//        If no ooda sibling exists, the fail-closed branch is asserted instead.
+//
+// Beats:
+//   1. Traversal, empty, and non-.oo paths refuse without spawning.
+//   2. Missing compiler or missing ooda sibling yields a JSON error.
+//   3. With a sibling, --dry-run on a real file returns ok true.
+
+import "lsp/methods/lsp_fix.oo";
+import "std/fs/process/env.oo";
+
+fn fail(msg: String) {
+    println("FAIL " + msg);
+    process_exit(1);
+}
+
+fn fix_compiler(env: &EnvCap) -> String {
+    let r1: Result[String, String] = env_get(env, "OODA_COMPILER");
+    let v1: String = match r1 { Ok(s) => s, Err(_) => "" };
+    if chars_len(v1) > 0 { return v1; }
+    let r2: Result[String, String] = env_get(env, "OODAC_BIN");
+    return match r2 { Ok(s) => s, Err(_) => "" };
+}
+
+pub fn main(p: &ProcessCap, fs: &FsReadCap, env: &EnvCap) {
+    let t1: String = lsp_fix_run(p, fs, "/bin/oodac", "../evil.oo", true);
+    if str_index_of(t1, "traversal refused") < 0 { fail("traversal: " + t1); }
+    let t2: String = lsp_fix_run(p, fs, "/bin/oodac", "", true);
+    if str_index_of(t2, "missing path") < 0 { fail("empty: " + t2); }
+    let t3: String = lsp_fix_run(p, fs, "/bin/oodac", "notes.md", true);
+    if str_index_of(t3, "not an ooda source") < 0 { fail("suffix: " + t3); }
+    let t4: String = lsp_fix_run(p, fs, "", "lsp/qa/probe_check.oo", true);
+    if str_index_of(t4, "no ooda sibling") < 0 { fail("no compiler: " + t4); }
+    println("PASS guards");
+
+    let comp: String = fix_compiler(env);
+    if chars_len(comp) == 0 { fail("need OODA_COMPILER or OODAC_BIN"); }
+    let sib: String = lsp_fix_find_ooda(fs, comp);
+    if chars_len(sib) == 0 {
+        let t5: String = lsp_fix_run(p, fs, comp, "lsp/qa/probe_check.oo", true);
+        if str_index_of(t5, "no ooda sibling") < 0 { fail("sibling fail-closed: " + t5); }
+        println("PASS sibling fail-closed");
+        println("probe_fix PASSED");
+        return;
+    }
+    let t6: String = lsp_fix_run(p, fs, comp, "lsp/qa/fixture_fix.oo", true);
+    if str_index_of(t6, "\"ok\":true") < 0 { fail("dry-run must ok: " + t6); }
+    if str_index_of(t6, "undefined_counter") < 0 { fail("dry-run must show proposal: " + t6); }
+    println("PASS dry-run");
+    println("probe_fix PASSED");
+}

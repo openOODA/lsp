@@ -18,6 +18,8 @@ import "lsp/methods/lsp_text.oo";
 import "lsp/server/lsp_server_uri.oo";
 import "lsp/server/lsp_server_docs.oo";
 import "lsp/methods/lsp_check.oo";
+import "lsp/methods/lsp_ws_scan.oo";
+import "lsp/methods/lsp_fix.oo";
 
 pub fn lsp_input_cap_bytes() -> Int { return lsp_em_cap_input(); }
 pub fn lsp_safety_max_msgs() -> Int { return lsp_em_cap_msgs(); }
@@ -110,12 +112,22 @@ pub fn lsp_serve_oversize(f_body: String) -> String {
 
 fn lsp_serve_one(fs: &FsReadCap, p: &ProcessCap, compiler: String, idx: List[String], rows: List[String], state: LspServerState, f_body: String) -> LspProcessResult {
     let method: String = lsp_jsonrpc_extract_method(f_body);
+    if method == "workspace/executeCommand" {
+        let fixed: String = lsp_fix_serve(fs, p, compiler, state.root_uri, state.folders, f_body);
+        if chars_len(fixed) > 0 {
+            return lsp_process_result_new(fixed, state);
+        }
+    }
     let mut extra: String = "";
     if method == "textDocument/didOpen" || method == "textDocument/didChange" {
         let d: LspDoc = lsp_server_extract_doc(lsp_jsonrpc_extract_params(f_body));
         extra = lsp_check_run(p, fs, compiler, lsp_server_uri_path(d.uri));
     }
-    return lsp_server_process_message(state, f_body, idx, rows, extra);
+    let mut ws: List[String] = list_new();
+    if method == "textDocument/references" || method == "textDocument/rename" {
+        ws = lsp_ws_scan_roots(fs, state.root_uri, state.folders);
+    }
+    return lsp_server_process_message(state, f_body, idx, rows, extra, ws);
 }
 
 fn lsp_stdio_copy_strings(src: List[String]) -> List[String] {

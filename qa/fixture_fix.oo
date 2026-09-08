@@ -1,0 +1,16 @@
+// # Fix Probe Fixture: undefined variable for ooda fix --dry-run
+//
+// Logline: Minimal file with an undefined-variable type error so probe_fix can prove dry-run end to end.
+//
+// Setup: No imports. The used name has no binding. Never auto-fixed in place:
+//        the probe runs --dry-run only. Docs must not spell the missing name:
+//        the fixer text-matches the file.
+//
+// Beats:
+//   1. oodac check fails on this file.
+//   2. ooda fix --dry-run proposes a zero binding without writing.
+
+pub fn main() -> Result[Int, String] {
+    let y: Int = undefined_counter + 1;
+    return Ok(y);
+}

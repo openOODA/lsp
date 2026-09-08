@@ -1,0 +1,45 @@
+// # LSP Check JSON - Hostile Probe
+//
+// Logline: Proves --json-errors arrays become oodac diagnostics with code, 0-based loc, and fix hint.
+//
+// Setup: Pure parse. No spawn. No filesystem.
+//
+// Beats:
+//   1. One E_OTHER object yields code E_OTHER at line 0 col 0 with the hint in the message.
+//   2. A typed object maps line/col 1-based to 0-based.
+//   3. [] and "" yield nothing; legacy ERR text yields nothing here (legacy parser owns it).
+
+import "lsp/methods/lsp_check.oo";
+
+fn fail(msg: String) {
+    println("FAIL " + msg);
+    process_exit(1);
+}
+
+pub fn main() {
+    let raw: String = "[{\"code\":\"E_OTHER\",\"line\":1,\"col\":1,\"msg\":\"ERR check unreadable file: x.oo\",\"path\":\"x.oo\",\"fix_hint\":\"See SHIPPED.oot.\"}]";
+    let j: String = lsp_check_parse_json(raw);
+    if str_index_of(j, "E_OTHER") < 0 { fail("code: " + j); }
+    if str_index_of(j, "\"line\":0") < 0 { fail("line 0-based: " + j); }
+    if str_index_of(j, "\"character\":0") < 0 { fail("col 0-based: " + j); }
+    if str_index_of(j, "unreadable file") < 0 { fail("msg: " + j); }
+    if str_index_of(j, "SHIPPED.oot") < 0 { fail("hint: " + j); }
+    if str_index_of(j, "oodac") < 0 { fail("source: " + j); }
+    println("PASS json one");
+
+    let two: String = "[{\"code\":\"E_TC\",\"line\":4,\"col\":9,\"msg\":\"m1\",\"path\":\"a.oo\",\"fix_hint\":\"\"},{\"code\":\"E_PARSE\",\"line\":2,\"col\":3,\"msg\":\"m2\",\"path\":\"a.oo\",\"fix_hint\":\"h2\"}]";
+    let j2: String = lsp_check_parse_json(two);
+    if str_index_of(j2, "E_TC") < 0 { fail("first code: " + j2); }
+    if str_index_of(j2, "E_PARSE") < 0 { fail("second code: " + j2); }
+    if str_index_of(j2, "\"line\":3") < 0 { fail("first line: " + j2); }
+    if str_index_of(j2, "\"line\":1") < 0 { fail("second line: " + j2); }
+    if str_index_of(j2, "(hint: h2)") < 0 { fail("second hint: " + j2); }
+    println("PASS json two");
+
+    if chars_len(lsp_check_parse_json("[]")) != 0 { fail("empty array"); }
+    if chars_len(lsp_check_parse_json("")) != 0 { fail("empty input"); }
+    if chars_len(lsp_check_parse_json("OK\n")) != 0 { fail("OK must be empty"); }
+    if chars_len(lsp_check_parse_json("ERR\ttype\tType error at 3:5: x\n")) != 0 { fail("legacy belongs to legacy parser"); }
+    println("PASS json empty");
+    println("probe_check_json PASSED");
+}

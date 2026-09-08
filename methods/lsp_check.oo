@@ -7,9 +7,12 @@
 // Beats:
 //   1. Split capture into lines. Take ERR records. Optional --> path:line:col.
 //   2. Map kind to E_TC / E_PARSE / E_CHECK / E_LEX / E_CAP.
-//   3. Emit comma-separated diagnostic objects for concat with WEIGHT/PINS.
+//   3. Parse --json-errors objects too; fix_hint appends to the message.
+//   4. Emit comma-separated diagnostic objects for concat with WEIGHT/PINS.
+//   5. --json-errors is lossy in current oodac, so run() spawns both shapes.
 
 import "lsp/wire/lsp_json_encode.oo";
+import "lsp/wire/lsp_jsonrpc.oo";
 import "lsp_text.oo";
 
 pub fn lsp_check_kind_code(kind: String) -> String {
@@ -128,13 +131,81 @@ pub fn lsp_check_parse(raw: String) -> String {
     return out;
 }
 
+fn lsp_check_json_objects(arr: String) -> List[String] {
+    let mut out: List[String] = list_new();
+    let n: Int = chars_len(arr);
+    let mut i: Int = 0;
+    while i < n {
+        i = lsp_text_skip_ws(arr, i);
+        if i < n && char_at(arr, i) == "[" { i = i + 1; continue; }
+        if i >= n || char_at(arr, i) != "{" { i = i + 1; continue; }
+        let start: Int = i;
+        let mut depth: Int = 0;
+        let mut in_str: Bool = false;
+        let mut esc: Bool = false;
+        let mut done: Bool = false;
+        while i < n && !done {
+            let c: String = char_at(arr, i);
+            if in_str {
+                if esc { esc = false; } else if c == "\\" { esc = true; } else if c == "\"" { in_str = false; }
+            } else if c == "\"" { in_str = true; }
+            else if c == "{" { depth = depth + 1; }
+            else if c == "}" {
+                depth = depth - 1;
+                if depth == 0 {
+                    out = list_push(out, str_slice(arr, start, i + 1));
+                    done = true;
+                }
+            }
+            i = i + 1;
+        }
+    }
+    return out;
+}
+
+fn lsp_check_json_one(obj: String) -> String {
+    let code: String = lsp_jsonrpc_extract_string(obj, "code");
+    let line1: Int = lsp_jsonrpc_extract_int(obj, "line");
+    let col1: Int = lsp_jsonrpc_extract_int(obj, "col");
+    let msg: String = lsp_jsonrpc_extract_string(obj, "msg");
+    let hint: String = lsp_jsonrpc_extract_string(obj, "fix_hint");
+    let full: String = if chars_len(hint) > 0 { msg + " (hint: " + hint + ")" } else { msg };
+    let sl: Int = if line1 > 0 { line1 - 1 } else { 0 };
+    let sc: Int = if col1 > 0 { col1 - 1 } else { 0 };
+    let tag: String = if chars_len(code) > 0 { code } else { "E_CHECK" };
+    let ecode: String = lsp_json_escape(tag);
+    let emsg: String = lsp_json_escape(full);
+    return "{\"range\":{\"start\":{\"line\":" + sl.to_string() + ",\"character\":" + sc.to_string() + "},\"end\":{\"line\":" + sl.to_string() + ",\"character\":" + (sc + 1).to_string() + "}},\"severity\":1,\"code\":\"" + ecode + "\",\"source\":\"oodac\",\"message\":\"" + emsg + "\"}";
+}
+
+pub fn lsp_check_parse_json(raw: String) -> String {
+    let objs: List[String] = lsp_check_json_objects(raw);
+    let mut out: String = "";
+    let n: Int = list_len(objs);
+    let mut i: Int = 0;
+    while i < n {
+        if chars_len(out) > 0 { out = out + ","; }
+        out = out + lsp_check_json_one(list_get(objs, i));
+        i = i + 1;
+    }
+    return out;
+}
+
+fn lsp_check_concat(a: String, b: String) -> String {
+    if chars_len(a) == 0 { return b; }
+    if chars_len(b) == 0 { return a; }
+    return a + "," + b;
+}
+
 pub fn lsp_check_run(p: &ProcessCap, fs: &FsReadCap, compiler: String, path: String) -> String {
     if chars_len(compiler) == 0 { return ""; }
     if chars_len(path) == 0 { return ""; }
     if str_index_of(path, "..") >= 0 { return ""; }
     if !str_ends_with(path, ".oo") && !str_ends_with(path, ".oot") { return ""; }
     if !path_exists(fs, path) { return ""; }
-    let r: Result[String, String] = sys_exec(p, compiler, "check", path);
-    let raw: String = match r { Ok(s) => s, Err(e) => e };
-    return lsp_check_parse(raw);
+    let rj: Result[String, String] = sys_exec(p, compiler, "check", "--json-errors", path);
+    let raw_json: String = match rj { Ok(s) => s, Err(e) => e };
+    let rl: Result[String, String] = sys_exec(p, compiler, "check", path);
+    let raw_legacy: String = match rl { Ok(s) => s, Err(e) => e };
+    return lsp_check_concat(lsp_check_parse_json(raw_json), lsp_check_parse(raw_legacy));
 }

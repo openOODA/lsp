@@ -1,0 +1,93 @@
+// # LSP ooda fix Runner - Command-Action Engine
+//
+// Logline: Runs `ooda fix <path> --yes` for workspace/executeCommand ooda.fix so a code action can apply the fixer.
+//
+// Setup: ooda resolves as a sibling of the compiler binary (codex/bin layout).
+//        Explicit user/agent invocation only; never automatic. Output truncates.
+//        The fixer owns the edit; the server only reports ok/output. ooda fix
+//        refuses absolute paths, so serve sends root-relative paths; this assumes
+//        the standard launch where server CWD equals the workspace root.
+//
+// Beats:
+//   1. Missing compiler, missing ooda sibling, traversal, or non-.oo path fails closed.
+//   2. sys_exec runs fix --yes; ok mirrors the exit; output truncates to 2000 chars.
+//   3. --dry-run variant previews without writing.
+//   4. serve maps absolute workspace paths to root-relative for the fixer.
+
+import "lsp/wire/lsp_json_encode.oo";
+import "lsp/wire/lsp_jsonrpc.oo";
+import "lsp/server/lsp_server_uri.oo";
+
+pub fn lsp_fix_max_output() -> Int { return 2000; }
+
+pub fn lsp_fix_parent_dir(path: String) -> String {
+    let n: Int = chars_len(path);
+    let mut i: Int = n - 1;
+    while i >= 0 {
+        if char_at(path, i) == "/" { return str_slice(path, 0, i); }
+        i = i - 1;
+    }
+    return "";
+}
+
+pub fn lsp_fix_find_ooda(fs: &FsReadCap, compiler: String) -> String {
+    if chars_len(compiler) == 0 { return ""; }
+    let dir: String = lsp_fix_parent_dir(compiler);
+    if chars_len(dir) == 0 { return ""; }
+    let cand: String = dir + "/ooda";
+    if !path_exists(fs, cand) { return ""; }
+    return cand;
+}
+
+fn lsp_fix_truncate(text: String) -> String {
+    if chars_len(text) <= lsp_fix_max_output() { return text; }
+    return str_slice(text, 0, lsp_fix_max_output()) + "...[truncated]";
+}
+
+fn lsp_fix_result(ok: Bool, text: String) -> String {
+    let flag: String = if ok { "true" } else { "false" };
+    return "{\"ok\":" + flag + ",\"output\":\"" + lsp_json_escape(lsp_fix_truncate(text)) + "\"}";
+}
+
+pub fn lsp_fix_run(p: &ProcessCap, fs: &FsReadCap, compiler: String, path: String, dry: Bool) -> String {
+    if chars_len(path) == 0 { return "{\"error\":\"missing path\"}"; }
+    if str_index_of(path, "..") >= 0 { return "{\"error\":\"traversal refused\"}"; }
+    if !str_ends_with(path, ".oo") && !str_ends_with(path, ".oot") { return "{\"error\":\"not an ooda source path\"}"; }
+    if !path_exists(fs, path) { return "{\"error\":\"path not found\"}"; }
+    let ooda: String = lsp_fix_find_ooda(fs, compiler);
+    if chars_len(ooda) == 0 { return "{\"error\":\"no ooda sibling next to compiler\"}"; }
+    let mode: String = if dry { "--dry-run" } else { "--yes" };
+    let r: Result[String, String] = sys_exec(p, ooda, "fix", path, mode);
+    if r.is_ok() {
+        let out: String = match r { Ok(s) => s, Err(_) => "" };
+        return lsp_fix_result(true, out);
+    }
+    let e: String = match r { Ok(_) => "", Err(m) => m };
+    return lsp_fix_result(false, e);
+}
+
+fn lsp_fix_relpath(path: String, root: String) -> String {
+    if chars_len(root) == 0 { return path; }
+    let prefix: String = root + "/";
+    if !str_starts_with(path, prefix) { return path; }
+    let rel: String = str_slice(path, chars_len(prefix), chars_len(path));
+    if chars_len(rel) == 0 { return path; }
+    return rel;
+}
+
+pub fn lsp_fix_serve(fs: &FsReadCap, p: &ProcessCap, compiler: String, root_uri: String, folders: List[String], f_body: String) -> String {
+    let id: String = lsp_jsonrpc_extract_id(f_body);
+    let params: String = lsp_jsonrpc_extract_params(f_body);
+    if lsp_jsonrpc_extract_string(params, "command") != "ooda.fix" { return ""; }
+    let uri: String = lsp_jsonrpc_extract_string(params, "uri");
+    if chars_len(uri) == 0 {
+        return lsp_jsonrpc_frame(lsp_jsonrpc_make_error(id, 0 - 32602, "ooda.fix needs arguments.uri"));
+    }
+    if !lsp_server_uri_acceptable_folders(uri, root_uri, folders) {
+        return lsp_jsonrpc_frame(lsp_jsonrpc_make_error(id, 0 - 32602, "ooda.fix uri outside workspace"));
+    }
+    let apath: String = lsp_server_uri_path(uri);
+    let rel: String = lsp_fix_relpath(apath, lsp_server_uri_path(root_uri));
+    let res: String = lsp_fix_run(p, fs, compiler, rel, false);
+    return lsp_jsonrpc_frame(lsp_jsonrpc_make_response(id, res));
+}

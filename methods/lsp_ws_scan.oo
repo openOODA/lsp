@@ -1,0 +1,151 @@
+// # LSP Workspace Scan - Disk-Backed Refs and Rename
+//
+// Logline: Collect .oo/.oot files under the workspace root so references and rename see every module, not just open documents.
+//
+// Setup: The impure edge (stdio serve) calls lsp_ws_scan and passes the records down.
+//        Open documents shadow disk records by URI in lsp_ws_merge. Caps bound the walk:
+//        500 files, 200KB per file, depth 8. Dot-dirs (.git) are never entered.
+//
+// Beats:
+//   1. lsp_ws_is_source accepts bare .oo/.oot names; hidden and traversal names refuse.
+//   2. lsp_ws_collect walks the tree; files contribute paths, dirs recurse, residuals skip.
+//   3. lsp_ws_load reads each path into a uri\ntext record; oversize files skip.
+//   4. lsp_ws_merge returns disk records with open documents overriding by URI.
+
+import "lsp/server/lsp_server_docs.oo";
+import "lsp/server/lsp_server_uri.oo";
+
+pub fn lsp_ws_max_files() -> Int { return 500; }
+pub fn lsp_ws_max_bytes() -> Int { return 200000; }
+pub fn lsp_ws_max_depth() -> Int { return 8; }
+
+pub fn lsp_ws_is_source(name: String) -> Bool {
+    if chars_len(name) == 0 { return false; }
+    if char_at(name, 0) == "." { return false; }
+    if str_index_of(name, "/") >= 0 { return false; }
+    if str_index_of(name, "..") >= 0 { return false; }
+    if str_ends_with(name, ".oo") { return true; }
+    if str_ends_with(name, ".oot") { return true; }
+    return false;
+}
+
+fn lsp_ws_append_all(out: List[String], extra: List[String]) -> List[String] {
+    let mut res: List[String] = out;
+    let n: Int = list_len(extra);
+    let mut i: Int = 0;
+    while i < n {
+        if list_len(res) >= lsp_ws_max_files() { return res; }
+        res = list_push(res, list_get(extra, i));
+        i = i + 1;
+    }
+    return res;
+}
+
+fn lsp_ws_collect_into(fs: &FsReadCap, dir: String, depth: Int) -> List[String] {
+    let mut out: List[String] = list_new();
+    if depth < 0 { return out; }
+    let entries: List[String] = oo_fs_read_dir(fs, dir);
+    let n: Int = list_len(entries);
+    let mut i: Int = 0;
+    while i < n {
+        if list_len(out) >= lsp_ws_max_files() { return out; }
+        let name: String = list_get(entries, i);
+        if chars_len(name) > 0 && char_at(name, 0) != "." && str_index_of(name, "..") < 0 && str_index_of(name, "/") < 0 {
+            let full: String = dir + "/" + name;
+            if lsp_ws_is_source(name) {
+                out = list_push(out, full);
+            } else if depth > 0 {
+                out = lsp_ws_append_all(out, lsp_ws_collect_into(fs, full, depth - 1));
+            }
+        }
+        i = i + 1;
+    }
+    return out;
+}
+
+pub fn lsp_ws_collect(fs: &FsReadCap, root: String) -> List[String] {
+    if chars_len(root) == 0 { return list_new(); }
+    return lsp_ws_collect_into(fs, root, lsp_ws_max_depth());
+}
+
+pub fn lsp_ws_load(fs: &FsReadCap, paths: List[String]) -> List[String] {
+    let mut out: List[String] = list_new();
+    let n: Int = list_len(paths);
+    let mut i: Int = 0;
+    while i < n {
+        let p: String = list_get(paths, i);
+        let rr: Result[String, String] = read_file(fs, p);
+        if rr.is_ok() {
+            let text: String = match rr { Ok(s) => s, Err(_) => "" };
+            if chars_len(text) <= lsp_ws_max_bytes() {
+                out = list_push(out, lsp_docs_rec("file://" + p, text));
+            }
+        }
+        i = i + 1;
+    }
+    return out;
+}
+
+pub fn lsp_ws_scan(fs: &FsReadCap, root: String) -> List[String] {
+    return lsp_ws_load(fs, lsp_ws_collect(fs, root));
+}
+
+fn lsp_ws_root_ok(uri: String) -> Bool {
+    if chars_len(uri) == 0 { return false; }
+    if lsp_server_uri_has_traversal(uri) { return false; }
+    if lsp_server_path_denied(lsp_server_uri_path(uri)) { return false; }
+    return true;
+}
+
+pub fn lsp_ws_scan_roots(fs: &FsReadCap, root_uri: String, folders: List[String]) -> List[String] {
+    let mut out: List[String] = list_new();
+    if lsp_ws_root_ok(root_uri) {
+        out = lsp_ws_scan(fs, lsp_server_uri_path(root_uri));
+    }
+    let n: Int = list_len(folders);
+    let mut i: Int = 0;
+    while i < n {
+        let f: String = list_get(folders, i);
+        if lsp_ws_root_ok(f) && !lsp_server_uri_is_under(f, root_uri) {
+            let got: List[String] = lsp_ws_scan(fs, lsp_server_uri_path(f));
+            let m: Int = list_len(got);
+            let mut k: Int = 0;
+            while k < m {
+                out = list_push(out, list_get(got, k));
+                k = k + 1;
+            }
+        }
+        i = i + 1;
+    }
+    return out;
+}
+
+fn lsp_ws_has_uri(docs: List[String], uri: String) -> Bool {
+    let n: Int = list_len(docs);
+    let mut i: Int = 0;
+    while i < n {
+        if lsp_docs_uri(list_get(docs, i)) == uri { return true; }
+        i = i + 1;
+    }
+    return false;
+}
+
+pub fn lsp_ws_merge(open_docs: List[String], ws_docs: List[String]) -> List[String] {
+    let mut out: List[String] = list_new();
+    let m: Int = list_len(open_docs);
+    let mut k: Int = 0;
+    while k < m {
+        out = list_push(out, list_get(open_docs, k));
+        k = k + 1;
+    }
+    let n: Int = list_len(ws_docs);
+    let mut i: Int = 0;
+    while i < n {
+        let rec: String = list_get(ws_docs, i);
+        if !lsp_ws_has_uri(out, lsp_docs_uri(rec)) {
+            out = list_push(out, rec);
+        }
+        i = i + 1;
+    }
+    return out;
+}

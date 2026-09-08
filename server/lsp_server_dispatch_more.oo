@@ -19,8 +19,9 @@ import "lsp/methods/lsp_refs.oo";
 import "lsp/methods/lsp_semantic.oo";
 import "lsp/methods/lsp_wsym.oo";
 import "lsp/methods/lsp_completion_codec.oo";
+import "lsp/methods/lsp_ws_scan.oo";
 
-pub fn lsp_server_dispatch_more(state: LspServerState, idx: List[String], method: String, id: String, params: String) -> String {
+pub fn lsp_server_dispatch_more(state: LspServerState, idx: List[String], ws: List[String], method: String, id: String, params: String) -> String {
     if method == "completionItem/resolve" {
         if !state.is_initialized { return lsp_jsonrpc_frame(lsp_jsonrpc_make_error(id, 0 - 32602, "Server not initialized: " + method)); }
         return lsp_completion_resolve_handle(id, idx, params);
@@ -55,12 +56,12 @@ pub fn lsp_server_dispatch_more(state: LspServerState, idx: List[String], method
     if method == "textDocument/references" {
         let pos: String = lsp_jsonrpc_extract_object(params, "position");
         let sym: String = lsp_text_completion_prefix(text, lsp_jsonrpc_extract_int(pos, "line"), lsp_jsonrpc_extract_int(pos, "character"));
-        return lsp_refs_handle(id, state.docs, sym);
+        return lsp_refs_handle(id, lsp_ws_merge(state.docs, ws), sym);
     }
     if method == "textDocument/rename" {
         let pos: String = lsp_jsonrpc_extract_object(params, "position");
         let sym: String = lsp_text_completion_prefix(text, lsp_jsonrpc_extract_int(pos, "line"), lsp_jsonrpc_extract_int(pos, "character"));
-        return lsp_rename_handle(id, state.docs, sym, lsp_jsonrpc_extract_string(params, "newName"));
+        return lsp_rename_handle(id, lsp_ws_merge(state.docs, ws), sym, lsp_jsonrpc_extract_string(params, "newName"));
     }
     if method == "textDocument/semanticTokens/full" {
         return lsp_semantic_handle(id, text);

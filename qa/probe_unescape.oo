@@ -1,0 +1,40 @@
+// # LSP JSON Unescape - Hostile Probe
+//
+// Logline: Proves JSON string decoding restores control chars, quotes, and the encoder's \u00XX forms.
+//
+// Setup: Pure codec round-trip. No filesystem. No spawn.
+//
+// Beats:
+//   1. Short escapes decode; round-trip escape(unescape(x)) is stable.
+//   2. The six \u00XX forms decode; other \u stays raw.
+//   3. Trailing backslash and unknown escapes preserve bytes.
+
+import "lsp/wire/lsp_json_encode.oo";
+
+fn fail(msg: String) {
+    println("FAIL " + msg);
+    process_exit(1);
+}
+
+pub fn main() {
+    if lsp_json_unescape("a\\nb\\tc\\\"d\\\\e\\/f\\rg") != "a\nb\tc\"d\\e/f\rg" { fail("short escapes"); }
+    println("PASS short");
+
+    if lsp_json_unescape("\\u000A") != "\n" { fail("u000A"); }
+    if lsp_json_unescape("\\u000d\\u0009") != "\r\t" { fail("lower u"); }
+    if lsp_json_unescape("\\u0022\\u005c\\u002f") != "\"\\/" { fail("u punct"); }
+    if lsp_json_unescape("\\u00E9") != "\\u00E9" { fail("u raw passthrough"); }
+    if lsp_json_unescape("\\u12") != "\\u12" { fail("short u raw"); }
+    println("PASS unicode");
+
+    if lsp_json_unescape("abc\\") != "abc\\" { fail("trailing"); }
+    if lsp_json_unescape("\\q") != "\\q" { fail("unknown raw"); }
+    if lsp_json_unescape("") != "" { fail("empty"); }
+    if lsp_json_unescape("plain") != "plain" { fail("identity"); }
+    println("PASS edges");
+
+    let rt: String = "line1\nline2\ttab\"q\"\\end\r";
+    if lsp_json_unescape(lsp_json_escape(rt)) != rt { fail("round trip"); }
+    println("PASS round trip");
+    println("probe_unescape PASSED");
+}

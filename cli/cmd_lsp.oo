@@ -64,7 +64,7 @@ fn cmd_lsp_compiler(env: &EnvCap, args: List[String]) -> String {
     return match cr { Ok(s) => s, Err(_) => "" };
 }
 
-pub fn run_ooda_lsp(fr: &FsReadCap, c: &CompilerReadCap, p: &ProcessCap, env: &EnvCap, args: List[String]) {
+pub fn run_ooda_lsp(fr: &FsReadCap, c: &CompilerReadCap, p: &ProcessCap, env: &EnvCap, fw: &FsWriteCap, args: List[String]) {
     if cmd_lsp_arg_flag(args, "--help") || cmd_lsp_arg_flag(args, "-h") {
         println("lsp - openOODA LSP stdio/file server");
         println("usage: lsp [--stdio] [<request-file>]");
