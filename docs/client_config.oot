@@ -15,6 +15,17 @@ ooda lsp --stdio --oodar-root /path/to/oodar
 No environment variables are required. `--oodar-root` enables capability
 go-to-definition. `--stdlib-root` enables stdlib symbol scan. If
 `--stdlib-root` is set and the directory is missing, the process exits 1.
+`--compiler /path/to/oodac` enables live `check` diagnostics on open/change
+plus the `ooda.fix` command action: without it, didOpen publishes only the
+E-M gauges and code actions offer no fixer. The fixer runs `ooda fix <file>
+--yes` from the `ooda` binary next to the compiler, so keep the two together.
+
+References and rename span the whole workspace root, not just open files:
+the server scans `rootUri` (plus extra workspace folders) on each request,
+capped at 500 files / 200KB per file / depth 8, with open documents
+shadowing disk. `workspace/executeCommand` advertises `ooda.fix` alongside
+the `ooda.lsp.*` commands; it takes `{"uri": "<file-uri>"}` and returns
+`{"ok":bool,"output":...}` after running the fixer and its multi-pass check.
 
 ## Handshake
 
