@@ -13,7 +13,7 @@ missing, the process exits 1. If the flag is absent, builtin definition is null.
 ## Capabilities
 
 See `CAPABILITIES.oot`. The server implements the methods listed in `CAPABILITIES.oot`.
-Engine version: `lsp_facade_version()` (`0.6.21`, same as the git tag).
+Engine version: `lsp_facade_version()` (`0.6.28`, same as the git tag).
 
 ## Diagnostics
 

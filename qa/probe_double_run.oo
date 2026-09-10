@@ -5,7 +5,7 @@
 // Setup: In-process. Cap-free canonical index. Cap table parse uses an in-memory fixture.
 //
 // Beats:
-//   1. lsp_facade_version is 0.6.21 and deterministic.
+//   1. lsp_facade_version is 0.6.28 and deterministic.
 //   2. Framing, completion prefix length, and diagnostics match across two calls.
 //   3. Cap table parse of the same fixture is byte-identical.
 
@@ -26,7 +26,7 @@ pub fn main() {
     let v1: String = lsp_facade_version();
     let v2: String = lsp_facade_version();
     if v1 == v2 { pass("version deterministic: " + v1); } else { fail("version not deterministic"); }
-    if v1 == "0.6.21" { pass("version SSoT 0.6.21"); } else { fail("version drift: got " + v1); }
+    if v1 == "0.6.28" { pass("version SSoT 0.6.28"); } else { fail("version drift: got " + v1); }
 
     let payload: String = "{\"jsonrpc\":\"2.0\",\"id\":\"1\",\"result\":{}}";
     let f1: String = lsp_jsonrpc_frame(payload);

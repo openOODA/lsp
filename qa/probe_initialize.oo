@@ -7,7 +7,7 @@
 // Beats:
 //   1. Incremental sync, resolve, signature, refs, rename, tokens, folders, watch.
 //   2. resolveProvider is true. change is 2.
-//   3. lsp_facade_version equals 0.6.21.
+//   3. lsp_facade_version equals 0.6.28.
 
 import "lsp/server/lsp_server_capabilities.oo";
 import "lsp/server/lsp_version.oo";
@@ -32,7 +32,7 @@ pub fn main() {
     if str_index_of(caps, "documentRangeFormattingProvider") < 0 { fail("range format"); }
     if str_index_of(caps, "workspaceSymbolProvider") < 0 { fail("workspace symbol"); }
     let ver: String = lsp_facade_version();
-    if ver != "0.6.21" { fail("version drift: " + ver); }
+    if ver != "0.6.28" { fail("version drift: " + ver); }
     println("PASS initialize capabilities v=" + ver);
     println("probe_initialize PASSED");
 }
