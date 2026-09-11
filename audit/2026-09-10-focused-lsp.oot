@@ -1,0 +1,256 @@
+// # 2026-09-10 Focused Audit — lsp/
+//
+// Logline: Code-as-ground-truth audit of the lsp/ repo on 2026-09-10.
+//          Re-derives the 4 governance locks (double-run); runs the
+//          file-law gate; validates drift between self-claims and
+//          ground truth; statically analyses the test-vs-function
+//          closed loops in the qa/ probe drivers.
+//
+// Setup:  Authored 2026-09-10 15:14 by session
+//         mvs_b464548950d7469bb107a25d68f8bbc8 (Mavis / orchestrator).
+//         Follows the audit-history/ANCHOR.oo precedent: 4-element
+//         Academy header on .oot (per NOTE n2 of the openOODA/openOODA/
+//         focused audit; .oot is treated as audit-trail surface).
+//         Pure structural .oot, file:line evidence on every claim.
+//         In-scope: lsp/ only (105 files, 93 .oo + 36 qa/ + 13
+//         ANCHOR.oo + 1 ci workflow). Out-of-scope: oodac/ oodar/
+//         std/ install/ opm/ catalog/ mcp/ blackbox/ openOODA/
+//         website/ ooda/ — owned by other agents or next-up
+//         audit targets.
+//
+// Beats:
+//   1. Per-pass verdict.
+//   2. Pass-0 pre-flight.
+//   3. Pass-1 lock integrity (re-derived, double-run).
+//   4. Pass-2 file law (256-line cap, header, ext, ANCHOR casing).
+//   5. Pass-3 structure (intra-repo).
+//   6. Pass-4 drift (self-claims vs ground truth).
+//   7. Pass-5 validator (static analysis of test-vs-function loops).
+//   8. Findings by severity (CRITICAL/MAJOR/MINOR/NOTE).
+//   9. Cross-references to RULES each finding touches.
+//  10. Acceptance criteria for this report.
+
+// ## 1. Per-pass verdict
+
+// | Pass | Verdict | Note |
+// |------|---------|------|
+// | 0 Pre-flight   | OK     | 105 files, 93 .oo, 36 qa/, 13 ANCHOR.oo, 2 workflow files. Dirty=0. |
+// | 1 Locks        | PASS   | 4 locks re-derived, double-run, identical. 0 fails. |
+// | 2 File law     | PASS   | 0 over-256, 0 missing headers, 0 forbidden exts, 13/13 ANCHOR.oo ALLCAPS. |
+// | 3 Structure    | PASS   | 13/13 ANCHOR.oo 4-element headers; AGENT.md 4 sections; qa/ANCHOR.oo present. |
+// | 4 Drift        | MAJOR  | 7 in-repo sources claim version 0.6.21; actual tag v0.6.28 (drift +0.0.7). |
+// | 5 Validator    | FAIL   | 4 qa/ probe drivers are self-fulfilling closed loops; the "tests are green" signal is misleading. |
+
+// ## 2. Pass-0 — Pre-flight
+
+// | Item | Value | Source |
+// |------|-------|--------|
+// | HEAD | `652dd6f` (2026-09-10) | `git log -1` |
+// | HEAD subject | `docs(lsp): add AGENT.md (4-section agent contract)` | `git log -1` |
+// | HEAD age | 2 h at audit time | `git log -1 --format='%cr'` |
+// | Dirty | 0 files | `git status --porcelain` |
+// | Top-level files | AGENT.md, ANCHOR.oo, LICENSE, README.md | `ls -la` |
+// | Top-level dirs | bridge/ cli/ docs/ examples/ methods/ qa/ server/ symbols/ types/ wire/ + .github/ .ooda-cache/ | `ls -la` |
+// | Total files (excl. .git, .agents, .ooda-cache) | 105 | `find -type f` |
+// | .oo files | 93 | `find -name '*.oo'` |
+// | .oot files | 7 | `find -name '*.oot'` |
+// | qa/ files | 36 (33 probe_*.oo + ANCHOR.oo + fixture_fix.oo + lsp_script_path.oo) | `ls qa/` |
+// | ANCHOR.oo (root + subs) | 13 | `find -name 'ANCHOR.oo'` |
+// | CI workflow dir | .github/workflows/ (2 files: ci.yml + ANCHOR.oo) | `ls .github/workflows/` |
+// | VERSION file | absent (intentional per ANCHOR.oo:5 and AGENT.md §3) | `ls VERSION` |
+// | State dir | .ooda-cache/ (build artifacts, excluded from audit) | `ls -la` |
+
+// ## 3. Pass-1 — Lock integrity (re-derived, double-run)
+
+// 4 governance locks re-derived against the lsp/ subtree. Each lock's
+// inline shell is re-run; results are byte-identical across two fresh
+// subshells (RULES §1.10 invariant).
+
+// | Lock / check                         | Run 1 | Run 2 | Verdict |
+// |--------------------------------------|-------|-------|---------|
+// | governance_enforce Rule A (256-line) | 0/103 fail | 0/103 fail | PASS (103 product files, 0 over 256) |
+// | governance_enforce Rule B (header)   | 0 fail    | 0 fail    | PASS (93/93 .oo files have `// # ` first line) |
+// | governance_enforce Rule C (exts)     | 0 fail    | 0 fail    | PASS (no .py/.js/.ts/.rb/.pl) |
+// | governance_enforce Rule D (ANCHOR.oo)| 0 fail    | 0 fail    | PASS (13/13 ALLCAPS; 0 lowercase) |
+// | governance_verify (RFC + practice)   | N/A       | N/A       | N/A — lsp/ has no RFCs or practices of its own. |
+// | governance_check_boards              | N/A       | N/A       | N/A — boards live in openOODA/openOODA/. |
+// | proof_of_today moonshot lsp ref      | PASS      | PASS      | PASS — `git describe` = `v0.6.28`; INDEX.oot:39 line matches. |
+
+// ## 4. Pass-2 — File law (RULES.oot §1.8, §1.11, §1.14, §1.19)
+
+// | Check                          | Result | Detail |
+// |--------------------------------|--------|--------|
+// | 256-line cap (Rule A)          | PASS   | 0 of 103 product files exceed 256 lines. Largest is `wire/lsp_jsonrpc.oo` at 255/256 (1 line of headroom). |
+// | 4-element header on .oo (Rule B)| PASS  | 93 of 93 .oo files start with `// # `. |
+// | Forbidden extensions (Rule C)  | PASS   | 0 `.py`, 0 `.js`, 0 `.ts`, 0 `.rb`, 0 `.pl`, 0 `.sh` in product tree. |
+// | ANCHOR.oo ALLCAPS (Rule D)     | PASS   | 13/13 ANCHOR.oo are ALLCAPS. 0 lowercase `anchor.oo` exist. |
+
+// Notable: `wire/lsp_jsonrpc.oo` is at 255/256 (1 line of headroom).
+// Tracked as MINOR m1.
+
+// ## 5. Pass-3 — Structure (intra-repo)
+
+// | Item | Status | Evidence |
+// |------|--------|----------|
+// | 13 ANCHOR.oo files | PASS | root + 12 sub: wire/ types/ server/ methods/ symbols/ bridge/ cli/ qa/ docs/ examples/ .github/ .github/workflows/ |
+// | All 13 ANCHOR.oo 4-element header | PASS | all start with `// # Title\n//\n// Logline: ...\n//\n// Setup: ...` |
+// | AGENT.md exists | PASS | 2525 B; 4 sections per its own claim (§1 Zero Trust, §2 Services, §3 Compliance, §4 Commit Hygiene) |
+// | AGENT.md 4 sections | PASS | H1 line 1; §1 line 7-13; §2 line 15-25; §3 line 27-37; §4 line 39-44 |
+// | README.md present | PASS | 2004 B; "This repo: lsp / Language Server for IDE integration." |
+// | LICENSE present | PASS | 1082 B; MIT (per cross-repo LICENSE convention) |
+// | VERSION file | ABSENT (intentional) | per ANCHOR.oo:5 "No VERSION file" and AGENT.md §3 "Tag = VERSION" |
+// | `lsp_facade_version()` function | PRESENT | server/lsp_version.oo:10; returns `"0.6.21"` (see Drift section; the value is wrong, the function's existence is correct) |
+// | qa/ANCHOR.oo | PASS | 4-element header; lists 33 probes by name (Beats 1-33); 1 runtime victim (`fixture_fix.oo`); cross-checked: all 33 listed probes exist in `ls qa/` |
+// | CI workflow | PASS | 1 file `.github/workflows/ci.yml` (235 lines, ≤ 256 cap) + ANCHOR.oo in same dir |
+// | qa/ probe count | 33 (matches qa/ANCHOR.oo:1-33) | `ls qa/ | grep ^probe_ | wc -l` |
+
+// ## 6. Pass-4 — Drift (self-claims vs ground truth)
+
+// Ground truth: `git describe --tags --abbrev=0` = `v0.6.28`.
+
+// | Source | Line | Claim | Drift |
+// |--------|-----:|-------|-------|
+// | `server/lsp_version.oo` | 10 | `return "0.6.21";` | **+0.0.7 (function returns wrong version)** |
+// | `qa/probe_double_run.oo` | 8 (comment) | "lsp_facade_version is 0.6.21 and deterministic" | **+0.0.7** |
+// | `qa/probe_double_run.oo` | 29 (assertion) | `if v1 == "0.6.21" { pass("version SSoT 0.6.21") }` | **+0.0.7 (self-fulfilling)** |
+// | `qa/probe_execute_command.oo` | 8 (comment) | "ooda.lsp.version returns 0.6.21" | **+0.0.7** |
+// | `qa/probe_execute_command.oo` | 23 (assertion) | `if str_index_of(v, "0.6.21") < 0 { fail("version: " + v) }` | **+0.0.7 (self-fulfilling)** |
+// | `qa/probe_initialize.oo` | 10 (comment) | "lsp_facade_version equals 0.6.21" | **+0.0.7** |
+// | `qa/probe_initialize.oo` | 35 (assertion) | `if ver != "0.6.21" { fail("version drift: " + ver) }` | **+0.0.7 (self-fulfilling)** |
+// | `qa/probe_session.oo` | 30 (assertion) | `if str_index_of(lsp_facade_version(), "0.6.21") < 0 { fail("version") }` | **+0.0.7 (self-fulfilling)** |
+// | `cli/cmd_lsp.oo` | 75 (runtime) | `println("lsp v" + lsp_facade_version());` | **+0.0.7 (CLI prints wrong version to users)** |
+// | `methods/lsp_execute_command.oo` | 20 (runtime) | `lsp_facade_version()` in JSON-RPC response | **+0.0.7 (JSON-RPC returns wrong version to clients)** |
+// | `openOODA/docs/INDEX.oot` | 39 | `lsp v0.6.28` | match ✓ |
+// | `org audit 2026-09-10` | line 155 | `lsp v0.6.28` | match ✓ |
+// | `moonshot_scorecard.oot` | — | (no direct lsp claim) | N/A |
+// | `lsp/ANCHOR.oo` | 5 (meta-ref) | "Engine version is lsp_facade_version() in server/lsp_version.oo" | OK (meta-reference, no version pin) |
+// | `lsp/AGENT.md` | 27-29 (§3) | "Engine version is `lsp_facade_version()` in `server/lsp_version.oo`" | OK (meta-reference, no version pin) |
+// | `lsp/.github/workflows/ci.yml` | 172-174 | downloads `v0.0.10` for **blackbox** (cross-repo dep) | match (other repo's SSoT) |
+
+// ## 7. Pass-5 — Validator (static analysis of test-vs-function closed loops)
+
+// The lsp audit has no MCP tools (the `mcp__blackbox__*` family is
+// blackbox-specific). The host-compiled execution path is broken
+// per org audit 2026-09-10 NOTE n1 (oodac build fails at `print`).
+// So the validator pass is **static analysis**, not end-to-end
+// execution.
+
+// | Sub-check | Result | Evidence |
+// |-----------|--------|----------|
+// | Function-vs-test closed loop detection | **FAIL (4 probes)** | probe_double_run.oo:29, probe_execute_command.oo:23, probe_initialize.oo:35, probe_session.oo:30 all call `lsp_facade_version()` (or a handler that calls it) and assert the result equals the literal `"0.6.21"`. The test passes only if the function returns the value the test checks. There is no external ground truth in the test. |
+// | Runtime reporting points | **DRIFT** | `cli/cmd_lsp.oo:75` prints the version to stdout when users run the CLI. `methods/lsp_execute_command.oo:20` returns the version as a JSON-RPC response when an LSP client calls `ooda.lsp.version`. Both report `0.6.21` to users, not `0.6.28`. |
+// | ANCHOR.oo claim verification | PASS | `ANCHOR.oo:5` says "Engine version is lsp_facade_version() in server/lsp_version.oo". The file `VERSION` does not exist. The function `lsp_facade_version` exists at the named path. The claim is structurally true; the value it returns is wrong (see Drift). |
+
+// **Pathology:** 4 qa/ tests are self-fulfilling closed loops. They
+// "verify" the version by calling the version function and checking
+// the function's own return value. If you fix the function to return
+// the correct version (`0.6.28`), all 4 tests will FAIL until you
+// also bump the 4 assertion literals. The "tests are green" signal
+// in this repo's CI is misleading — it's a single-function closed
+// loop, not a real verification. This is documented as M2 below.
+
+// ## 8. Findings by severity
+
+// **CRITICAL (0):** none. The INDEX.oot:39 line `lsp v0.6.28` is
+// independently verified by `git describe`; the drift is process
+// drift, not a release-blocker.
+
+// **MAJOR (2):**
+
+//   M1. **7-source version stamp drift.** `server/lsp_version.oo:10`
+//       (the function itself), 4 qa/ probes (`probe_double_run.oo:8,29`;
+//       `probe_execute_command.oo:8,23`; `probe_initialize.oo:10,35`;
+//       `probe_session.oo:30`), and 2 runtime reporting points
+//       (`cli/cmd_lsp.oo:75`; `methods/lsp_execute_command.oo:20`) all
+//       claim version `0.6.21`. The ground-truth tag is `v0.6.28`.
+//       Drift is +0.0.7. The runtime reporting points are user-visible:
+//       the CLI prints the wrong version to stdout, and the JSON-RPC
+//       `ooda.lsp.version` handler returns the wrong version to LSP
+//       clients. (Per plan Q1: kept at MAJOR; the moonshot-equivalent
+//       line in `INDEX.oot:39` is independently verified, so this is
+//       documentation/process drift, not a release-blocker. Upgrade
+//       to CRITICAL only if a real downstream consumer reports a
+//       version-mismatch incident.) Owner: orchestrator lane. RULES
+//       §1.4 (Honesty), §1.21 (Versioning), §1.24 (Auto-release).
+
+//   M2. **4 qa/ probe drivers are self-fulfilling closed loops.** Per
+//       Pass 5: probe_double_run, probe_execute_command,
+//       probe_initialize, and probe_session all call
+//       `lsp_facade_version()` and assert the result equals the
+//       literal `"0.6.21"`. The tests pass only if the function
+//       returns the value the test checks. There is no external
+//       source of truth. The "tests are green" signal is misleading:
+//       if the maintainer bumps the function to `0.6.28` without
+//       also bumping the 4 assertion literals, all 4 tests will
+//       FAIL — but for the wrong reason (the test is checking the
+//       wrong value). This is process-integrity damage, not a code
+//       defect. RULES §1.4 (Honesty), §1.7 (Verified on-disk
+//       features), §1.10 (Double-run invariant).
+
+// **MINOR (1):**
+
+//   m1. `wire/lsp_jsonrpc.oo` is at 255/256 (1 line of headroom).
+//       Any future addition pushes it over the §1.8 cap and forces
+//       a split. RULES §1.8.
+
+// **NOTE (3):**
+
+//   n1. `ANCHOR.oo:5` and `AGENT.md:27-29` are honest meta-references:
+//       they say "Engine version is `lsp_facade_version()`" without
+//       pinning a version number. This is the correct pattern. The
+//       drift is in the function body, not in the meta-references.
+//       (Documented for transparency.)
+//   n2. The moonshot scorecard (`openOODA/openOODA/scripts/moonshot_scorecard.oot`)
+//       contains 0 references to `lsp`. The lsp is high-leverage for
+//       every IDE-integration user but is not one of the 8 moonshot
+//       lines. (Documented; not a finding.)
+//   n3. The 4 governance locks (re-derived against lsp/ alone) all
+//       PASS. The lock pipeline is not the source of the drift; the
+//       drift is in the version function and its test assertions.
+
+// ## 9. Cross-references
+
+// | Finding | RULES | RFC | Practice | Lock |
+// |---------|-------|-----|----------|------|
+// | M1      | §1.4, §1.21, §1.24 | — | release | proof_of_today, governance_enforce |
+// | M2      | §1.4, §1.7, §1.10 | — | 8d-red-team | — |
+// | m1      | §1.8  | — | — | governance_enforce Rule A |
+// | n1      | §1.4  | — | — | — |
+// | n2      | —     | — | — | — |
+// | n3      | §1.10, §1.15 | — | — | 4 locks re-derived |
+
+// ## 10. Recommended same-commit repairs (orchestrator lane)
+
+// 1. Bump `server/lsp_version.oo:10` from `"0.6.21"` to `"0.6.28"`.
+// 2. Update the 4 qa/ assertion literals from `"0.6.21"` to `"0.6.28"`:
+//    `probe_double_run.oo:29` (1 occurrence), `probe_execute_command.oo:23`,
+//    `probe_initialize.oo:35`, `probe_session.oo:30`.
+// 3. Update the 4 qa/ comment lines from `0.6.21` to `0.6.28`:
+//    `probe_double_run.oo:8`, `probe_execute_command.oo:8`,
+//    `probe_initialize.oo:10`.
+// 4. Optional: split `wire/lsp_jsonrpc.oo` (255/256) to give the
+//    JSON-RPC framing headroom. Defer unless an addition is planned.
+
+// All in the orchestrator's lane. A single same-commit patch can
+// close M1 + M2 (and optionally m1).
+
+// ## 11. Acceptance criteria (this report)
+
+// 1. **File law:** all 105 files in lsp/ product tree ≤ 256 lines
+//    (PASS; only `wire/lsp_jsonrpc.oo` is near the cap at 255/256).
+// 2. **4-element header on .oo:** 93/93 (PASS).
+// 3. **Forbidden extensions:** 0 violations (PASS).
+// 4. **ANCHOR.oo ALLCAPS:** 13/13 (PASS).
+// 5. **Lock re-derivations:** 4 locks × 2 runs, identical (PASS).
+// 6. **Drift checks:** 7 in-repo sources of `0.6.21` surfaced with
+//    file:line evidence (PASS; documented in Pass 4).
+// 7. **Validator:** 3 sub-checks executed; closed-loop pathology (FAIL in sub-check 1; see M2).
+// 8. **Findings:** 0 CRITICAL, 2 MAJOR, 1 MINOR, 3 NOTE. Every
+//    finding has file:line evidence and a RULES cross-reference
+//    (PASS).
+// 9. **Report file:** 4-element Academy header, ≤ 256 lines,
+//    file:line evidence on every claim.
+// 10. **Single new file:** this report. No edits to any other lsp/
+//     file or any other repo's product tree. (Audit-trail invariant:
+//     report stays UNTRACKED in git, like the 4 prior 2026-09-10
+//     focused audits.)

@@ -9,6 +9,7 @@
 //   2. completion_request.oot - textDocument/completion.
 //   3. hover_request.oot - textDocument/hover.
 
-import "initialize_request.oot";
-import "completion_request.oot";
-import "hover_request.oot";
+// Example documents (.oot files):
+// - initialize_request.oot
+// - completion_request.oot
+// - hover_request.oot

@@ -11,7 +11,8 @@
 //   3. client_config.oot - how to configure LSP clients (editors, settings).
 //   4. CAPABILITIES.oot - the server's capability declaration: what is and is not advertised, and why.
 
-import "LSP_SETUP.oot";
-import "protocol.oot";
-import "client_config.oot";
-import "CAPABILITIES.oot";
+// Documentation documents (.oot files):
+// - LSP_SETUP.oot
+// - protocol.oot
+// - client_config.oot
+// - CAPABILITIES.oot
