@@ -1,11 +1,11 @@
 // # Test LSP Server — Run LSP QA Probes Twice
 //
-// Logline: Run each lsp qa probe twice in fresh processes under the sovereign compiler. Fail closed on miss.
+// Logline: Run each lsp qa probe twice in fresh processes under the primary compiler. Fail closed on miss.
 //
 // Setup: Double-run identity law for LSP server probes. Compiler resolves with zero user config.
 //
 // Beats:
-//   1. Resolve sovereign compiler binary (OODA_COMPILER, OODA_TOOLCHAIN, HOME).
+//   1. Resolve primary compiler binary (OODA_COMPILER, OODA_TOOLCHAIN, HOME).
 //   2. Compile and execute each probe twice in fresh processes.
 //   3. Clean up temporary probe binaries immediately.
 //   4. Exit 0 only when all probes pass both runs.
