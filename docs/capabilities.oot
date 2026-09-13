@@ -1,6 +1,6 @@
 # LSP Server Capabilities
 
-File: lsp/docs/CAPABILITIES.oot
+File: lsp/docs/capabilities.oot
 
 The initialize result is assembled in `server/lsp_server_handlers.oo`.
 The capabilities object is `lsp_server_capabilities_object()`.

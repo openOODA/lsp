@@ -19,7 +19,7 @@ File: lsp/examples/initialize_request.oot
 
 ## Expected response (shape)
 
-`result.capabilities` matches `CAPABILITIES.oot`.
+`result.capabilities` matches `capabilities.oot`.
 `result.serverInfo.name` is `openooda-lsp`.
 `result.serverInfo.version` is `lsp_facade_version()`.
 `workspaceFolders` is absent. `completionProvider.resolveProvider` is false.

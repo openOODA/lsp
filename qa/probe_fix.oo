@@ -33,7 +33,11 @@ pub fn main(p: &ProcessCap, fs: &FsReadCap, env: &EnvCap) {
     if str_index_of(t2, "missing path") < 0 { fail("empty: " + t2); }
     let t3: String = lsp_fix_run(p, fs, "/bin/oodac", "notes.md", true);
     if str_index_of(t3, "not an ooda source") < 0 { fail("suffix: " + t3); }
-    let t4: String = lsp_fix_run(p, fs, "", "lsp/qa/probe_check.oo", true);
+    let mut qa_prefix: String = "lsp/qa";
+    if !path_exists(fs, qa_prefix) && path_exists(fs, "qa") {
+        qa_prefix = "qa";
+    }
+    let t4: String = lsp_fix_run(p, fs, "", qa_prefix + "/probe_check.oo", true);
     if str_index_of(t4, "no ooda sibling") < 0 { fail("no compiler: " + t4); }
     println("PASS guards");
 
@@ -41,13 +45,13 @@ pub fn main(p: &ProcessCap, fs: &FsReadCap, env: &EnvCap) {
     if chars_len(comp) == 0 { fail("need OODA_COMPILER or OODAC_BIN"); }
     let sib: String = lsp_fix_find_ooda(fs, comp);
     if chars_len(sib) == 0 {
-        let t5: String = lsp_fix_run(p, fs, comp, "lsp/qa/probe_check.oo", true);
+        let t5: String = lsp_fix_run(p, fs, comp, qa_prefix + "/probe_check.oo", true);
         if str_index_of(t5, "no ooda sibling") < 0 { fail("sibling fail-closed: " + t5); }
         println("PASS sibling fail-closed");
         println("probe_fix PASSED");
         return;
     }
-    let t6: String = lsp_fix_run(p, fs, comp, "lsp/qa/fixture_fix.oo", true);
+    let t6: String = lsp_fix_run(p, fs, comp, qa_prefix + "/fixture_fix.oo", true);
     if str_index_of(t6, "\"ok\":true") < 0 { fail("dry-run must ok: " + t6); }
     if str_index_of(t6, "undefined_counter") < 0 { fail("dry-run must show proposal: " + t6); }
     println("PASS dry-run");

@@ -12,13 +12,13 @@
 //   4. Cap grant files come from ${oodar_root}/sec/cap/cap_table.json. No hard-coded table.
 //   5. To propose a change, keep every file <= 256 lines and fail closed. No fallbacks.
 
-import "wire/ANCHOR.oo";
-import "types/ANCHOR.oo";
-import "server/ANCHOR.oo";
-import "methods/ANCHOR.oo";
-import "symbols/ANCHOR.oo";
-import "bridge/ANCHOR.oo";
-import "qa/ANCHOR.oo";
-import "cli/ANCHOR.oo";
-import "docs/ANCHOR.oo";
-import "examples/ANCHOR.oo";
+import "wire/anchor.oo";
+import "types/anchor.oo";
+import "server/anchor.oo";
+import "methods/anchor.oo";
+import "symbols/anchor.oo";
+import "bridge/anchor.oo";
+import "qa/anchor.oo";
+import "cli/anchor.oo";
+import "docs/anchor.oo";
+import "examples/anchor.oo";

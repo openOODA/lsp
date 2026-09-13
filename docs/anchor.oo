@@ -3,16 +3,16 @@
 // Logline: Index of the LSP documentation files.
 //
 // Setup: RFC-0005. Website Source: openOODA/lsp/docs/.
-//        CAPABILITIES.oot is the SSoT for `initialize`.
+//        capabilities.oot is the SSoT for `initialize`.
 //
 // Beats:
-//   1. LSP_SETUP.oot - how to launch the LSP server, capabilities, configuration.
+//   1. lsp_setup.oot - how to launch the LSP server, capabilities, configuration.
 //   2. protocol.oot - the JSON-RPC 2.0 wire protocol details.
 //   3. client_config.oot - how to configure LSP clients (editors, settings).
-//   4. CAPABILITIES.oot - the server's capability declaration: what is and is not advertised, and why.
+//   4. capabilities.oot - the server's capability declaration: what is and is not advertised, and why.
 
 // Documentation documents (.oot files):
-// - LSP_SETUP.oot
+// - lsp_setup.oot
 // - protocol.oot
 // - client_config.oot
-// - CAPABILITIES.oot
+// - capabilities.oot

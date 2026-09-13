@@ -41,7 +41,7 @@ the `ooda.lsp.*` commands; it takes `{"uri": "<file-uri>"}` and returns
     "command": "ooda-lsp",
     "args": ["--stdio", "--oodar-root", "/path/to/oodar"],
     "filetypes": ["ooda"],
-    "rootMarkers": ["ANCHOR.oo"]
+    "rootMarkers": ["anchor.oo"]
   }
 }
 ```
@@ -65,7 +65,7 @@ vim.cmd[[ autocmd BufRead,BufNewFile *.oo set filetype=ooda ]]
 [[language]]
 name = "ooda"
 file-types = ["oo"]
-roots = ["ANCHOR.oo"]
+roots = ["anchor.oo"]
 
 [language-server.openooda-lsp]
 command = "ooda"
