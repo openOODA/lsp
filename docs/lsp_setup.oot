@@ -41,6 +41,6 @@ the only roots the server will read.
 
 From the polyrepo root set `OODA_COMPILER`, `OODA_FS_READDIR`, and
 `OODA_FS_WRITEDIR`. Then follow `.github/workflows/ci.yml`: it
-emit-c + gcc + runs all 25 qa probes from shell (no `sh -c`). `oodac run`
+`oodac build` (LLVM IR + clang + oodar) and runs all 33 qa probes from shell (no `sh -c`). `oodac run`
 on a multi-file probe is not the execution path (duplicate TUs). A probe
 that prints PASS without an assertion is a defect.

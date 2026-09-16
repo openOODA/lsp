@@ -5,5 +5,5 @@
 // Setup: Structural. ci.yml is YAML consumed by GitHub Actions.
 //
 // Beats:
-//   1. probes checks out openOODA/lsp and openOODA/oodac, require the oodac binary, emit-c+gcc+run.
-//   2. auto-release runs only after probes pass.
+//   1. probes checks out lsp, std, oodac, and oodar; require the oodac binary; oodac build (LLVM IR + clang + oodar) runs 33 probes.
+//   2. build and blackbox-gate run with probes; auto-release runs only after those pass.
