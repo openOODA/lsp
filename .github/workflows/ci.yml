@@ -17,6 +17,8 @@ permissions:
 jobs:
   probes:
     runs-on: ubuntu-latest
+    env:
+      OO_LIST_AMBIENT_QUOTA: "8589934592"
     steps:
       - name: checkout lsp
         uses: actions/checkout@v4
@@ -76,6 +78,8 @@ jobs:
 
   build:
     runs-on: ubuntu-latest
+    env:
+      OO_LIST_AMBIENT_QUOTA: "8589934592"
     steps:
       - name: checkout lsp
         uses: actions/checkout@v4
@@ -125,6 +129,8 @@ jobs:
     needs: [probes]
     if: always()
     runs-on: ubuntu-latest
+    env:
+      OO_LIST_AMBIENT_QUOTA: "8589934592"
     steps:
       - name: checkout lsp
         uses: actions/checkout@v4
