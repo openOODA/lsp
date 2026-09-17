@@ -2,7 +2,7 @@
 //
 // Logline: Builds the canonical stdlib symbol index that the LSP server ships at startup. The seed encodes NORTHSTAR capability tokens, keywords, primitive types, and built-in functions.
 //
-// Setup: Imports lsp_symbol_record.oo. No capabilities required. The seed is pure data; the CompilerReadCap merge (in lsp_compile.oo + lsp_compiler_merge.oo) layers user symbols on top at runtime.
+// Setup: Imports lsp_symbol_record.oo. No capabilities required. The seed is pure data; the CompilerReadCap merge in lsp_compiler_merge.oo layers user symbols on top at runtime.
 //
 // Beats:
 //   1. Provide 4 kind-specific seed helpers: capability, keyword, type, function.

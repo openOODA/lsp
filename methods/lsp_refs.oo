@@ -5,7 +5,7 @@
 // Setup: Whole-ident match only. Documents are uri\\ntext records: open docs shadow disk (see lsp_ws_scan.oo). newName must be an ident.
 //
 // Beats:
-//   1. Scan each open document for word-boundary hits.
+//   1. Scan each workspace-merged document for word-boundary hits.
 //   2. references returns Location[]. rename returns a WorkspaceEdit.
 //   3. Empty or illegal newName yields no edit.
 

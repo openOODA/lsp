@@ -5,7 +5,7 @@
 // Setup: stdio calls lsp_compiler_merge_table on didOpen/didChange. Uses &CompilerReadCap.
 //
 // Beats:
-//   1. lsp_compiler_merge.oo is the live path. lsp_compile.oo walks structs/enums when emit is sound.
+//   1. lsp_compiler_merge.oo is the live path. lsp_compile.oo walks fns, caps, structs, and enums.
 //   2. All files follow the 4-element Academy header and the 256-line cap.
 //   3. Imports go to siblings in this subdir; cross-subdir imports use the new lsp/<subdir>/<file> path.
 

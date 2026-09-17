@@ -1,8 +1,8 @@
 // # LSP Method Implementations
 //
-// Logline: User-facing LSP methods: hover, completion, definition, formatting, codeAction, diagnostics, documentLink, inlayHint, executeCommand, token, text.
+// Logline: User-facing LSP method implementations live one family per file.
 //
-// Setup: Business logic. Definition and documentLink read the loaded cap table. No extras file.
+// Setup: Business logic. Definition and documentLink read the loaded cap table.
 //
 // Beats:
 //   1. One file per method family. Names match the LSP method.

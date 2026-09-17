@@ -1,6 +1,6 @@
 // # OODAC LSP Bridge - CompilerReadCap-Gated Symbol Table
 //
-// Logline: RFC 0006 §6 in-memory text-walker that produces a real LspModuleSymbolTable from openOODA source under &CompilerReadCap; the blue-ocean merge that turns the LSP index from a static seed into a live per-document view.
+// Logline: In-memory text-walker that produces a LspModuleSymbolTable from openOODA source under &CompilerReadCap.
 //
 // Setup: Pure text-walker; no FsReadCap, no shell-out, no NetCap. &CompilerReadCap gates the bridge so only compiler-trusted callers may inject module-local symbols into the index.
 //

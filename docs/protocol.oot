@@ -43,14 +43,14 @@ Denied URI path prefixes: `/proc`, `/dev`, `/etc`, `/root`.
 - `formatting` / `rangeFormatting`: TextEdit (tabs to 4 spaces, trailing ws stripped)
 - `signatureHelp`, `references`, `rename`, `semanticTokens/full`
 - `workspace/symbol`, `workspace/didChangeWatchedFiles`, `workspace/didChangeWorkspaceFolders`
-- `codeAction`: quickfix for `E_EM_PINS` only (delete the pin line)
+- `codeAction`: quickfix for `E_EM_PINS` (delete the pin line); `ooda.fix` command for oodac diagnostics
 - `diagnostic`: `{items:[...]}` pull mode
 - `documentLink`: `&Cap` to oodar grant files when the cap table is loaded
 - `inlayHint`: `let` / `let mut` literal type hints only. Bare assignment is silent.
 
 ## 5. Workspace
 
-`workspace/executeCommand`: `ooda.lsp.version`, `ooda.lsp.indexSize`, `ooda.lsp.echo`, `ooda.lsp.tokenCount`.
+`workspace/executeCommand`: `ooda.lsp.version`, `ooda.lsp.indexSize`, `ooda.lsp.echo`, `ooda.lsp.tokenCount`, `ooda.fix`.
 
 ## 6. Trust
 

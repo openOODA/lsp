@@ -2,7 +2,7 @@
 //
 // Logline: Estimate LLM context tokens for one open document as chars/4.
 //
-// Setup: Pure compute. Matches the std char-heuristic default (4000 x1000 bytes/token).
+// Setup: Pure compute. Matches the std char-heuristic default (bytes_per_token_x1000 = 4000).
 //        Does not import std/app/agent/token (oodac emit of that module is currently broken).
 //
 // Beats:

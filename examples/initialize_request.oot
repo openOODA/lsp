@@ -22,4 +22,4 @@ File: lsp/examples/initialize_request.oot
 `result.capabilities` matches `capabilities.oot`.
 `result.serverInfo.name` is `openooda-lsp`.
 `result.serverInfo.version` is `lsp_facade_version()`.
-`workspaceFolders` is absent. `completionProvider.resolveProvider` is false.
+`completionProvider.resolveProvider` is true. `workspace.workspaceFolders` is supported.

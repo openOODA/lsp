@@ -1,8 +1,8 @@
 // # LSP Compiler Symbol Table Types
 //
-// Logline: Defines the RFC 0006 §6 compiler-integration types: 4 leaf symbol records (LspFunction, LspStruct, LspEnum, LspCapabilityUse) and the LspModuleSymbolTable that aggregates them. The blue-ocean CompilerReadCap bridge.
+// Logline: Defines the compiler-integration types: 4 leaf symbol records (LspFunction, LspStruct, LspEnum, LspCapabilityUse) and the LspModuleSymbolTable that aggregates them.
 //
-// Setup: No imports. The compiler API in lsp_compile.oo produces these records by walking source text; the merge layer in lsp_compiler_merge.oo consumes them. Minimal narrow: no shell-out, no NetCap, in-memory only.
+// Setup: No imports. lsp_compile.oo produces these records by walking source text; lsp_em_cache.oo caches them. Minimal narrow: no shell-out, no NetCap, in-memory only.
 //
 // Beats:
 //   1. Declare LspFunction (function symbol record).
@@ -12,7 +12,7 @@
 //   5. Declare LspModuleSymbolTable (per-URI aggregate) and lsp_module_empty constructor.
 //   6. Provide structural constructor functions for the 4 leaf types.
 
-// §6 Compiler-integration types - gated by &CompilerReadCap (RFC 0006).
+// Compiler-integration types - gated by &CompilerReadCap.
 // Minimal narrow: no shell-out, no NetCap, in-memory only.
 type LspFunction = struct { name: String, line: Int, col: Int };
 type LspStruct = struct { name: String, line: Int, col: Int };

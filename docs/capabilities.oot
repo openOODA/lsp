@@ -12,7 +12,7 @@ There is no VERSION file.
 `change: 2` is incremental document sync. Full-document changes (no range) still apply.
 `completionItem/resolve` is implemented (`resolveProvider` true).
 `workspaceFolders` is supported. `rootUri` is still required.
-`didChangeWatchedFiles` restales the stdlib index and cap table.
+`didChangeWatchedFiles` reloads the stdlib index and cap table.
 Semantic tokenTypes are the LSP 3.17 default legend. tokenModifiers is empty.
 
 See `lsp_server_capabilities_object()` for the exact JSON.
@@ -21,14 +21,14 @@ See `lsp_server_capabilities_object()` for the exact JSON.
 
 - `didChange` applies `contentChanges` in order onto the stored document.
 - `definition` / `documentSymbol` cover pub fn, struct, enum, and type.
-- `references` and `rename` scan open documents only, whole-ident.
+- `references` and `rename` scan the workspace-merged view (disk plus open docs), whole-ident.
 - `rename` refuses a `newName` that is not an identifier.
 - `signatureHelp` uses the index signature of the callee before `(`.
 - `workspace/symbol` emits records whose doc starts with `declared in `.
 - `rangeFormatting` formats only the selected span (tabs → 4 spaces, trailing ws).
 - `semanticTokens/full` tags comment, string, number, keyword, modifier, fn/struct/enum/type, variable.
 - Live diagnostics: `E_EM_WEIGHT`, `E_EM_PINS`, plus oodac `check` when a compiler path is set.
-- Code action: `E_EM_PINS` deletes the pin line. WEIGHT and PS have none.
+- Code action: `E_EM_PINS` deletes the pin line. oodac diagnostics offer `ooda.fix`. WEIGHT and PS have none.
 
 ## 3. Not advertised
 

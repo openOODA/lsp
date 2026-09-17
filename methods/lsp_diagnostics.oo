@@ -2,7 +2,7 @@
 //
 // Logline: Transforms E-M gauge readings (W, Ps, SSoT pins) into LSP 3.17 Diagnostic JSON for the textDocument/publishDiagnostics push.
 //
-// Setup: Imports lsp_types.oo (LspDiagnostic) + lsp_json_encode.oo (string escape). No file, network, or process capability required.
+// Setup: Imports lsp_payload.oo (LspDiagnostic) + lsp_json_encode.oo (string escape). No file, network, or process capability required.
 //
 // Beats:
 //   1. Map 4 LSP severity levels (error=1, warning=2, info=3, hint=4).

@@ -2,7 +2,7 @@
 //
 // Logline: Runs `ooda fix <path> --yes` for workspace/executeCommand ooda.fix so a code action can apply the fixer.
 //
-// Setup: ooda resolves as a sibling of the compiler binary (codex/bin layout).
+// Setup: ooda resolves as a sibling of the compiler binary.
 //        Explicit user/agent invocation only; never automatic. Output truncates.
 //        The fixer owns the edit; the server only reports ok/output. ooda fix
 //        refuses absolute paths, so serve sends root-relative paths; this assumes

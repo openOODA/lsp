@@ -1,11 +1,13 @@
 // # LSP Path Guard Probe
 //
-// Logline: Proves lsp_script_path_ok rejects traversal and bad prefixes.
+// Logline: Proves lsp_script_path_ok rejects traversal.
+//
 // Setup: No Fs caps. Pure path checks.
+//
 // Beats:
-//   1. .. and // must be rejected
-//   2. lsp/server and methods/lsp completion are ok
-//   3. 256 caps path must be checked via count
+//   1. A `..` path is rejected.
+//   2. Relative lsp/server and lsp/methods paths pass.
+//   3. A simple `a.oo` name passes.
 import "lsp/qa/lsp_script_path.oo";
 
 pub fn main() -> Result[Int, String] {
