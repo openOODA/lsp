@@ -5,13 +5,14 @@
 // Setup: Imports lsp_symbol_record.oo. No capabilities required. The seed is pure data; the CompilerReadCap merge in lsp_compiler_merge.oo layers user symbols on top at runtime.
 //
 // Beats:
-//   1. Provide 4 kind-specific seed helpers: capability, keyword, type, function.
-//   2. Build the canonical seed: capabilities → keywords → types → builtins, in that order.
+//   1. Provide 5 kind-specific seed helpers: capability, keyword, residual keyword, type, function.
+//   2. Build the canonical seed: capabilities → keywords → residual keywords → types → builtins, in that order.
 
 import "lsp_symbol_record.oo";
 
 pub fn lsp_index_seed_capability(idx: List[String], name: String, doc: String) -> List[String] { return lsp_index_add(idx, name, "Capability", "&" + name, doc); }
 pub fn lsp_index_seed_keyword(idx: List[String], name: String, doc: String) -> List[String] { return lsp_index_add(idx, name, "Keyword", name, doc); }
+pub fn lsp_index_seed_residual_keyword(idx: List[String], name: String, doc: String) -> List[String] { return lsp_index_add(idx, name, "ResidualKeyword", name + " [Residual / Non-normative]", "[Residual / Non-normative] " + doc); }
 pub fn lsp_index_seed_type(idx: List[String], name: String, doc: String) -> List[String] { return lsp_index_add(idx, name, "Type", name, doc); }
 pub fn lsp_index_seed_function(idx: List[String], name: String, signature: String, doc: String) -> List[String] { return lsp_index_add(idx, name, "Function", signature, doc); }
 
@@ -52,10 +53,10 @@ pub fn lsp_index_build_canonical() -> List[String] {
     idx = lsp_index_seed_keyword(idx, "verify", "Formal verification block checked at compile time.");
     idx = lsp_index_seed_keyword(idx, "requires", "Function precondition contract clause.");
     idx = lsp_index_seed_keyword(idx, "ensures", "Function postcondition contract clause.");
-    idx = lsp_index_seed_keyword(idx, "spec", "Function specification clause for the verifier.");
-    idx = lsp_index_seed_keyword(idx, "trait", "Declare a trait for static polymorphism.");
-    idx = lsp_index_seed_keyword(idx, "newtype", "Zero-cost type abstraction over an existing type.");
-    idx = lsp_index_seed_keyword(idx, "where", "Refinement type predicate clause.");
+    idx = lsp_index_seed_residual_keyword(idx, "spec", "Function specification clause for the verifier.");
+    idx = lsp_index_seed_residual_keyword(idx, "trait", "Declare a trait for static polymorphism.");
+    idx = lsp_index_seed_residual_keyword(idx, "newtype", "Zero-cost type abstraction over an existing type.");
+    idx = lsp_index_seed_residual_keyword(idx, "where", "Refinement type predicate clause.");
     idx = lsp_index_seed_type(idx, "Int", "Signed 64-bit two's complement integer.");
     idx = lsp_index_seed_type(idx, "Float", "64-bit IEEE 754 double precision float.");
     idx = lsp_index_seed_type(idx, "String", "Immutable UTF-8 encoded text string.");
