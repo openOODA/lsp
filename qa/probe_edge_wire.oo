@@ -1,0 +1,72 @@
+// # LSP Wire Edge Probe — Hostile Shapes
+//
+// Logline: Extractors never crash and stay deterministic on hostile input.
+//
+// Setup: Pure wire calls. No filesystem.
+//
+// Beats:
+//   1. Empty and "{}" yield empty method.
+//   2. Truncated input is deterministic across runs.
+//   3. Escaped quotes do not leak across values.
+//   4. Duplicate keys resolve deterministically.
+//   5. Content-Length garbage fails closed to 0.
+//   6. Big input (4000 chars) terminates.
+
+import "lsp/wire/lsp_jsonrpc.oo";
+
+fn fail(msg: String) {
+    println("FAIL " + msg);
+    process_exit(1);
+}
+
+fn big_line(n: Int) -> String {
+    let mut s: String = "{\"method\":\"m\",\"params\":{\"pad\":\"";
+    let mut i: Int = 0;
+    while i < n {
+        s = s + "x";
+        i = i + 1;
+    }
+    return s + "\"}}";
+}
+
+pub fn main() {
+    if lsp_jsonrpc_extract_method("") != "" { fail("empty method"); }
+    if lsp_jsonrpc_extract_method("{}") != "" { fail("bare object method"); }
+    if lsp_jsonrpc_has_id("") { fail("empty has_id"); }
+    println("PASS empty");
+
+    let trunc: String = "{\"method\":\"hove";
+    let t1: String = lsp_jsonrpc_extract_method(trunc);
+    let t2: String = lsp_jsonrpc_extract_method(trunc);
+    if t1 != t2 { fail("truncated nondeterministic"); }
+    let p1: String = lsp_jsonrpc_extract_params("{\"params\":{\"a\":1");
+    if p1 != lsp_jsonrpc_extract_params("{\"params\":{\"a\":1") { fail("truncated params nondeterministic"); }
+    println("PASS truncated");
+
+    let esc: String = "{\"method\":\"a\\\"b\",\"id\":1}";
+    let m: String = lsp_jsonrpc_extract_method(esc);
+    if m != lsp_jsonrpc_extract_method(esc) { fail("escaped nondeterministic"); }
+    if str_contains(m, "\"id\"") { fail("escaped quote leaks: " + m); }
+    println("PASS escaped");
+
+    let dup: String = "{\"method\":\"one\",\"method\":\"two\"}";
+    let d1: String = lsp_jsonrpc_extract_method(dup);
+    if d1 != lsp_jsonrpc_extract_method(dup) { fail("dup nondeterministic"); }
+    if d1 != "one" && d1 != "two" { fail("dup out of set: " + d1); }
+    println("PASS duplicate");
+
+    if lsp_jsonrpc_parse_content_length("Content-Length: abc") != 0 { fail("alpha length"); }
+    if lsp_jsonrpc_parse_content_length("Content-Length: -5") != 0 { fail("negative length"); }
+    if lsp_jsonrpc_parse_content_length("") != 0 { fail("empty length"); }
+    if lsp_jsonrpc_parse_content_length("Content-Length: 12") != 12 { fail("good length"); }
+    if lsp_jsonrpc_parse_content_length("X-Length: 12") != 0 { fail("wrong header"); }
+    println("PASS content-length");
+
+    let big: String = big_line(4000);
+    let bm: String = lsp_jsonrpc_extract_method(big);
+    if bm != "m" { fail("big method: " + bm); }
+    let bo: String = lsp_jsonrpc_extract_object(big, "params");
+    if !str_contains(bo, "pad") { fail("big object"); }
+    println("PASS big");
+    println("probe_edge_wire PASSED");
+}

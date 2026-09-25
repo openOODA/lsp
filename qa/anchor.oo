@@ -38,6 +38,7 @@
 //   31. probe_fix.oo - ooda fix runner guards and dry-run.
 //   32. probe_unescape.oo - JSON decode round-trip and \u00XX forms.
 //   33. probe_sync_escape.oo - didChange text escapes merge to real chars.
+//   34. probe_edge_wire.oo - hostile wire shapes: empty, truncated, escaped, dup, garbage length, big.
 //   fixture_fix.oo is a runtime victim, never imported (it owns a main and a deliberate error).
 
 import "probe_initialize.oo";
@@ -73,3 +74,4 @@ import "probe_refs_ws.oo";
 import "probe_fix.oo";
 import "probe_unescape.oo";
 import "probe_sync_escape.oo";
+import "probe_edge_wire.oo";
