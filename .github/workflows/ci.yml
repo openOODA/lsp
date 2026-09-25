@@ -46,6 +46,8 @@ jobs:
           test -x oodac/bin/oodac || { echo "missing oodac/bin/oodac"; exit 1; }
           test -x oodac/bin/oodac_bin.core || { echo "missing oodac/bin/oodac_bin.core"; exit 1; }
           test -f oodar/core/blackbox/blackbox.c || { echo "missing oodar/core/blackbox/blackbox.c"; exit 1; }
+      - name: build oodar libs
+        run: make -C oodar/scripts -f Makefile modular
       - name: oodac build run probes
         working-directory: ${{ github.workspace }}
         env:
@@ -106,6 +108,8 @@ jobs:
         run: |
           test -x oodac/bin/oodac || chmod +x oodac/bin/oodac
           test -f oodar/core/blackbox/blackbox.c || { echo "missing oodar/core/blackbox/blackbox.c"; exit 1; }
+      - name: build oodar libs
+        run: make -C oodar/scripts -f Makefile modular
       - name: build native binary
         working-directory: ${{ github.workspace }}
         env:
