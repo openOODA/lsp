@@ -5,7 +5,7 @@ File: lsp/docs/capabilities.oot
 The initialize result is assembled in `server/lsp_server_handlers.oo`.
 The capabilities object is `lsp_server_capabilities_object()`.
 `serverInfo.version` is `lsp_facade_version()` in `server/lsp_version.oo`.
-There is no VERSION file.
+The `VERSION` file at the repo root carries the same number.
 
 ## 1. Advertised capabilities
 
@@ -39,5 +39,6 @@ Each is absent because the handler does not exist.
 
 ## 4. Version
 
-One engine string: `lsp_facade_version()`. It matches the git tag
-(RFC-0006). Do not add a VERSION file.
+One engine string: `lsp_facade_version()`. It matches the `VERSION`
+file and the release tag (RFC-0006). Four qa probes pin the exact
+value; bump the function, the probes, and `VERSION` together.

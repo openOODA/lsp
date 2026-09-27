@@ -1,0 +1,52 @@
+# First hints: from a blank file to live help
+
+File: lsp/docs/first_hints.oot
+
+The writing helper watches your files and speaks up: it finishes
+names, explains words, and flags mistakes while you type. Your
+editor talks to it; you never type at it directly. This page takes
+you from nothing to your first live hint.
+
+## What you need
+
+- The helper installed (`ooda-lsp` answers `--version`).
+- Any editor that speaks the standard editor-helper protocol.
+  There is no bundled openOODA editor add-on; wire a standard one.
+- A folder with one `.oo` file in it. That is your workspace.
+
+For every knob and flag, see `client_config.oot` and `lsp_setup.oot`.
+This page is the short happy path.
+
+## The five-minute setup
+
+1. Point your editor's helper setting at `ooda-lsp --stdio`.
+   Add `--oodar-root <path>` so jump-to-definition works on
+   permission words. Add `--stdlib-root <path>` so names from
+   the shared tool box complete too.
+2. Open your workspace folder in the editor, then open the file.
+   The editor shakes hands with the helper on its own.
+3. Type the start of a known name and pause. A list of
+   completions should appear. That is your first hint.
+4. Hover a name. A short explanation should pop up.
+5. Break something small on purpose: delete one closing mark.
+   A colored flag should appear on that line. Put the mark back
+   and the flag clears. The helper is now watching.
+
+## Try it without an editor
+
+One-shot mode runs a single saved request and prints the answer.
+Save the request in `examples/initialize_request.oot` to a file,
+then run the helper with that file as its argument. The printed
+answer carries `serverInfo.version` (matches the `VERSION` file)
+and the full list of what the helper can do. The other two
+examples show a completion ask and a hover ask in the same style.
+
+## When no hints appear
+
+1. Check the helper runs: `ooda-lsp --version` must print a number.
+2. Check the handshake: the editor must send its opening message
+   first. Typing-related asks before that get an error, not hints.
+3. Check the flags: a `--stdlib-root` or `--oodar-root` that points
+   nowhere stops the helper at start. Fix the path.
+4. Check the file: hints only fire inside the open workspace,
+   on `.oo` files the helper can read.
