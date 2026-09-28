@@ -88,6 +88,7 @@ pub fn main(p: &ProcessCap, fs_r: &FsReadCap, env: &EnvCap, args: List[String]) 
     ps = list_push(ps, "qa/probe_fix.oo");
     ps = list_push(ps, "qa/probe_unescape.oo");
     ps = list_push(ps, "qa/probe_sync_escape.oo");
+    ps = list_push(ps, "qa/probe_edge_wire.oo");
 
     let mut i: Int = 0;
     while i < list_len(ps) {
