@@ -10,7 +10,7 @@
 //      fail closed if fewer than 34 probes are found.
 //   3. Compile and execute each probe twice in fresh processes.
 //   4. Clean up temporary probe binaries immediately.
-//   5. Exit 0 only when all probes pass both runs.
+//   5. Report every failure; exit 0 only when all probes pass both runs.
 
 import "std/fs/process/env.oo";
 import "std/fs/file/path.oo";
@@ -65,6 +65,8 @@ pub fn main(p: &ProcessCap, fs_r: &FsReadCap, env: &EnvCap, args: List[String]) 
     }
     println("lsp suite: enumerated " + list_len(ps).to_string() + " probes");
 
+    let mut failed: Int = 0;
+    let mut first_err: String = "";
     let mut i: Int = 0;
     while i < list_len(ps) {
         let path: String = list_get(ps, i);
@@ -73,9 +75,16 @@ pub fn main(p: &ProcessCap, fs_r: &FsReadCap, env: &EnvCap, args: List[String]) 
         if r.is_err() {
             let m: String = match r { Ok(_) => "", Err(e) => e };
             println("lsp suite FAIL: " + m);
-            return r;
+            if failed == 0 { first_err = m; }
+            failed = failed + 1;
+        } else {
+            println("  Passed " + path);
         }
         i = i + 1;
+    }
+    if failed != 0 {
+        println("lsp test suite: " + failed.to_string() + " probe(s) failed");
+        return Err(first_err);
     }
     println("lsp test suite: ALL PROBES PASSED (double-run identical)");
     return Ok(0);
