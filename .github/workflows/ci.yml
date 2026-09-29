@@ -57,10 +57,15 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p "$OODA_FS_WRITEDIR"
-          probes="probe_initialize probe_completion probe_hover probe_definition probe_diagnostics probe_formatting probe_codeaction probe_double_run probe_token probe_uri probe_bridge probe_session probe_document_link probe_inlay probe_document_symbol probe_execute_command probe_json_smuggle probe_utf16 probe_struct_merge probe_docs probe_check probe_sync probe_sync_escape probe_nav probe_semantic probe_resolve probe_em_cache probe_path probe_check_json probe_ws_scan probe_refs_ws probe_fix probe_unescape probe_edge_wire"
+          shopt -s nullglob
+          # Enumerate from the filesystem: a new qa/probe_*.oo runs without a
+          # CI edit, and mass deletion trips the floor. Never a hardcoded list.
+          files=(lsp/qa/probe_*.oo)
+          echo "enumerated ${#files[@]} probes"
+          test "${#files[@]}" -ge 34 || { echo "ERR probe floor: ${#files[@]} < 34"; exit 1; }
           failed=0
-          for name in $probes; do
-            rel="lsp/qa/${name}.oo"
+          for rel in "${files[@]}"; do
+            name=$(basename "$rel" .oo)
             binp="$OODA_FS_WRITEDIR/${name}"
             echo "  BUILD $rel"
             if ! "$OODA_COMPILER" build "$rel" -o "$binp"; then
@@ -77,6 +82,16 @@ jobs:
           done
           echo "Results: failed=$failed"
           test "$failed" -eq 0
+      - name: double-run suite (RULES §1.10)
+        working-directory: ${{ github.workspace }}/lsp
+        env:
+          OODA_FS_READDIR: ${{ github.workspace }}
+          OODA_FS_WRITEDIR: ${{ github.workspace }}
+          OODA_COMPILER: ${{ github.workspace }}/oodac/bin/oodac
+        run: |
+          set -euo pipefail
+          "$OODA_COMPILER" build qa/suite.oo -o /tmp/lsp_suite
+          /tmp/lsp_suite
 
   build:
     runs-on: ubuntu-latest

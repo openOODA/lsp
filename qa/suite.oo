@@ -6,12 +6,16 @@
 //
 // Beats:
 //   1. Resolve primary compiler binary (OODA_COMPILER, OODA_TOOLCHAIN, HOME).
-//   2. Compile and execute each probe twice in fresh processes.
-//   3. Clean up temporary probe binaries immediately.
-//   4. Exit 0 only when all probes pass both runs.
+//   2. Enumerate qa/probe_*.oo from the filesystem (never a hardcoded list);
+//      fail closed if fewer than 34 probes are found.
+//   3. Compile and execute each probe twice in fresh processes.
+//   4. Clean up temporary probe binaries immediately.
+//   5. Exit 0 only when all probes pass both runs.
 
 import "std/fs/process/env.oo";
 import "std/fs/file/path.oo";
+import "std/fs/file/glob.oo";
+import "std/core/text/natural_sort.oo";
 
 fn run_probe_once(p: &ProcessCap, oodac: String, path: String) -> Result[Int, String] {
     let tmp_bin: String = path + ".tmp.bin";
@@ -54,48 +58,23 @@ pub fn main(p: &ProcessCap, fs_r: &FsReadCap, env: &EnvCap, args: List[String]) 
         return Err("no compiler (OODA_COMPILER, OODA_TOOLCHAIN, or HOME layout)");
     }
 
-    let mut ps: List[String] = list_new();
-    ps = list_push(ps, "qa/probe_double_run.oo");
-    ps = list_push(ps, "qa/probe_initialize.oo");
-    ps = list_push(ps, "qa/probe_completion.oo");
-    ps = list_push(ps, "qa/probe_hover.oo");
-    ps = list_push(ps, "qa/probe_definition.oo");
-    ps = list_push(ps, "qa/probe_diagnostics.oo");
-    ps = list_push(ps, "qa/probe_formatting.oo");
-    ps = list_push(ps, "qa/probe_codeaction.oo");
-    ps = list_push(ps, "qa/probe_token.oo");
-    ps = list_push(ps, "qa/probe_uri.oo");
-    ps = list_push(ps, "qa/probe_bridge.oo");
-    ps = list_push(ps, "qa/probe_session.oo");
-    ps = list_push(ps, "qa/probe_document_link.oo");
-    ps = list_push(ps, "qa/probe_inlay.oo");
-    ps = list_push(ps, "qa/probe_document_symbol.oo");
-    ps = list_push(ps, "qa/probe_execute_command.oo");
-    ps = list_push(ps, "qa/probe_json_smuggle.oo");
-    ps = list_push(ps, "qa/probe_utf16.oo");
-    ps = list_push(ps, "qa/probe_struct_merge.oo");
-    ps = list_push(ps, "qa/probe_docs.oo");
-    ps = list_push(ps, "qa/probe_check.oo");
-    ps = list_push(ps, "qa/probe_sync.oo");
-    ps = list_push(ps, "qa/probe_nav.oo");
-    ps = list_push(ps, "qa/probe_semantic.oo");
-    ps = list_push(ps, "qa/probe_resolve.oo");
-    ps = list_push(ps, "qa/probe_em_cache.oo");
-    ps = list_push(ps, "qa/probe_path.oo");
-    ps = list_push(ps, "qa/probe_check_json.oo");
-    ps = list_push(ps, "qa/probe_ws_scan.oo");
-    ps = list_push(ps, "qa/probe_refs_ws.oo");
-    ps = list_push(ps, "qa/probe_fix.oo");
-    ps = list_push(ps, "qa/probe_unescape.oo");
-    ps = list_push(ps, "qa/probe_sync_escape.oo");
-    ps = list_push(ps, "qa/probe_edge_wire.oo");
+    let found: List[String] = glob_scan_dir(fs_r, "qa", "probe_*.oo");
+    let ps: List[String] = natural_sort_list(found);
+    if list_len(ps) < 34 {
+        return Err("probe floor violated: found " + list_len(ps).to_string() + ", need >= 34 under qa/");
+    }
+    println("lsp suite: enumerated " + list_len(ps).to_string() + " probes");
 
     let mut i: Int = 0;
     while i < list_len(ps) {
         let path: String = list_get(ps, i);
         println("  Running " + path);
         let r: Result[Int, String] = run_probe_twice(p, oodac, path);
-        if r.is_err() { return r; }
+        if r.is_err() {
+            let m: String = match r { Ok(_) => "", Err(e) => e };
+            println("lsp suite FAIL: " + m);
+            return r;
+        }
         i = i + 1;
     }
     println("lsp test suite: ALL PROBES PASSED (double-run identical)");
