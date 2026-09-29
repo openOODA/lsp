@@ -13,7 +13,6 @@
 import "lsp/symbols/lsp_symbol_record.oo";
 import "lsp/symbols/lsp_cap_table.oo";
 import "lsp/wire/lsp_jsonrpc.oo";
-import "lsp_text.oo";
 import "lsp/bridge/lsp_compiler_merge.oo";
 import "lsp/bridge/lsp_compiler_types.oo";
 

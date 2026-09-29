@@ -10,7 +10,6 @@
 //   3. definition uses the open document and the loaded cap table.
 //   4. didClose lives in methods/lsp_diagnostics.oo with the other diagnostic emitters.
 
-import "lsp/types/lsp_types.oo";
 import "lsp/symbols/lsp_symbol_record.oo";
 import "lsp/methods/lsp_completion_codec.oo";
 import "lsp/methods/lsp_hover.oo";
