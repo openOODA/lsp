@@ -9,6 +9,9 @@
 // Beats:
 //   1. oodac check fails on this file.
 //   2. ooda fix --dry-run proposes a zero binding without writing.
+//
+// Attested 2026-09-30: intentionally-broken negative input. Never repair,
+// never add to a check gate; tree-wide audits must exclude this file.
 
 pub fn main() -> Result[Int, String] {
     let y: Int = undefined_counter + 1;
