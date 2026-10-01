@@ -15,7 +15,7 @@ import "lsp/bridge/lsp_em_cache.oo";
 
 fn sample_em_content() -> String {
     let mut s: String = "# EM-MODULE v1 (EM01)\n";
-    s = s + "module: blackbox/autopsy/report_formatter.oo\n";
+    s = s + "module: mcp/fold/fold_fault.oo\n";
     s = s + "hash: 12345678\n";
     s = s + "EXPORTS:\n";
     s = s + "EXPORT fn autopsy_format_from_json 107 0\n";
@@ -23,7 +23,7 @@ fn sample_em_content() -> String {
     s = s + "EXPORT struct AutopsyData 20 0\n";
     s = s + "EXPORT cap FsReadCap 15 0\n";
     s = s + "BYTECODE:\n";
-    s = s + "OP_MODULE blackbox/autopsy/report_formatter.oo\n";
+    s = s + "OP_MODULE mcp/fold/fold_fault.oo\n";
     return s;
 }
 
@@ -31,7 +31,7 @@ pub fn probe_em_cache_run() -> Result[Int, String] {
     let em: String = sample_em_content();
     let tbl: LspModuleSymbolTable = lsp_em_parse_header(em);
 
-    if tbl.uri != "blackbox/autopsy/report_formatter.oo" {
+    if tbl.uri != "mcp/fold/fold_fault.oo" {
         return Err("probe_em_cache: module URI mismatch");
     }
     if list_len(tbl.functions) != 2 {
@@ -52,7 +52,7 @@ pub fn probe_em_cache_run() -> Result[Int, String] {
     }
 
     let loc_fn: String = lsp_em_cache_lookup_symbol(&cache, "autopsy_format_from_json_compact");
-    if str_index_of(loc_fn, "report_formatter.oo") < 0 {
+    if str_index_of(loc_fn, "fold_fault.oo") < 0 {
         return Err("probe_em_cache: missing uri in lookup");
     }
     if str_index_of(loc_fn, "\"line\":110") < 0 {
