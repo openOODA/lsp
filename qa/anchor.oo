@@ -1,77 +1,17 @@
-// # LSP QA Index - Anchor for Agents
+// # LSP QA Subsystem Anchor
 //
-// Logline: Index of the hostile probe drivers that ship with lsp/qa/.
+// Logline: Subsystem anchor re-exporting protocol, features, symbols, sync, and ops clusters.
 //
-// Setup: Each probe is a hostile test. If a driver fails, lsp fails to release.
+// Setup: Pure shim re-exporting LSP QA clusters.
 //
 // Beats:
-//   1. probe_initialize.oo - advertised capabilities and engine version.
-//   2. probe_completion.oo - prefix completion from the canonical seed.
-//   3. probe_hover.oo - hover markdown and unknown-symbol null.
-//   4. probe_definition.oo - cap table parse and user pub fn location.
-//   5. probe_diagnostics.oo - E-M diagnostics and didClose clear.
-//   6. probe_formatting.oo - trailing ws strip and tab expand.
-//   7. probe_codeaction.oo - PINS delete only.
-//   8. probe_double_run.oo - bit-identical determinism.
-//   9. probe_token.oo - file token count.
-//   10. probe_uri.oo - traversal, deny list, workspace prefix.
-//   11. probe_bridge.oo - CompilerReadCap merge of a user pub fn.
-//   12. probe_session.oo - in-process session through didClose.
-//   13. probe_document_link.oo - &Cap links from cap rows.
-//   14. probe_inlay.oo - let-only literal type hints.
-//   15. probe_document_symbol.oo - pub fn symbols.
-//   16. probe_execute_command.oo - version, indexSize, tokenCount, unknown.
-//   17. probe_json_smuggle.oo - string-aware JSON method extract.
-//   18. probe_utf16.oo - UTF-16 columns and prefix.
-//   19. probe_struct_merge.oo - struct/enum/type merge.
-//   20. probe_docs.oo - multi-document store and merge-all.
-//   21. probe_check.oo - oodac ERR parse to LSP diagnostics.
-//   22. probe_sync.oo - incremental contentChanges.
-//   23. probe_nav.oo - signature, refs, rename, workspace symbol.
-//   24. probe_semantic.oo - semantic token types.
-//   25. probe_resolve.oo - completionItem/resolve.
-//   26. probe_em_cache.oo - module .em header cache.
-//   27. probe_path.oo - script path guard for methods seam.
-//   28. probe_check_json.oo - --json-errors arrays to diagnostics with fix hint.
-//   29. probe_ws_scan.oo - disk walk, source filter, open-shadows-disk merge.
-//   30. probe_refs_ws.oo - references and rename over the merged view.
-//   31. probe_fix.oo - ooda fix runner guards and dry-run.
-//   32. probe_unescape.oo - JSON decode round-trip and \u00XX forms.
-//   33. probe_sync_escape.oo - didChange text escapes merge to real chars.
-//   34. probe_edge_wire.oo - hostile wire shapes: empty, truncated, escaped, dup, garbage length, big.
-//   fixture_fix.oo is a runtime victim, never imported (it owns a main and a deliberate error).
-
-import "probe_initialize.oo";
-import "probe_completion.oo";
-import "probe_hover.oo";
-import "probe_definition.oo";
-import "probe_diagnostics.oo";
-import "probe_formatting.oo";
-import "probe_codeaction.oo";
-import "probe_double_run.oo";
-import "probe_token.oo";
-import "probe_uri.oo";
-import "probe_bridge.oo";
-import "probe_session.oo";
-import "probe_document_link.oo";
-import "probe_inlay.oo";
-import "probe_document_symbol.oo";
-import "probe_execute_command.oo";
-import "probe_json_smuggle.oo";
-import "probe_utf16.oo";
-import "probe_struct_merge.oo";
-import "probe_docs.oo";
-import "probe_check.oo";
-import "probe_sync.oo";
-import "probe_nav.oo";
-import "probe_semantic.oo";
-import "probe_resolve.oo";
-import "probe_em_cache.oo";
-import "probe_path.oo";
-import "probe_check_json.oo";
-import "probe_ws_scan.oo";
-import "probe_refs_ws.oo";
-import "probe_fix.oo";
-import "probe_unescape.oo";
-import "probe_sync_escape.oo";
-import "probe_edge_wire.oo";
+//   1. Re-export protocol cluster anchor.
+//   2. Re-export features cluster anchor.
+//   3. Re-export symbols cluster anchor.
+//   4. Re-export sync cluster anchor.
+//   5. Re-export ops cluster anchor.
+import "protocol/anchor.oo";
+import "features/anchor.oo";
+import "symbols/anchor.oo";
+import "sync/anchor.oo";
+import "ops/anchor.oo";

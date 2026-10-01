@@ -13,7 +13,7 @@
 
 import "lsp/wire/lsp_stdio.oo";
 import "lsp/server/lsp_server_uri.oo";
-import "lsp/server/lsp_version.oo";
+import "lsp/server/lsp_server_handlers.oo";
 
 fn cmd_lsp_arg_flag(args: List[String], flag: String) -> Bool {
     let n: Int = list_len(args);

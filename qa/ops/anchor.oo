@@ -1,0 +1,15 @@
+// # LSP QA Operations Probes Anchor
+//
+// Logline: Operational, caching, command execution, path traversal, and fix runner probes.
+//
+// Setup: Pure shim re-exporting operations probe modules.
+//
+// Beats:
+//   1. Re-export ops probes.
+import "probe_docs.oo";
+import "probe_double_run.oo";
+import "probe_edge_wire.oo";
+import "probe_em_cache.oo";
+import "probe_execute_command.oo";
+import "probe_path.oo";
+import "probe_fix.oo";

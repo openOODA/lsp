@@ -9,8 +9,6 @@
 //   2. All files follow the 4-element Academy header and the 256-line cap.
 //   3. Imports go to siblings in this subdir; cross-subdir imports use the new lsp/<subdir>/<file> path.
 
-import "lsp_version.oo";
-import "lsp_server_capabilities.oo";
 import "lsp_server_dispatch.oo";
 import "lsp_server_guards.oo";
 import "lsp_server_handlers.oo";

@@ -1,0 +1,14 @@
+// # LSP QA Symbols Probes Anchor
+//
+// Logline: Symbol navigation, reference scanning, and workspace indexing probes.
+//
+// Setup: Pure shim re-exporting symbol probe modules.
+//
+// Beats:
+//   1. Re-export symbol probes.
+import "probe_document_symbol.oo";
+import "probe_document_link.oo";
+import "probe_semantic.oo";
+import "probe_nav.oo";
+import "probe_refs_ws.oo";
+import "probe_resolve.oo";

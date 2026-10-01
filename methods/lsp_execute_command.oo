@@ -11,7 +11,7 @@
 //   4. ooda.lsp.tokenCount estimates tokens for arguments.text.
 //   5. Any other command is Method not found.
 
-import "lsp/server/lsp_version.oo";
+import "lsp/server/lsp_server_handlers.oo";
 import "lsp/wire/lsp_jsonrpc.oo";
 import "lsp_token.oo";
 

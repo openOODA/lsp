@@ -1,0 +1,15 @@
+// # LSP QA Features Probes Anchor
+//
+// Logline: Language intelligence feature probes for completion, definition, diagnostics, hover, actions, formatting, and inlay.
+//
+// Setup: Pure shim re-exporting feature probe modules.
+//
+// Beats:
+//   1. Re-export feature probes.
+import "probe_completion.oo";
+import "probe_definition.oo";
+import "probe_diagnostics.oo";
+import "probe_hover.oo";
+import "probe_codeaction.oo";
+import "probe_formatting.oo";
+import "probe_inlay.oo";

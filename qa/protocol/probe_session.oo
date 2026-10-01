@@ -9,8 +9,7 @@
 //   2. Merge of pub fn widget makes completion contain widget.
 //   3. Hover and definition resolve widget. didClose publishes diagnostics [].
 
-import "lsp/server/lsp_server_capabilities.oo";
-import "lsp/server/lsp_version.oo";
+import "lsp/server/lsp_server_handlers.oo";
 import "lsp/bridge/lsp_compiler_merge.oo";
 import "lsp/symbols/lsp_symbol_canonical.oo";
 import "lsp/symbols/lsp_symbol_record.oo";

@@ -57,8 +57,38 @@ pub fn main(p: &ProcessCap, fs_r: &FsReadCap, env: &EnvCap, args: List[String]) 
         return Err("no compiler (OODA_COMPILER, OODA_TOOLCHAIN, or HOME layout)");
     }
 
-    let found: List[String] = glob_scan_dir(fs_r, "qa", "probe_*.oo");
-    let ps: List[String] = natural_sort_list(found);
+    let p1: List[String] = glob_scan_dir(fs_r, "qa/protocol", "probe_*.oo");
+    let p2: List[String] = glob_scan_dir(fs_r, "qa/features", "probe_*.oo");
+    let p3: List[String] = glob_scan_dir(fs_r, "qa/symbols", "probe_*.oo");
+    let p4: List[String] = glob_scan_dir(fs_r, "qa/sync", "probe_*.oo");
+    let p5: List[String] = glob_scan_dir(fs_r, "qa/ops", "probe_*.oo");
+    let mut combined: List[String] = list_new();
+    let mut gi: Int = 0;
+    while gi < list_len(p1) {
+        combined = list_push(combined, list_get(p1, gi));
+        gi = gi + 1;
+    }
+    gi = 0;
+    while gi < list_len(p2) {
+        combined = list_push(combined, list_get(p2, gi));
+        gi = gi + 1;
+    }
+    gi = 0;
+    while gi < list_len(p3) {
+        combined = list_push(combined, list_get(p3, gi));
+        gi = gi + 1;
+    }
+    gi = 0;
+    while gi < list_len(p4) {
+        combined = list_push(combined, list_get(p4, gi));
+        gi = gi + 1;
+    }
+    gi = 0;
+    while gi < list_len(p5) {
+        combined = list_push(combined, list_get(p5, gi));
+        gi = gi + 1;
+    }
+    let ps: List[String] = natural_sort_list(combined);
     if list_len(ps) < 34 {
         return Err("probe floor violated: found " + list_len(ps).to_string() + ", need >= 34 under qa/");
     }

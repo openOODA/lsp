@@ -1,0 +1,15 @@
+// # LSP QA Sync Probes Anchor
+//
+// Logline: Document synchronization, incremental buffer editing, and URI encoding probes.
+//
+// Setup: Pure shim re-exporting document sync probe modules.
+//
+// Beats:
+//   1. Re-export sync probes.
+import "probe_sync.oo";
+import "probe_sync_escape.oo";
+import "probe_utf16.oo";
+import "probe_uri.oo";
+import "probe_unescape.oo";
+import "probe_ws_scan.oo";
+import "probe_struct_merge.oo";

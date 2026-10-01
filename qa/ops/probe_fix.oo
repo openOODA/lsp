@@ -37,7 +37,7 @@ pub fn main(p: &ProcessCap, fs: &FsReadCap, env: &EnvCap) {
     if !path_exists(fs, qa_prefix) && path_exists(fs, "qa") {
         qa_prefix = "qa";
     }
-    let t4: String = lsp_fix_run(p, fs, "", qa_prefix + "/probe_check.oo", true);
+    let t4: String = lsp_fix_run(p, fs, "", qa_prefix + "/protocol/probe_check.oo", true);
     if str_index_of(t4, "no ooda sibling") < 0 { fail("no compiler: " + t4); }
     println("PASS guards");
 
@@ -45,7 +45,7 @@ pub fn main(p: &ProcessCap, fs: &FsReadCap, env: &EnvCap) {
     if chars_len(comp) == 0 { fail("need OODA_COMPILER or OODAC_BIN"); }
     let sib: String = lsp_fix_find_ooda(fs, comp);
     if chars_len(sib) == 0 {
-        let t5: String = lsp_fix_run(p, fs, comp, qa_prefix + "/probe_check.oo", true);
+        let t5: String = lsp_fix_run(p, fs, comp, qa_prefix + "/protocol/probe_check.oo", true);
         if str_index_of(t5, "no ooda sibling") < 0 { fail("sibling fail-closed: " + t5); }
         println("PASS sibling fail-closed");
         println("probe_fix PASSED");

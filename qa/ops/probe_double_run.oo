@@ -11,7 +11,7 @@
 
 import "lsp/wire/lsp_jsonrpc.oo";
 import "lsp/methods/lsp_diagnostics.oo";
-import "lsp/server/lsp_version.oo";
+import "lsp/server/lsp_server_handlers.oo";
 import "lsp/symbols/lsp_symbol_record.oo";
 import "lsp/symbols/lsp_symbol_canonical.oo";
 import "lsp/symbols/lsp_cap_table.oo";

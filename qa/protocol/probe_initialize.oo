@@ -9,8 +9,7 @@
 //   2. resolveProvider is true. change is 2.
 //   3. lsp_facade_version equals 0.6.38.
 
-import "lsp/server/lsp_server_capabilities.oo";
-import "lsp/server/lsp_version.oo";
+import "lsp/server/lsp_server_handlers.oo";
 
 fn fail(msg: String) {
     println("FAIL " + msg);

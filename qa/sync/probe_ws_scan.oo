@@ -34,12 +34,13 @@ pub fn main(fs: &FsReadCap) {
     let paths: List[String] = lsp_ws_collect(fs, scan_dir);
     let n: Int = list_len(paths);
     if n < 5 { fail("qa must hold many sources, got " + n.to_string()); }
+    let check_path: String = if path_exists(fs, scan_dir + "/protocol/probe_check.oo") { scan_dir + "/protocol/probe_check.oo" } else { scan_dir + "/probe_check.oo" };
     let mut saw_check: Bool = false;
     let mut i: Int = 0;
     while i < n {
         let p: String = list_get(paths, i);
         if str_index_of(p, "..") >= 0 { fail("traversal path: " + p); }
-        if p == scan_dir + "/probe_check.oo" { saw_check = true; }
+        if p == check_path { saw_check = true; }
         i = i + 1;
     }
     if !saw_check { fail("collect must find probe_check.oo"); }
@@ -53,9 +54,9 @@ pub fn main(fs: &FsReadCap) {
     println("PASS load");
 
     let mut open: List[String] = list_new();
-    open = list_push(open, lsp_docs_rec("file://" + scan_dir + "/probe_check.oo", "OPEN-VERSION"));
+    open = list_push(open, lsp_docs_rec("file://" + check_path, "OPEN-VERSION"));
     let merged: List[String] = lsp_ws_merge(open, docs);
-    let got: String = lsp_docs_get(merged, "file://" + scan_dir + "/probe_check.oo");
+    let got: String = lsp_docs_get(merged, "file://" + check_path);
     if got != "OPEN-VERSION" { fail("open must shadow disk"); }
     if list_len(merged) != list_len(docs) { fail("shadow must not duplicate"); }
     println("PASS merge shadow");
