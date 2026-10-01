@@ -31,5 +31,15 @@ pub fn main() {
     let c: String = lsp_sync_apply_changes("hello", two);
     if c != "HellO" { fail("two: [" + c + "]"); }
     println("PASS ordered");
+
+    let mr: List[String] = lsp_sync_apply_changes_merkle("hello", two);
+    let m_doc: String = list_get(mr, 0);
+    let m_root: String = list_get(mr, 1);
+    if m_doc != "HellO" { fail("merkle doc: [" + m_doc + "]"); }
+    if chars_len(m_root) != 64 { fail("merkle root len != 64"); }
+    let exp_root: String = lsp_merkle_compute_doc("HellO");
+    if m_root != exp_root { fail("merkle root mismatch"); }
+    println("PASS merkle");
     println("probe_sync PASSED");
 }
+
