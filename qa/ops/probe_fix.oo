@@ -2,8 +2,7 @@
 //
 // Logline: Proves the fix runner fails closed without a sibling ooda and dry-runs through a real one.
 //
-// Setup: Needs ProcessCap, FsReadCap, EnvCap. Compiler resolves from OODA_COMPILER else OODAC_BIN.
-//        If no ooda sibling exists, the fail-closed branch is asserted instead.
+// Setup: Needs ProcessCap, FsReadCap, EnvCap. Compiler resolves from OODA_COMPILER else OODAC_BIN. If no ooda sibling exists, the fail-closed branch is asserted instead.
 //
 // Beats:
 //   1. Traversal, empty, and non-.oo paths refuse without spawning.

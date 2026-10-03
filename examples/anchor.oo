@@ -8,7 +8,6 @@
 //   1. initialize_request.oot - the lifecycle start.
 //   2. completion_request.oot - textDocument/completion.
 //   3. hover_request.oot - textDocument/hover.
-
 // Example documents (.oot files):
 // - initialize_request.oot
 // - completion_request.oot

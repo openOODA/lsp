@@ -2,8 +2,7 @@
 //
 // Logline: Escapes (and unescapes) control and quote characters so LSP and JSON-RPC payloads remain standards-compliant.
 //
-// Setup: Pure string codec. No capability required. Unescape covers short escapes
-//        plus the \u00XX forms the encoder emits; other \u stays raw (documented residual).
+// Setup: Pure string codec. No capability required. Unescape covers short escapes plus the \u00XX forms the encoder emits; other \u stays raw (documented residual).
 //
 // Beats:
 //   1. Encode a byte as a two-digit uppercase hex string.

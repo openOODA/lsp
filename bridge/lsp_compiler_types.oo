@@ -11,9 +11,9 @@
 //   4. Declare LspCapabilityUse (capability-reference record).
 //   5. Declare LspModuleSymbolTable (per-URI aggregate) and lsp_module_empty constructor.
 //   6. Provide structural constructor functions for the 4 leaf types.
-
 // Compiler-integration types - gated by &CompilerReadCap.
 // Minimal narrow: no shell-out, no NetCap, in-memory only.
+
 type LspFunction = struct { name: String, line: Int, col: Int };
 type LspStruct = struct { name: String, line: Int, col: Int };
 type LspEnum = struct { name: String, line: Int, col: Int };

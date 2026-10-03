@@ -2,9 +2,7 @@
 //
 // Logline: Minimal file with an undefined-variable type error so probe_fix can prove dry-run end to end.
 //
-// Setup: No imports. The used name has no binding. Never auto-fixed in place:
-//        the probe runs --dry-run only. Docs must not spell the missing name:
-//        the fixer text-matches the file.
+// Setup: No imports. The used name has no binding. Never auto-fixed in place: the probe runs --dry-run only. Docs must not spell the missing name: the fixer text-matches the file.
 //
 // Beats:
 //   1. oodac check fails on this file.

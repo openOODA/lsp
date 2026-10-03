@@ -2,9 +2,7 @@
 //
 // Logline: Collect .oo/.oot files under the workspace root so references and rename see every module, not just open documents.
 //
-// Setup: The impure edge (stdio serve) calls lsp_ws_scan and passes the records down.
-//        Open documents shadow disk records by URI in lsp_ws_merge. Caps bound the walk:
-//        500 files, 200KB per file, depth 8. Dot-dirs (.git) are never entered.
+// Setup: The impure edge (stdio serve) calls lsp_ws_scan and passes the records down. Open documents shadow disk records by URI in lsp_ws_merge. Caps bound the walk: 500 files, 200KB per file, depth 8. Dot-dirs (.git) are never entered.
 //
 // Beats:
 //   1. lsp_ws_is_source accepts bare .oo/.oot names; hidden and traversal names refuse.

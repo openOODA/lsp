@@ -2,8 +2,7 @@
 //
 // Logline: Parses oodar sec/cap/cap_table.json into language Cap names and grant files.
 //
-// Setup: Requires &FsReadCap to load. No hard-coded path table. Missing file or
-//        empty oodar_root is Err. Language name is derived from require or JSON name.
+// Setup: Requires &FsReadCap to load. No hard-coded path table. Missing file or empty oodar_root is Err. Language name is derived from require or JSON name.
 //
 // Beats:
 //   1. Derive FsReadCap from oo_cap_require_fs_read (underscore PascalCase + Cap).

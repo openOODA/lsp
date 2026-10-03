@@ -2,11 +2,7 @@
 //
 // Logline: Runs `ooda fix <path> --yes` for workspace/executeCommand ooda.fix so a code action can apply the fixer.
 //
-// Setup: ooda resolves as a sibling of the compiler binary.
-//        Explicit user/agent invocation only; never automatic. Output truncates.
-//        The fixer owns the edit; the server only reports ok/output. ooda fix
-//        refuses absolute paths, so serve sends root-relative paths; this assumes
-//        the standard launch where server CWD equals the workspace root.
+// Setup: ooda resolves as a sibling of the compiler binary. Explicit user/agent invocation only; never automatic. Output truncates. The fixer owns the edit; the server only reports ok/output. ooda fix refuses absolute paths, so serve sends root-relative paths; this assumes the standard launch where server CWD equals the workspace root.
 //
 // Beats:
 //   1. Missing compiler, missing ooda sibling, traversal, or non-.oo path fails closed.

@@ -8,6 +8,7 @@
 //   1. A `..` path is rejected.
 //   2. Relative lsp/server and lsp/methods paths pass.
 //   3. A simple `a.oo` name passes.
+
 import "lsp/qa/lsp_script_path.oo";
 
 pub fn main() -> Result[Int, String] {
