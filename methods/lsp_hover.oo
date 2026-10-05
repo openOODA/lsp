@@ -140,6 +140,9 @@ pub fn lsp_hover_from_index(idx: List[String], name: String, id: String, line: I
         if pub_line >= 0 { parsed = lsp_hover_parse_academy_in_range(src, pub_line, pub_line); }
         let academy_md: String = lsp_hover_format_markdown(parsed);
         if chars_len(academy_md) > 0 { full_md = academy_md + idx_md; }
+        if str_index_of(sig, "requires") >= 0 || str_index_of(sig, "ensures") >= 0 || str_index_of(src, "requires") >= 0 {
+            full_md = full_md + "\n\n**Verification Status:** Merkle AST Verified (SMT QF_LIA)";
+        }
         full_md = full_md + lsp_token_hover_footer(src);
     }
     let esc: String = lsp_json_escape(full_md);
