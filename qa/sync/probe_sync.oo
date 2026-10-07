@@ -39,7 +39,10 @@ pub fn main() {
     if chars_len(m_root) != 64 { fail("merkle root len != 64"); }
     let exp_root: String = lsp_merkle_compute_doc("HellO");
     if m_root != exp_root { fail("merkle root mismatch"); }
+    if !lsp_sync_ast_cache_check(m_root, "HellO") { fail("ast cache hit expected"); }
+    if lsp_sync_ast_cache_check(m_root, "different") { fail("ast cache miss expected"); }
     println("PASS merkle");
+    println("PASS ast cache");
     println("probe_sync PASSED");
 }
 

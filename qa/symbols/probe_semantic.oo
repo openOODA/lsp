@@ -1,12 +1,14 @@
 // # LSP Semantic Tokens - Hostile Probe
 //
-// Logline: Proves comments, strings, keywords, and fn names are encoded in the delta array.
+// Logline: Proves comments, strings, keywords, capability tokens, and effects are encoded in delta array.
 //
-// Setup: Pure scanner. No dispatcher.
+// Setup: Pure scanner. Tests capability modifiers, contract keywords, and effect directives.
 //
 // Beats:
 //   1. A // comment emits token type 17.
-//   2. A string emits 18. `fn` emits 15. The ident after fn emits 12.
+//   2. A string emits 18. `fn` and contract keywords emit 15.
+//   3. Capabilities emit type 1 with modifier 516 (readonly | defaultLibrary).
+//   4. Effects emit modifier/macro (SECRET: 16, @gpu_launch: 14).
 
 import "lsp/methods/lsp_semantic.oo";
 
@@ -16,11 +18,14 @@ fn fail(msg: String) {
 }
 
 pub fn main() {
-    let d: String = lsp_semantic_data("// x\npub fn hello() { let y = \"z\"; }\n");
+    let d: String = lsp_semantic_data("// x\npub fn hello(fs: &FsReadCap) requires x >= 0 { SECRET let y = \"z\"; @gpu_launch(g, b) k(); }\n");
     if str_index_of(d, ",17,0") < 0 { fail("comment: " + d); }
     if str_index_of(d, ",15,0") < 0 { fail("keyword: " + d); }
     if str_index_of(d, ",12,0") < 0 { fail("function: " + d); }
     if str_index_of(d, ",18,0") < 0 { fail("string: " + d); }
-    println("PASS token types");
+    if str_index_of(d, ",1,516") < 0 { fail("capability token: " + d); }
+    if str_index_of(d, ",16,0") < 0 { fail("modifier/SECRET: " + d); }
+    if str_index_of(d, ",14,0") < 0 { fail("@gpu_launch: " + d); }
+    println("PASS token types and modifiers");
     println("probe_semantic PASSED");
 }
